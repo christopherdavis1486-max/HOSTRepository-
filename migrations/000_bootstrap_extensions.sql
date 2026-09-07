@@ -1,0 +1,18 @@
+-- Bootstrap: extensions required before any numbered migration runs.
+--
+-- FOUND during a production schema-consistency audit: migration 002
+-- creates GEOMETRY columns on `properties`, but no tracked migration
+-- ever enabled PostGIS itself. A genuinely fresh database applying
+-- 001-008 in order would fail at 002 with `type "geometry" does not
+-- exist`. This file exists specifically to close that gap — it must run
+-- BEFORE 001, not after 008 (a fresh database can't reach a later
+-- migration it already failed to get past).
+--
+-- CREATE EXTENSION IF NOT EXISTS is idempotent by Postgres's own
+-- documented behavior: against a database that doesn't have the
+-- extension yet (a fresh database), it installs it; against one that
+-- already does (production — confirmed already has PostGIS enabled,
+-- Neon supports it as a standard extension), it is a genuine no-op —
+-- no reinstallation, no effect on any existing geometry data, no table
+-- recreation. Safe for both cases by construction, not by assumption.
+CREATE EXTENSION IF NOT EXISTS postgis;

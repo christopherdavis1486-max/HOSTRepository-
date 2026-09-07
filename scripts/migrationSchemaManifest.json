@@ -1,0 +1,2279 @@
+{
+  "000_bootstrap_extensions.sql": {
+    "tables": {},
+    "constraints": {
+      "spatial_ref_sys_pkey": "PRIMARY KEY (srid)",
+      "spatial_ref_sys_srid_check": "CHECK (((srid > 0) AND (srid <= 998999)))"
+    },
+    "indexes": {
+      "spatial_ref_sys_pkey": "CREATE UNIQUE INDEX spatial_ref_sys_pkey ON spatial_ref_sys USING btree (srid)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": [
+      "plpgsql",
+      "postgis"
+    ]
+  },
+  "001_core_schema.sql": {
+    "tables": {
+      "guest_profiles": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "preferences",
+          "dataType": "jsonb",
+          "nullable": true,
+          "defaultExpression": "'{}'::jsonb"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "host_profiles": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "display_name",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "business_name",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "business_type",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": "'individual'::text"
+        },
+        {
+          "name": "verification_status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'unverified'::text"
+        },
+        {
+          "name": "stripe_connect_account_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "payout_account_status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'not_connected'::text"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "users": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "email",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "email_verified_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "phone",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "password_hash",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "auth_provider",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": "'password'::text"
+        },
+        {
+          "name": "mfa_enabled",
+          "dataType": "boolean",
+          "nullable": true,
+          "defaultExpression": "false"
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'active'::text"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "verifications": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_reference",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "submitted_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "decided_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "guest_profiles_pkey": "PRIMARY KEY (id)",
+      "guest_profiles_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
+      "guest_profiles_user_id_key": "UNIQUE (user_id)",
+      "host_profiles_pkey": "PRIMARY KEY (id)",
+      "host_profiles_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
+      "host_profiles_user_id_key": "UNIQUE (user_id)",
+      "users_email_key": "UNIQUE (email)",
+      "users_pkey": "PRIMARY KEY (id)",
+      "verifications_pkey": "PRIMARY KEY (id)",
+      "verifications_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    "indexes": {
+      "guest_profiles_pkey": "CREATE UNIQUE INDEX guest_profiles_pkey ON guest_profiles USING btree (id)",
+      "guest_profiles_user_id_key": "CREATE UNIQUE INDEX guest_profiles_user_id_key ON guest_profiles USING btree (user_id)",
+      "host_profiles_pkey": "CREATE UNIQUE INDEX host_profiles_pkey ON host_profiles USING btree (id)",
+      "host_profiles_user_id_key": "CREATE UNIQUE INDEX host_profiles_user_id_key ON host_profiles USING btree (user_id)",
+      "users_email_key": "CREATE UNIQUE INDEX users_email_key ON users USING btree (email)",
+      "users_pkey": "CREATE UNIQUE INDEX users_pkey ON users USING btree (id)",
+      "verifications_pkey": "CREATE UNIQUE INDEX verifications_pkey ON verifications USING btree (id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": [
+      "pgcrypto"
+    ]
+  },
+  "002_availability_policies_fees.sql": {
+    "tables": {
+      "availability_blocks": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "date",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'available'::text"
+        },
+        {
+          "name": "price_override_minor",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "min_stay_override",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "source",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'host'::text"
+        }
+      ],
+      "cancellation_policies": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "description",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "rules",
+          "dataType": "jsonb",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "fee_configs": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "version",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_service_fee_rate",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_commission_rate",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "tax_rate",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "effective_from",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "active",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "true"
+        }
+      ],
+      "properties": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "name",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "slug",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "description",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "city",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "district",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "country_code",
+          "dataType": "character",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "property_type",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'draft'::text"
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": "'GBP'::bpchar"
+        },
+        {
+          "name": "nightly_price",
+          "dataType": "numeric",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "max_guests",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "bedrooms",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "bathrooms",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "rating",
+          "dataType": "numeric",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_count",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "public_location",
+          "dataType": "USER-DEFINED",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "private_location",
+          "dataType": "USER-DEFINED",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "cleaning_fee",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "min_stay_nights",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "max_stay_nights",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "365"
+        },
+        {
+          "name": "check_in_time",
+          "dataType": "time without time zone",
+          "nullable": false,
+          "defaultExpression": "'15:00:00'::time without time zone"
+        },
+        {
+          "name": "check_out_time",
+          "dataType": "time without time zone",
+          "nullable": false,
+          "defaultExpression": "'11:00:00'::time without time zone"
+        },
+        {
+          "name": "cancellation_policy_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "house_rules",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "availability_blocks_pkey": "PRIMARY KEY (id)",
+      "availability_blocks_property_id_date_key": "UNIQUE (property_id, date)",
+      "availability_blocks_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+      "cancellation_policies_pkey": "PRIMARY KEY (id)",
+      "fee_configs_pkey": "PRIMARY KEY (id)",
+      "fee_configs_version_key": "UNIQUE (version)",
+      "fk_properties_cancellation_policy": "FOREIGN KEY (cancellation_policy_id) REFERENCES cancellation_policies(id) NOT VALID",
+      "properties_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "properties_pkey": "PRIMARY KEY (id)",
+      "properties_slug_key": "UNIQUE (slug)"
+    },
+    "indexes": {
+      "availability_blocks_pkey": "CREATE UNIQUE INDEX availability_blocks_pkey ON availability_blocks USING btree (id)",
+      "availability_blocks_property_id_date_key": "CREATE UNIQUE INDEX availability_blocks_property_id_date_key ON availability_blocks USING btree (property_id, date)",
+      "cancellation_policies_pkey": "CREATE UNIQUE INDEX cancellation_policies_pkey ON cancellation_policies USING btree (id)",
+      "fee_configs_pkey": "CREATE UNIQUE INDEX fee_configs_pkey ON fee_configs USING btree (id)",
+      "fee_configs_version_key": "CREATE UNIQUE INDEX fee_configs_version_key ON fee_configs USING btree (version)",
+      "properties_pkey": "CREATE UNIQUE INDEX properties_pkey ON properties USING btree (id)",
+      "properties_slug_key": "CREATE UNIQUE INDEX properties_slug_key ON properties USING btree (slug)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "003_bookings.sql": {
+    "tables": {
+      "booking_guests": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "full_name",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "is_primary",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        }
+      ],
+      "booking_price_components": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "accommodation_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "cleaning_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "guest_service_fee_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "taxes_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "guest_total_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_commission_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "host_payout_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_revenue_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "fee_config_version",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "bookings": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "check_in",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "check_out",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'draft'::text"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "guests",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "cancellation_policy_snapshot",
+          "dataType": "jsonb",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "idempotency_key",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "hold_expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_name",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_email",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_phone",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "booking_guests_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE",
+      "booking_guests_pkey": "PRIMARY KEY (id)",
+      "booking_price_components_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE",
+      "booking_price_components_booking_id_key": "UNIQUE (booking_id)",
+      "booking_price_components_pkey": "PRIMARY KEY (id)",
+      "bookings_guest_id_fkey": "FOREIGN KEY (guest_id) REFERENCES users(id)",
+      "bookings_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "bookings_idempotency_key_key": "UNIQUE (idempotency_key)",
+      "bookings_pkey": "PRIMARY KEY (id)",
+      "bookings_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
+      "valid_stay": "CHECK ((check_out > check_in))"
+    },
+    "indexes": {
+      "booking_guests_pkey": "CREATE UNIQUE INDEX booking_guests_pkey ON booking_guests USING btree (id)",
+      "booking_price_components_booking_id_key": "CREATE UNIQUE INDEX booking_price_components_booking_id_key ON booking_price_components USING btree (booking_id)",
+      "booking_price_components_pkey": "CREATE UNIQUE INDEX booking_price_components_pkey ON booking_price_components USING btree (id)",
+      "bookings_guest_idx": "CREATE INDEX bookings_guest_idx ON bookings USING btree (guest_id)",
+      "bookings_host_idx": "CREATE INDEX bookings_host_idx ON bookings USING btree (host_id)",
+      "bookings_idempotency_key_key": "CREATE UNIQUE INDEX bookings_idempotency_key_key ON bookings USING btree (idempotency_key)",
+      "bookings_pkey": "CREATE UNIQUE INDEX bookings_pkey ON bookings USING btree (id)",
+      "bookings_property_dates_idx": "CREATE INDEX bookings_property_dates_idx ON bookings USING btree (property_id, check_in, check_out)",
+      "bookings_status_idx": "CREATE INDEX bookings_status_idx ON bookings USING btree (status)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "004_payments_ledger.sql": {
+    "tables": {
+      "audit_log": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "actor_user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "action",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "object_type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "object_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "previous_state",
+          "dataType": "jsonb",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "new_state",
+          "dataType": "jsonb",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "disputes": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payment_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_dispute_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "reason",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "evidence_due_by",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "ledger_entries": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "external_reference",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "occurred_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "payments": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'stripe'::text"
+        },
+        {
+          "name": "provider_payment_intent_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payment_method_type",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "failure_code",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "failure_message",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "payouts": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_transfer_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_payout_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'scheduled'::text"
+        },
+        {
+          "name": "scheduled_release_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "released_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "refunds": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payment_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_refund_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "reason",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "initiated_by",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "audit_log_actor_user_id_fkey": "FOREIGN KEY (actor_user_id) REFERENCES users(id)",
+      "audit_log_pkey": "PRIMARY KEY (id)",
+      "disputes_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "disputes_payment_id_fkey": "FOREIGN KEY (payment_id) REFERENCES payments(id)",
+      "disputes_pkey": "PRIMARY KEY (id)",
+      "ledger_entries_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "ledger_entries_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "ledger_entries_pkey": "PRIMARY KEY (id)",
+      "ledger_entries_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
+      "payments_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "payments_booking_id_key": "UNIQUE (booking_id)",
+      "payments_pkey": "PRIMARY KEY (id)",
+      "payments_provider_payment_intent_id_key": "UNIQUE (provider_payment_intent_id)",
+      "payouts_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "payouts_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "payouts_pkey": "PRIMARY KEY (id)",
+      "refunds_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "refunds_payment_id_fkey": "FOREIGN KEY (payment_id) REFERENCES payments(id)",
+      "refunds_pkey": "PRIMARY KEY (id)"
+    },
+    "indexes": {
+      "audit_log_pkey": "CREATE UNIQUE INDEX audit_log_pkey ON audit_log USING btree (id)",
+      "disputes_pkey": "CREATE UNIQUE INDEX disputes_pkey ON disputes USING btree (id)",
+      "ledger_entries_booking_idx": "CREATE INDEX ledger_entries_booking_idx ON ledger_entries USING btree (booking_id)",
+      "ledger_entries_pkey": "CREATE UNIQUE INDEX ledger_entries_pkey ON ledger_entries USING btree (id)",
+      "ledger_entries_property_type_idx": "CREATE INDEX ledger_entries_property_type_idx ON ledger_entries USING btree (property_id, type)",
+      "payments_booking_id_key": "CREATE UNIQUE INDEX payments_booking_id_key ON payments USING btree (booking_id)",
+      "payments_pkey": "CREATE UNIQUE INDEX payments_pkey ON payments USING btree (id)",
+      "payments_provider_payment_intent_id_key": "CREATE UNIQUE INDEX payments_provider_payment_intent_id_key ON payments USING btree (provider_payment_intent_id)",
+      "payouts_pkey": "CREATE UNIQUE INDEX payouts_pkey ON payouts USING btree (id)",
+      "payouts_status_release_idx": "CREATE INDEX payouts_status_release_idx ON payouts USING btree (status, scheduled_release_at)",
+      "refunds_pkey": "CREATE UNIQUE INDEX refunds_pkey ON refunds USING btree (id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "005_auth.sql": {
+    "tables": {
+      "admin_roles": [
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "role",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'support'::text"
+        },
+        {
+          "name": "granted_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "granted_by",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "admin_roles_granted_by_fkey": "FOREIGN KEY (granted_by) REFERENCES users(id)",
+      "admin_roles_pkey": "PRIMARY KEY (user_id)",
+      "admin_roles_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    "indexes": {
+      "admin_roles_pkey": "CREATE UNIQUE INDEX admin_roles_pkey ON admin_roles USING btree (user_id)",
+      "users_email_unique_idx": "CREATE UNIQUE INDEX users_email_unique_idx ON users USING btree (lower(email))"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "006_messaging_reviews_notifications.sql": {
+    "tables": {
+      "conversations": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "messages": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "conversation_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "sender_type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "sender_user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "body",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "attachment_url",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "is_system_message",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        },
+        {
+          "name": "read_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "notification_preferences": [
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "email",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "true"
+        },
+        {
+          "name": "push",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "true"
+        },
+        {
+          "name": "sms",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        }
+      ],
+      "notifications": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "channel",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payload",
+          "dataType": "jsonb",
+          "nullable": false,
+          "defaultExpression": "'{}'::jsonb"
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "sent_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "error_message",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "reviews": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "overall",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "cleanliness",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "location_rating",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "accuracy",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "communication",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "comfort",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "body",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_reply",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_reply_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'published'::text"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "conversations_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE",
+      "conversations_booking_id_key": "UNIQUE (booking_id)",
+      "conversations_guest_id_fkey": "FOREIGN KEY (guest_id) REFERENCES users(id)",
+      "conversations_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "conversations_pkey": "PRIMARY KEY (id)",
+      "conversations_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
+      "messages_conversation_id_fkey": "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE",
+      "messages_pkey": "PRIMARY KEY (id)",
+      "messages_sender_user_id_fkey": "FOREIGN KEY (sender_user_id) REFERENCES users(id)",
+      "notification_preferences_pkey": "PRIMARY KEY (user_id)",
+      "notification_preferences_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
+      "notifications_pkey": "PRIMARY KEY (id)",
+      "notifications_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
+      "reviews_accuracy_check": "CHECK (((accuracy >= 1) AND (accuracy <= 5)))",
+      "reviews_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "reviews_booking_id_key": "UNIQUE (booking_id)",
+      "reviews_cleanliness_check": "CHECK (((cleanliness >= 1) AND (cleanliness <= 5)))",
+      "reviews_comfort_check": "CHECK (((comfort >= 1) AND (comfort <= 5)))",
+      "reviews_communication_check": "CHECK (((communication >= 1) AND (communication <= 5)))",
+      "reviews_guest_id_fkey": "FOREIGN KEY (guest_id) REFERENCES users(id)",
+      "reviews_location_rating_check": "CHECK (((location_rating >= 1) AND (location_rating <= 5)))",
+      "reviews_overall_check": "CHECK (((overall >= 1) AND (overall <= 5)))",
+      "reviews_pkey": "PRIMARY KEY (id)",
+      "reviews_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)"
+    },
+    "indexes": {
+      "conversations_booking_id_key": "CREATE UNIQUE INDEX conversations_booking_id_key ON conversations USING btree (booking_id)",
+      "conversations_guest_idx": "CREATE INDEX conversations_guest_idx ON conversations USING btree (guest_id)",
+      "conversations_host_idx": "CREATE INDEX conversations_host_idx ON conversations USING btree (host_id)",
+      "conversations_pkey": "CREATE UNIQUE INDEX conversations_pkey ON conversations USING btree (id)",
+      "messages_conversation_created_idx": "CREATE INDEX messages_conversation_created_idx ON messages USING btree (conversation_id, created_at)",
+      "messages_pkey": "CREATE UNIQUE INDEX messages_pkey ON messages USING btree (id)",
+      "notification_preferences_pkey": "CREATE UNIQUE INDEX notification_preferences_pkey ON notification_preferences USING btree (user_id)",
+      "notifications_pkey": "CREATE UNIQUE INDEX notifications_pkey ON notifications USING btree (id)",
+      "notifications_status_idx": "CREATE INDEX notifications_status_idx ON notifications USING btree (status) WHERE (status = 'pending'::text)",
+      "notifications_user_idx": "CREATE INDEX notifications_user_idx ON notifications USING btree (user_id, created_at)",
+      "reviews_booking_id_key": "CREATE UNIQUE INDEX reviews_booking_id_key ON reviews USING btree (booking_id)",
+      "reviews_pkey": "CREATE UNIQUE INDEX reviews_pkey ON reviews USING btree (id)",
+      "reviews_property_idx": "CREATE INDEX reviews_property_idx ON reviews USING btree (property_id) WHERE (status = 'published'::text)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "007_rbac_permissions.sql": {
+    "tables": {
+      "admin_role_permissions": [
+        {
+          "name": "role",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "resource",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "action",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "admin_role_permissions_pkey": "PRIMARY KEY (role, resource, action)"
+    },
+    "indexes": {
+      "admin_role_permissions_pkey": "CREATE UNIQUE INDEX admin_role_permissions_pkey ON admin_role_permissions USING btree (role, resource, action)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "008_trips_favourites_password_reset.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "archived_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "password_reset_tokens": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "token_hash",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "used_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "saved_properties": [
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "password_reset_tokens_pkey": "PRIMARY KEY (id)",
+      "password_reset_tokens_token_hash_key": "UNIQUE (token_hash)",
+      "password_reset_tokens_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)",
+      "saved_properties_pkey": "PRIMARY KEY (user_id, property_id)",
+      "saved_properties_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
+      "saved_properties_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    "indexes": {
+      "bookings_guest_archived_idx": "CREATE INDEX bookings_guest_archived_idx ON bookings USING btree (guest_id, archived_at)",
+      "password_reset_tokens_pkey": "CREATE UNIQUE INDEX password_reset_tokens_pkey ON password_reset_tokens USING btree (id)",
+      "password_reset_tokens_token_hash_key": "CREATE UNIQUE INDEX password_reset_tokens_token_hash_key ON password_reset_tokens USING btree (token_hash)",
+      "password_reset_tokens_user_idx": "CREATE INDEX password_reset_tokens_user_idx ON password_reset_tokens USING btree (user_id)",
+      "saved_properties_pkey": "CREATE UNIQUE INDEX saved_properties_pkey ON saved_properties USING btree (user_id, property_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "009_amenities.sql": {
+    "tables": {
+      "amenities": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "slug",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ],
+      "property_amenities": [
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "amenity_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "amenities_name_key": "UNIQUE (name)",
+      "amenities_pkey": "PRIMARY KEY (id)",
+      "amenities_slug_key": "UNIQUE (slug)",
+      "property_amenities_amenity_id_fkey": "FOREIGN KEY (amenity_id) REFERENCES amenities(id) ON DELETE CASCADE",
+      "property_amenities_pkey": "PRIMARY KEY (property_id, amenity_id)",
+      "property_amenities_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE"
+    },
+    "indexes": {
+      "amenities_name_key": "CREATE UNIQUE INDEX amenities_name_key ON amenities USING btree (name)",
+      "amenities_pkey": "CREATE UNIQUE INDEX amenities_pkey ON amenities USING btree (id)",
+      "amenities_slug_key": "CREATE UNIQUE INDEX amenities_slug_key ON amenities USING btree (slug)",
+      "property_amenities_pkey": "CREATE UNIQUE INDEX property_amenities_pkey ON property_amenities USING btree (property_id, amenity_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "010_delayed_payment_architecture.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "payment_flow_version",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'destination_charge_legacy'::text"
+        },
+        {
+          "name": "tax_treatment",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'unconfigured'::text"
+        }
+      ],
+      "host_transfer_entitlements": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "tax_amount_minor",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'entitled'::text"
+        },
+        {
+          "name": "scheduled_release_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "claimed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "claimed_by_worker_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_transfer_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "idempotency_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "host_transfer_reversals": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "entitlement_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "reason",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'reversal_requested'::text"
+        },
+        {
+          "name": "provider_reversal_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "idempotency_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "requested_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "confirmed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "payment_attempts": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "attempt_number",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_payment_intent_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "failure_code",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "failure_message",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "idempotency_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "attempted_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "host_transfer_entitlements_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "host_transfer_entitlements_booking_id_key": "UNIQUE (booking_id)",
+      "host_transfer_entitlements_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "host_transfer_entitlements_idempotency_key_key": "UNIQUE (idempotency_key)",
+      "host_transfer_entitlements_pkey": "PRIMARY KEY (id)",
+      "host_transfer_entitlements_provider_transfer_id_key": "UNIQUE (provider_transfer_id)",
+      "host_transfer_reversals_entitlement_id_fkey": "FOREIGN KEY (entitlement_id) REFERENCES host_transfer_entitlements(id)",
+      "host_transfer_reversals_idempotency_key_key": "UNIQUE (idempotency_key)",
+      "host_transfer_reversals_pkey": "PRIMARY KEY (id)",
+      "payment_attempts_booking_id_attempt_number_key": "UNIQUE (booking_id, attempt_number)",
+      "payment_attempts_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "payment_attempts_idempotency_key_key": "UNIQUE (idempotency_key)",
+      "payment_attempts_pkey": "PRIMARY KEY (id)",
+      "payment_flow_version_valid": "CHECK ((payment_flow_version = ANY (ARRAY['destination_charge_legacy'::text, 'separate_charges_delayed_v1'::text])))",
+      "tax_treatment_valid": "CHECK ((tax_treatment = ANY (ARRAY['host_remits'::text, 'platform_remits'::text, 'unconfigured'::text])))"
+    },
+    "indexes": {
+      "host_transfer_entitlements_booking_id_key": "CREATE UNIQUE INDEX host_transfer_entitlements_booking_id_key ON host_transfer_entitlements USING btree (booking_id)",
+      "host_transfer_entitlements_idempotency_key_key": "CREATE UNIQUE INDEX host_transfer_entitlements_idempotency_key_key ON host_transfer_entitlements USING btree (idempotency_key)",
+      "host_transfer_entitlements_pkey": "CREATE UNIQUE INDEX host_transfer_entitlements_pkey ON host_transfer_entitlements USING btree (id)",
+      "host_transfer_entitlements_provider_transfer_id_key": "CREATE UNIQUE INDEX host_transfer_entitlements_provider_transfer_id_key ON host_transfer_entitlements USING btree (provider_transfer_id)",
+      "host_transfer_reversals_idempotency_key_key": "CREATE UNIQUE INDEX host_transfer_reversals_idempotency_key_key ON host_transfer_reversals USING btree (idempotency_key)",
+      "host_transfer_reversals_pkey": "CREATE UNIQUE INDEX host_transfer_reversals_pkey ON host_transfer_reversals USING btree (id)",
+      "idx_host_transfer_entitlements_release": "CREATE INDEX idx_host_transfer_entitlements_release ON host_transfer_entitlements USING btree (scheduled_release_at)",
+      "idx_host_transfer_entitlements_status": "CREATE INDEX idx_host_transfer_entitlements_status ON host_transfer_entitlements USING btree (status)",
+      "idx_host_transfer_reversals_entitlement": "CREATE INDEX idx_host_transfer_reversals_entitlement ON host_transfer_reversals USING btree (entitlement_id)",
+      "idx_payment_attempts_booking": "CREATE INDEX idx_payment_attempts_booking ON payment_attempts USING btree (booking_id)",
+      "idx_payment_attempts_status": "CREATE INDEX idx_payment_attempts_status ON payment_attempts USING btree (status)",
+      "payment_attempts_booking_id_attempt_number_key": "CREATE UNIQUE INDEX payment_attempts_booking_id_attempt_number_key ON payment_attempts USING btree (booking_id, attempt_number)",
+      "payment_attempts_idempotency_key_key": "CREATE UNIQUE INDEX payment_attempts_idempotency_key_key ON payment_attempts USING btree (idempotency_key)",
+      "payment_attempts_pkey": "CREATE UNIQUE INDEX payment_attempts_pkey ON payment_attempts USING btree (id)"
+    },
+    "functions": {
+      "enforce_payment_flow_version_immutable": "CREATE OR REPLACE FUNCTION enforce_payment_flow_version_immutable() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.payment_flow_version IS DISTINCT FROM NEW.payment_flow_version THEN RAISE EXCEPTION 'payment_flow_version is immutable once set (booking %, was %, attempted %)', OLD.id, OLD.payment_flow_version, NEW.payment_flow_version; END IF; RETURN NEW; END; $function$"
+    },
+    "triggers": {
+      "trg_payment_flow_version_immutable@bookings": "CREATE TRIGGER trg_payment_flow_version_immutable BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION enforce_payment_flow_version_immutable()"
+    },
+    "extensions": []
+  },
+  "011_delayed_payment_stripe_identifiers.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "stripe_customer_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "stripe_setup_intent_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "stripe_payment_method_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "012_scheduled_charge_date.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "scheduled_charge_date",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {
+      "idx_bookings_scheduled_charge_date": "CREATE INDEX idx_bookings_scheduled_charge_date ON bookings USING btree (scheduled_charge_date) WHERE (scheduled_charge_date IS NOT NULL)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "013_grace_period_immutable.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "grace_period_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {
+      "enforce_grace_period_started_at_immutable": "CREATE OR REPLACE FUNCTION enforce_grace_period_started_at_immutable() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.grace_period_started_at IS NOT NULL AND NEW.grace_period_started_at IS DISTINCT FROM OLD.grace_period_started_at THEN RAISE EXCEPTION 'grace_period_started_at is immutable once set (booking %, was %, attempted %)', OLD.id, OLD.grace_period_started_at, NEW.grace_period_started_at; END IF; RETURN NEW; END; $function$"
+    },
+    "triggers": {
+      "trg_grace_period_started_at_immutable@bookings": "CREATE TRIGGER trg_grace_period_started_at_immutable BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION enforce_grace_period_started_at_immutable()"
+    },
+    "extensions": []
+  },
+  "014_next_retry_at.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "next_retry_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "015_payment_attempt_execution_lease.sql": {
+    "tables": {
+      "payment_attempts": [
+        {
+          "name": "claim_token",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "lease_expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "016_user_profile_fields.sql": {
+    "tables": {
+      "users": [
+        {
+          "name": "full_name",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "017_security_foundation.sql": {
+    "tables": {
+      "users": [
+        { "name": "session_version", "dataType": "integer", "nullable": false, "defaultExpression": "1" },
+        { "name": "password_changed_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null }
+      ],
+      "email_verification_tokens": [
+        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
+        { "name": "user_id", "dataType": "uuid", "nullable": false, "defaultExpression": null },
+        { "name": "token_hash", "dataType": "text", "nullable": false, "defaultExpression": null },
+        { "name": "expires_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": null },
+        { "name": "used_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null },
+        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" }
+      ],
+      "security_events": [
+        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
+        { "name": "user_id", "dataType": "uuid", "nullable": true, "defaultExpression": null },
+        { "name": "event_type", "dataType": "text", "nullable": false, "defaultExpression": null },
+        { "name": "outcome", "dataType": "text", "nullable": false, "defaultExpression": null },
+        { "name": "metadata", "dataType": "jsonb", "nullable": false, "defaultExpression": "'{}'::jsonb" },
+        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" }
+      ]
+    },
+    "constraints": {},
+    "indexes": {
+      "email_verification_tokens_user_idx": "CREATE INDEX email_verification_tokens_user_idx ON email_verification_tokens USING btree (user_id)",
+      "security_events_user_created_idx": "CREATE INDEX security_events_user_created_idx ON security_events USING btree (user_id, created_at DESC)",
+      "security_events_type_created_idx": "CREATE INDEX security_events_type_created_idx ON security_events USING btree (event_type, created_at DESC)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "018_account_security.sql": {
+    "tables": {
+      "auth_sessions": [
+        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
+        { "name": "user_id", "dataType": "uuid", "nullable": false, "defaultExpression": null },
+        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" },
+        { "name": "last_seen_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" },
+        { "name": "expires_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": null },
+        { "name": "revoked_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null },
+        { "name": "revoke_reason", "dataType": "text", "nullable": true, "defaultExpression": null }
+      ],
+      "webauthn_credentials": [
+        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
+        { "name": "user_id", "dataType": "uuid", "nullable": false, "defaultExpression": null },
+        { "name": "credential_id", "dataType": "text", "nullable": false, "defaultExpression": null },
+        { "name": "public_key", "dataType": "text", "nullable": false, "defaultExpression": null },
+        { "name": "counter", "dataType": "bigint", "nullable": false, "defaultExpression": "0" },
+        { "name": "transports", "dataType": "ARRAY", "nullable": false, "defaultExpression": "'{}'::text[]" },
+        { "name": "label", "dataType": "text", "nullable": true, "defaultExpression": null },
+        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" },
+        { "name": "last_used_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null }
+      ]
+    },
+    "constraints": {},
+    "indexes": {
+      "auth_sessions_user_active_idx": "CREATE INDEX auth_sessions_user_active_idx ON auth_sessions USING btree (user_id, created_at DESC) WHERE (revoked_at IS NULL)",
+      "webauthn_credentials_user_idx": "CREATE INDEX webauthn_credentials_user_idx ON webauthn_credentials USING btree (user_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "025_language_preferences.sql": {
+    "tables": {
+      "users": [
+        { "name": "preferred_locale", "dataType": "text", "nullable": false, "defaultExpression": "'en'::text" }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  }
+}
