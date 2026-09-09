@@ -14,11 +14,9 @@ import { useInterfaceI18n } from "@/lib/i18n/useInterfaceI18n";
  * was extracted for this, since the brief asked for exactly one new file
  * and the duplication here is small and contained.
  *
- * Google OAuth intentionally has no UI here: authOptions.ts only
- * registers GoogleProvider when GOOGLE_CLIENT_ID/SECRET are both set,
- * and I have no way to confirm from this environment whether that's true
- * in the actual deployed Vercel configuration — so per instruction, it's
- * left out rather than guessed at.
+ * Google OAuth is shown alongside the existing password, passkey and
+ * recovery-code options. The server registers GoogleProvider only when
+ * GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both configured.
  *
  * EXTENDED for Batch 2: reads an optional ?returnTo= param and redirects
  * there after successful sign-in/registration instead of always going to
@@ -128,6 +126,19 @@ export default function LoginPage() {
       window.location.href = safeReturnTo();
     } catch {
       setError("Something went wrong reaching the server. Please try again.");
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      await signIn("google", { callbackUrl: safeReturnTo() });
+    } catch {
+      setError("Google sign-in could not be started. Please try again.");
       setSubmitting(false);
     }
   };
@@ -273,6 +284,15 @@ export default function LoginPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0", color: "var(--warm-grey)", fontSize: 12 }}>
               <span style={{ height: 1, background: "var(--stone)", flex: 1 }} /><span>{ui("or")}</span><span style={{ height: 1, background: "var(--stone)", flex: 1 }} />
             </div>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ background: "transparent", color: "var(--ivory)", border: "1px solid var(--stone)", marginBottom: 10 }}
+              onClick={handleGoogleSignIn}
+              disabled={submitting}
+            >
+              Continue with Google
+            </button>
             <button type="button" className="btn-primary" style={{ background: "transparent", color: "var(--ivory)", border: "1px solid var(--stone)" }} onClick={handlePasskeySignIn} disabled={submitting}>
               {ui("signInPasskey")}
             </button>
