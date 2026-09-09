@@ -235,7 +235,7 @@ export default function HostPropertyDetailPage({ params }: { params: Promise<{ i
           <div className="wrap" style={{ paddingBottom: 0 }}>
             <div className="card">
               <h2>{ht("Property compliance")}</h2>
-              <p style={{ color: "var(--warm-grey)", lineHeight: 1.6 }}>{ht("Status")}: <strong style={{ color: "var(--ivory)" }}>{hStatus(property.complianceStatus)}</strong>. {ht("Complete the owner declarations and evidence review before publishing.")}</p>
+              <p style={{ color: "var(--warm-grey)", lineHeight: 1.6 }}>{ht("Status")}: <strong style={{ color: "var(--ivory)" }}>{hStatus(property.complianceStatus)}</strong>{property.complianceStatus === "approved" ? "." : `. ${ht("Complete the owner declarations and evidence review before publishing.")}`}</p>
               <a className="btn-secondary" href={`/host/properties/${property.id}/compliance`}>{ht("Manage compliance")} →</a>
             </div>
           </div>

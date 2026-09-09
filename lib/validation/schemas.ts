@@ -179,7 +179,7 @@ export const ownerComplianceSchema = z.object({
     if (item.applicability === "not_applicable" && !conditionallyApplicableComplianceCategories.has(item.category)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["items", index, "applicability"], message: "This core compliance check is always required" });
     }
-    if (item.applicability === "required") {
+    if (data.submit && item.applicability === "required") {
       const evidenceUrl = item.evidenceUrl ?? "";
       let validHttpsUrl = false;
       try { validHttpsUrl = new URL(evidenceUrl).protocol === "https:"; } catch { validHttpsUrl = false; }

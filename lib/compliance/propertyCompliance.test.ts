@@ -40,6 +40,16 @@ test("a conditional not-applicable item ignores a stale hidden evidence value", 
   assert.equal(ownerComplianceSchema.safeParse({ submit: true, items: conditional }).success, true);
 });
 
+test("drafts allow incomplete evidence links until submission", () => {
+  const incomplete = completeItems.map((item) => ({
+    ...item,
+    ownerDeclaredCompliant: false,
+    evidenceUrl: "",
+  }));
+  assert.equal(ownerComplianceSchema.safeParse({ submit: false, items: incomplete }).success, true);
+  assert.equal(ownerComplianceSchema.safeParse({ submit: true, items: incomplete }).success, false);
+});
+
 test("an admin decision requires a meaningful audit note", () => {
   assert.equal(adminComplianceReviewSchema.safeParse({ decision: "approved", note: "ok" }).success, false);
   assert.equal(adminComplianceReviewSchema.safeParse({ decision: "approved", note: "Evidence checked and current." }).success, true);
