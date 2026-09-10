@@ -30,3 +30,28 @@ Batch 11 accepts HTTPS links from a controlled document provider. Direct binary
 uploads are deliberately not faked: production deployment must connect an
 authenticated private-object store with malware scanning, access logs, retention
 rules, and expiring download links.
+
+## Acceptance closure - 10 September 2026
+
+Batch 11 staging acceptance is complete.
+
+- Verified that unapproved properties cannot be published.
+- Verified owner draft, submission, administrator review, request-changes,
+  correction, resubmission and approval states.
+- Verified that administrator decisions require notes and are audited.
+- Verified publishing succeeds only after compliance approval.
+- Verified the public listing shows the aggregate review statement and five
+  applicable checks without exposing evidence links or internal notes.
+- Verified the controlled acceptance listing was returned to Paused.
+- Fixed partial drafts incorrectly requiring HTTPS evidence for untouched items.
+- Fixed approved properties displaying incomplete-compliance instructions.
+- Fixed the administrator review note repeating beneath every compliance item.
+- Added an automated partial-draft regression test.
+- Production build, type checking and linting passed.
+- Production UI regression checks passed after deployment of commit 8823431.
+- Batch 11 Compliance Acceptance remains Paused.
+- Batch 11 Partial Draft Regression remains Draft and non-public.
+
+Production onboarding remains blocked until the evidence-link workflow is
+replaced with authenticated private-object storage and HOST's solicitor has
+reviewed the final compliance wording and country-specific requirements.
