@@ -21,11 +21,19 @@ async function seed() {
   );
 
   await db.query(
-    `INSERT INTO cancellation_policies (name, description, rules) VALUES
-     ('Flexible', 'Full refund up to 24 hours before check-in.', $1),
-     ('Moderate', 'Full refund up to 5 days before check-in.', $2),
-     ('Strict', '50% refund up to 14 days before check-in.', $3)
-     ON CONFLICT DO NOTHING`,
+    `WITH policies(name, description, rules) AS (
+       VALUES
+         ('Flexible', 'Full refund up to 24 hours before check-in.', $1::jsonb),
+         ('Moderate', 'Full refund up to 5 days before check-in.', $2::jsonb),
+         ('Strict', '50% refund up to 14 days before check-in.', $3::jsonb)
+     )
+     INSERT INTO cancellation_policies (name, description, rules)
+     SELECT p.name, p.description, p.rules
+     FROM policies p
+     WHERE NOT EXISTS (
+       SELECT 1 FROM cancellation_policies existing
+       WHERE LOWER(existing.name) = LOWER(p.name)
+     )`,
     [
       JSON.stringify([{ cutoffHours: 24, refundPercent: 100 }, { cutoffHours: 0, refundPercent: 0 }]),
       JSON.stringify([{ cutoffHours: 120, refundPercent: 100 }, { cutoffHours: 24, refundPercent: 50 }, { cutoffHours: 0, refundPercent: 0 }]),

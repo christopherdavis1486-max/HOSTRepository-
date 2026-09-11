@@ -25,6 +25,28 @@ export async function listAllAmenities() {
   return result.rows;
 }
 
+export async function listStandardCancellationPolicies() {
+  const result = await db.query(`
+    SELECT id, name, description, rules
+    FROM (
+      SELECT id, name, description, rules,
+             ROW_NUMBER() OVER (
+               PARTITION BY LOWER(name)
+               ORDER BY created_at, id
+             ) AS duplicate_rank
+      FROM cancellation_policies
+      WHERE LOWER(name) IN ('flexible', 'moderate', 'strict')
+    ) policies
+    WHERE duplicate_rank = 1
+    ORDER BY CASE LOWER(name)
+      WHEN 'flexible' THEN 1
+      WHEN 'moderate' THEN 2
+      WHEN 'strict' THEN 3
+    END
+  `);
+  return result.rows;
+}
+
 async function getAmenitiesForProperty(propertyId: string) {
   const result = await db.query(
     `SELECT a.id, a.name, a.slug FROM property_amenities pa JOIN amenities a ON a.id = pa.amenity_id WHERE pa.property_id = $1 ORDER BY a.name`,
