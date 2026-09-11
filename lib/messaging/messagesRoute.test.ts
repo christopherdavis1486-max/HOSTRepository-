@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
  * handlers directly, not the underlying library functions in isolation.
  */
 
-let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[] } } | null = null;
+let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[]; sessionId: string; sessionVersion: number } } | null = null;
 let GET: typeof import("../../app/api/bookings/[id]/messages/route").GET;
 let POST: typeof import("../../app/api/bookings/[id]/messages/route").POST;
 let READ_POST: typeof import("../../app/api/bookings/[id]/messages/read/route").POST;
@@ -45,10 +45,32 @@ async function createBookingWithParties(suffix: string) {
   return { bookingId: booking.rows[0].id as string, guestId: guestUser.rows[0].id as string, hostUserId: hostUser.rows[0].id as string, hostProfileId: hostProfile.rows[0].id as string };
 }
 
+async function createAuthenticatedSession(
+  userId: string,
+  hostProfileId: string | null = null,
+  roles: string[] = ["guest"]
+) {
+  const sessionRow = await db.query(
+    `INSERT INTO auth_sessions (user_id, expires_at)
+     VALUES ($1, NOW() + INTERVAL '1 day')
+     RETURNING id`,
+    [userId]
+  );
+  return {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles,
+      sessionId: sessionRow.rows[0].id as string,
+      sessionVersion: 1,
+    },
+  };
+}
+
 test("the booking's own guest can send and read messages", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { bookingId, guestId } = await createBookingWithParties(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { bookingId, guestId, hostUserId } = await createBookingWithParties(suffix);
+  mockSession = await createAuthenticatedSession(guestId);
 
   const sendResponse = await POST(
     new NextRequest(`http://localhost/api/bookings/${bookingId}/messages`, { method: "POST", body: JSON.stringify({ body: "Hello from the guest" }) }),
@@ -62,16 +84,25 @@ test("the booking's own guest can send and read messages", async () => {
   assert.equal(data.messages.length, 1);
   assert.equal(data.messages[0].body, "Hello from the guest");
   assert.equal(data.messages[0].senderType, "guest");
+
+  const notification = await db.query(
+    `SELECT payload FROM notifications
+     WHERE user_id = $1 AND type = 'new_message' AND channel = 'in_app'`,
+    [hostUserId]
+  );
+  assert.equal(notification.rows.length, 1);
+  assert.equal(notification.rows[0].payload.propertyName, "Messaging Test Property");
+  assert.equal(notification.rows[0].payload.subject, "New message about Messaging Test Property");
 });
 
 test("the booking's own host can send and read messages in the same conversation", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const { bookingId, guestId, hostUserId, hostProfileId } = await createBookingWithParties(suffix);
 
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(guestId);
   await POST(new NextRequest(`http://localhost/api/bookings/${bookingId}/messages`, { method: "POST", body: JSON.stringify({ body: "Guest message" }) }), { params: Promise.resolve({ id: bookingId }) });
 
-  mockSession = { user: { id: hostUserId, hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(hostUserId, hostProfileId, ["host"]);
   const sendResponse = await POST(new NextRequest(`http://localhost/api/bookings/${bookingId}/messages`, { method: "POST", body: JSON.stringify({ body: "Host reply" }) }), { params: Promise.resolve({ id: bookingId }) });
   assert.equal(sendResponse.status, 200);
 
@@ -85,7 +116,7 @@ test("SECURITY: a genuinely unrelated user cannot read or send messages for some
   const suffix = crypto.randomBytes(4).toString("hex");
   const { bookingId } = await createBookingWithParties(suffix);
   const unrelatedUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`msg-unrelated-${suffix}@test.host`]);
-  mockSession = { user: { id: unrelatedUser.rows[0].id, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(unrelatedUser.rows[0].id);
 
   const getResponse = await GET(new NextRequest(`http://localhost/api/bookings/${bookingId}/messages`), { params: Promise.resolve({ id: bookingId }) });
   assert.equal(getResponse.status, 403, "an unrelated user must never read another booking's conversation");
@@ -102,7 +133,7 @@ test("SECURITY: a different host (not this booking's host) cannot access the con
   const suffixB = crypto.randomBytes(4).toString("hex");
   const a = await createBookingWithParties(suffixA);
   const b = await createBookingWithParties(suffixB);
-  mockSession = { user: { id: b.hostUserId, hostProfileId: b.hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(b.hostUserId, b.hostProfileId, ["host"]);
 
   const response = await GET(new NextRequest(`http://localhost/api/bookings/${a.bookingId}/messages`), { params: Promise.resolve({ id: a.bookingId }) });
   assert.equal(response.status, 403);
@@ -121,10 +152,10 @@ test("mark-read correctly marks the other party's messages as read, not the read
   const suffix = crypto.randomBytes(4).toString("hex");
   const { bookingId, guestId, hostUserId, hostProfileId } = await createBookingWithParties(suffix);
 
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(guestId);
   await POST(new NextRequest(`http://localhost/api/bookings/${bookingId}/messages`, { method: "POST", body: JSON.stringify({ body: "Unread test message" }) }), { params: Promise.resolve({ id: bookingId }) });
 
-  mockSession = { user: { id: hostUserId, hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(hostUserId, hostProfileId, ["host"]);
   const readResponse = await READ_POST(new NextRequest(`http://localhost/api/bookings/${bookingId}/messages/read`, { method: "POST" }), { params: Promise.resolve({ id: bookingId }) });
   const readData = await readResponse.json();
   assert.equal(readData.updated, 1, "the host reading the thread must mark the guest's unread message as read");
@@ -140,10 +171,10 @@ test("messages are correctly scoped per booking — a different booking's conver
   const a = await createBookingWithParties(suffixA);
   const b = await createBookingWithParties(suffixB);
 
-  mockSession = { user: { id: a.guestId, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(a.guestId);
   await POST(new NextRequest(`http://localhost/api/bookings/${a.bookingId}/messages`, { method: "POST", body: JSON.stringify({ body: "Booking A message" }) }), { params: Promise.resolve({ id: a.bookingId }) });
 
-  mockSession = { user: { id: b.guestId, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(b.guestId);
   const response = await GET(new NextRequest(`http://localhost/api/bookings/${b.bookingId}/messages`), { params: Promise.resolve({ id: b.bookingId }) });
   const data = await response.json();
   assert.equal(data.messages.length, 0, "booking B's guest must see an empty conversation, never booking A's messages");

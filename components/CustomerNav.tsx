@@ -7,14 +7,17 @@ import { useI18n } from "./I18nProvider";
 
 export function CustomerNav() {
   const { t } = useI18n();
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [sessionState, setSessionState] = useState<{ signedIn: boolean; isHost: boolean } | null>(null);
   const showStaging = process.env.NEXT_PUBLIC_SHOW_STAGING_UI === "true";
 
   useEffect(() => {
     fetch("/api/auth/session", { credentials: "include", cache: "no-store" })
       .then((res) => res.json())
-      .then((session) => setSignedIn(!!session?.user?.email))
-      .catch(() => setSignedIn(false));
+      .then((session) => setSessionState({
+        signedIn: !!session?.user?.email,
+        isHost: Array.isArray(session?.user?.roles) && session.user.roles.includes("host"),
+      }))
+      .catch(() => setSessionState({ signedIn: false, isHost: false }));
   }, []);
 
   return (
@@ -35,8 +38,8 @@ export function CustomerNav() {
       <div className="customer-actions">
         {showStaging && <span className="staging-pill">Staging · Test deployment</span>}
         <LanguageSelector compact />
-        {signedIn === false && <><a href="/login" className="customer-link">{t("login")}</a><a href="/login?mode=register" className="customer-link primary">{t("signup")}</a></>}
-        {signedIn === true && <><a href="/trips" className="customer-link">{t("trips")}</a><a href="/account" className="customer-link">{t("account")}</a><button type="button" className="customer-button" onClick={() => signOut({ callbackUrl: "/" })}>{t("logout")}</button></>}
+        {sessionState?.signedIn === false && <><a href="/login" className="customer-link">{t("login")}</a><a href="/login?mode=register" className="customer-link primary">{t("signup")}</a></>}
+        {sessionState?.signedIn === true && <><a href="/trips" className="customer-link">{t("trips")}</a><a href="/favourites" className="customer-link">{t("savedStays")}</a>{sessionState.isHost && <a href="/host/dashboard" className="customer-link">{t("hostWorkspace")}</a>}<a href="/account" className="customer-link">{t("account")}</a><button type="button" className="customer-button" onClick={() => signOut({ callbackUrl: "/" })}>{t("logout")}</button></>}
       </div>
     </nav>
   );

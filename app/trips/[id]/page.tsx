@@ -26,7 +26,7 @@ import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
 
 type BookingDetail = {
   id: string; propertyName: string; city: string; district: string | null;
-  checkIn: string; checkOut: string; guests: number; status: string; paymentStatus: string | null;
+  checkIn: string; checkOut: string; guests: number; status: string; archived: boolean; paymentStatus: string | null;
   paymentFlowVersion: string; guestPaymentStatus: string | null;
   paymentRecovery: { failureCode: string | null; failureMessage: string | null; nextRetryAt: string | null; gracePeriodExpiresAt: string | null } | null;
   breakdown: { currency: string; accommodationMinor: number; cleaningMinor: number; guestServiceFeeMinor: number; taxesMinor: number; guestTotalMinor: number };
@@ -141,7 +141,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
 
   const cancellable = booking && booking.status === "confirmed";
   const discardable = booking && booking.status === "pending_payment";
-  const archivable = booking && ["cancelled", "completed", "refunded"].includes(booking.status);
+  const archivable = booking && !booking.archived && ["cancelled", "completed", "refunded"].includes(booking.status);
   const reviewable = booking && booking.status === "completed";
 
   // Refund state: never says "completed" just because cancel succeeded —
@@ -335,6 +335,13 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
             <button className="btn-danger-outline" onClick={requestQuote} disabled={quoteLoading}>
               {quoteLoading ? gt("checking") : gt("cancelBooking")}
             </button>
+          )}
+
+          {booking.archived && (
+            <div className="history-tools">
+              <h2>{gt("tripHistory")}</h2>
+              <p>This booking has been removed from My Trips. Its record is retained.</p>
+            </div>
           )}
 
           {(discardable || archivable) && (

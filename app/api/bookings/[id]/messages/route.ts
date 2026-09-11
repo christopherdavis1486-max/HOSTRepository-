@@ -35,14 +35,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const parsed = sendMessageSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json(validationErrorResponse(parsed.error), { status: 400 });
 
+    const property = await db.query(
+      `SELECT p.name AS property_name
+       FROM bookings b
+       JOIN properties p ON p.id = b.property_id
+       WHERE b.id = $1`,
+      [id]
+    );
+    if (property.rows.length === 0) throw new Error("Booking property not found");
+    const notificationContext = {
+      bookingRef: id,
+      propertyName: property.rows[0].property_name as string,
+    };
+
     const message = await sendMessage(id, role, session.user.id, parsed.data.body, parsed.data.attachmentUrl);
 
     // Notify whichever side didn't send this message.
     if (role === "guest") {
       const host = await db.query(`SELECT user_id FROM host_profiles WHERE id = $1`, [hostId]);
-      if (host.rows.length > 0) await notifyUser(host.rows[0].user_id, "new_message", { bookingRef: id });
+      if (host.rows.length > 0) await notifyUser(host.rows[0].user_id, "new_message", notificationContext);
     } else {
-      await notifyUser(guestId, "new_message", { bookingRef: id });
+      await notifyUser(guestId, "new_message", notificationContext);
     }
 
     return NextResponse.json({ success: true, message });

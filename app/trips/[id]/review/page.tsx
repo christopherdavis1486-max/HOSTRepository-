@@ -185,7 +185,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       {state === "forbidden" && <div className="state-block">This trip isn't available.</div>}
       {state === "error" && <div className="state-block">Something went wrong. Please try again shortly.</div>}
       {state === "not-completed" && (
-        <div className="state-block">Reviews open up once your stay is complete. Check back after checkout.</div>
+        <div className="state-block">{booking && ["cancelled", "refunded"].includes(booking.status) ? "This booking was cancelled and cannot be reviewed." : "Reviews open once your stay is complete. Check back after checkout."}</div>
       )}
 
       {(state === "ready" || state === "submitted") && booking && (

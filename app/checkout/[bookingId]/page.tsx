@@ -68,8 +68,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
       .catch(() => setError(gt("serverError")));
   }, [bookingId, paymentFlowVersion, gt]);
 
-  if (error) return <div className="checkout-root"><CustomerNav /><div className="checkout-state error" role="alert">{error}</div></div>;
-  if (!clientSecret || !bookingId || !paymentFlowVersion) return <div className="checkout-root"><CustomerNav /><div className="checkout-state" role="status" aria-live="polite">{gt("loadingCheckout")}</div></div>;
+  const stateRootStyle = { minHeight: "100vh", background: "#14120E", color: "#F2ECDE", fontFamily: "'Space Grotesk', system-ui, sans-serif" };
+  const stateContentStyle = { maxWidth: 560, margin: "0 auto", padding: "80px 28px" };
+
+  if (error) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state error" role="alert" style={{ ...stateContentStyle, color: "#E0796B" }}>{error}</div></div>;
+  if (!clientSecret || !bookingId || !paymentFlowVersion) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state" role="status" aria-live="polite" style={{ ...stateContentStyle, color: "#A79E8C" }}>{gt("loadingCheckout")}</div></div>;
 
   const isDelayedCharge = paymentFlowVersion === "separate_charges_delayed_v1";
   const chargeIsDeferred = isChargeDeferred(scheduledChargeDate);
