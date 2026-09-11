@@ -5,11 +5,6 @@ import {
   CompliancePublishError,
 } from "../compliance/propertyCompliance";
 
-/**
- * Simple, collision-safe slug: lowercase name plus a short random suffix.
- * properties.slug is UNIQUE, so the suffix avoids collisions between
- * properties with similar names.
- */
 function generateSlug(name: string): string {
   const base = name
     .toLowerCase()
@@ -39,6 +34,13 @@ export type PropertyInput = {
   minStayNights?: number;
   maxStayNights?: number;
   cancellationPolicyId?: string | null;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalTown?: string;
+  county?: string;
+  postcode?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   checkInTime?: string;
   checkOutTime?: string;
   houseRules?: string;
@@ -90,10 +92,6 @@ async function getAmenitiesForProperty(propertyId: string) {
   return result.rows;
 }
 
-/**
- * Replaces a property's amenity set entirely. This matches the edit form,
- * which submits the current complete checkbox selection.
- */
 async function setPropertyAmenities(
   propertyId: string,
   amenityIds: string[]
@@ -128,13 +126,23 @@ export async function createPropertyForHost(
        (host_id, name, slug, property_type, description, city, district,
         country_code, max_guests, bedrooms, bathrooms, nightly_price,
         cleaning_fee, currency, min_stay_nights, max_stay_nights,
-        cancellation_policy_id, check_in_time, check_out_time, house_rules,
-        status)
+        cancellation_policy_id, address_line_1, address_line_2,
+        postal_town, county, postcode, private_location, check_in_time,
+        check_out_time, house_rules, status)
      VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-       COALESCE($13, 0), $14, COALESCE($15, 1), COALESCE($16, 365),
-       $17, COALESCE($18::time, '15:00'),
-       COALESCE($19::time, '11:00'), $20, COALESCE($21, 'draft')
+       COALESCE($13, 0), $14, COALESCE($15, 1),
+       COALESCE($16, 365), $17, $18, $19, $20, $21, $22,
+       CASE
+         WHEN $23::double precision IS NULL
+           OR $24::double precision IS NULL
+         THEN NULL
+         ELSE ST_SetSRID(ST_MakePoint($24, $23), 4326)
+       END,
+       COALESCE($25::time, '15:00'),
+       COALESCE($26::time, '11:00'),
+       $27,
+       COALESCE($28, 'draft')
      )
      RETURNING id`,
     [
@@ -155,6 +163,13 @@ export async function createPropertyForHost(
       input.minStayNights ?? null,
       input.maxStayNights ?? null,
       input.cancellationPolicyId ?? null,
+      input.addressLine1 ?? null,
+      input.addressLine2 ?? null,
+      input.postalTown ?? null,
+      input.county ?? null,
+      input.postcode?.toUpperCase() ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
       input.checkInTime ?? null,
       input.checkOutTime ?? null,
       input.houseRules ?? null,
@@ -171,11 +186,6 @@ export async function createPropertyForHost(
   return propertyId as string;
 }
 
-/**
- * Dynamic, field-by-field update. Only fields genuinely present in the
- * input are changed, so partial edits do not overwrite unrelated values.
- * A cancellationPolicyId value of null deliberately clears the policy.
- */
 export async function updatePropertyForHost(
   propertyId: string,
   input: PropertyInput
@@ -200,6 +210,11 @@ export async function updatePropertyForHost(
     min_stay_nights: input.minStayNights,
     max_stay_nights: input.maxStayNights,
     cancellation_policy_id: input.cancellationPolicyId,
+    address_line_1: input.addressLine1,
+    address_line_2: input.addressLine2,
+    postal_town: input.postalTown,
+    county: input.county,
+    postcode: input.postcode?.toUpperCase(),
     check_in_time: input.checkInTime,
     check_out_time: input.checkOutTime,
     house_rules: input.houseRules,
@@ -214,6 +229,33 @@ export async function updatePropertyForHost(
 
     values.push(value);
     setClauses.push(`${column} = $${values.length}`);
+  }
+
+  const locationWasSubmitted =
+    input.latitude !== undefined ||
+    input.longitude !== undefined;
+
+  if (locationWasSubmitted) {
+    values.push(input.latitude ?? null);
+    const latitudeIndex = values.length;
+
+    values.push(input.longitude ?? null);
+    const longitudeIndex = values.length;
+
+    setClauses.push(
+      `private_location = CASE
+         WHEN $${latitudeIndex}::double precision IS NULL
+           OR $${longitudeIndex}::double precision IS NULL
+         THEN NULL
+         ELSE ST_SetSRID(
+           ST_MakePoint(
+             $${longitudeIndex},
+             $${latitudeIndex}
+           ),
+           4326
+         )
+       END`
+    );
   }
 
   if (setClauses.length > 0) {
@@ -232,15 +274,14 @@ export async function updatePropertyForHost(
   }
 }
 
-/**
- * Host-scoped property listing. Only fields required by the host property
- * list are selected; private location data is not returned.
- */
-export async function listPropertiesForHost(hostProfileId: string) {
+export async function listPropertiesForHost(
+  hostProfileId: string
+) {
   const result = await db.query(
-    `SELECT p.id, p.name, p.slug, p.city, p.district, p.property_type,
-            p.status, p.currency, p.nightly_price, p.max_guests,
-            p.bedrooms, p.bathrooms,
+    `SELECT p.id, p.name, p.slug, p.city, p.district,
+            p.property_type, p.status, p.currency,
+            p.nightly_price, p.max_guests, p.bedrooms,
+            p.bathrooms,
             (
               SELECT COUNT(*)
               FROM bookings b
@@ -271,17 +312,21 @@ export async function listPropertiesForHost(hostProfileId: string) {
   }));
 }
 
-/**
- * Full property detail for the owning host. Ownership is checked by the
- * caller before this function runs.
- */
-export async function getHostPropertyDetail(propertyId: string) {
+export async function getHostPropertyDetail(
+  propertyId: string
+) {
   const result = await db.query(
-    `SELECT p.id, p.name, p.slug, p.description, p.city, p.district,
-            p.country_code, p.property_type, p.status, p.currency,
-            p.nightly_price, p.cleaning_fee, p.max_guests, p.bedrooms,
-            p.bathrooms, p.min_stay_nights, p.max_stay_nights,
-            p.cancellation_policy_id, p.check_in_time, p.check_out_time,
+    `SELECT p.id, p.name, p.slug, p.description, p.city,
+            p.district, p.country_code, p.property_type,
+            p.status, p.currency, p.nightly_price,
+            p.cleaning_fee, p.max_guests, p.bedrooms,
+            p.bathrooms, p.min_stay_nights,
+            p.max_stay_nights, p.cancellation_policy_id,
+            p.address_line_1, p.address_line_2,
+            p.postal_town, p.county, p.postcode,
+            ST_Y(p.private_location) AS latitude,
+            ST_X(p.private_location) AS longitude,
+            p.check_in_time, p.check_out_time,
             p.house_rules, p.compliance_status,
             cp.name AS cancellation_policy_name,
             cp.description AS cancellation_policy_description,
@@ -319,6 +364,15 @@ export async function getHostPropertyDetail(propertyId: string) {
     minStayNights: row.min_stay_nights,
     maxStayNights: row.max_stay_nights,
     cancellationPolicyId: row.cancellation_policy_id,
+    addressLine1: row.address_line_1,
+    addressLine2: row.address_line_2,
+    postalTown: row.postal_town,
+    county: row.county,
+    postcode: row.postcode,
+    latitude:
+      row.latitude === null ? null : Number(row.latitude),
+    longitude:
+      row.longitude === null ? null : Number(row.longitude),
     checkInTime: row.check_in_time,
     checkOutTime: row.check_out_time,
     houseRules: row.house_rules,

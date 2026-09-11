@@ -17,55 +17,99 @@ type CancellationPolicy = {
   rules: unknown;
 };
 
-type State = "checking" | "unauthenticated" | "forbidden" | "ready";
+type State =
+  | "checking"
+  | "unauthenticated"
+  | "forbidden"
+  | "ready";
 
 export default function NewPropertyPage() {
   const { ht } = useHostI18n();
 
-  const [state, setState] = useState<State>("checking");
-  const [amenities, setAmenities] = useState<Amenity[]>([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<Set<string>>(
-    new Set()
-  );
-  const [cancellationPolicies, setCancellationPolicies] = useState<
-    CancellationPolicy[]
-  >([]);
+  const [state, setState] =
+    useState<State>("checking");
+
+  const [amenities, setAmenities] =
+    useState<Amenity[]>([]);
+
+  const [
+    selectedAmenities,
+    setSelectedAmenities,
+  ] = useState<Set<string>>(new Set());
+
+  const [
+    cancellationPolicies,
+    setCancellationPolicies,
+  ] = useState<CancellationPolicy[]>([]);
 
   const [name, setName] = useState("");
-  const [propertyType, setPropertyType] = useState("");
-  const [description, setDescription] = useState("");
+  const [propertyType, setPropertyType] =
+    useState("");
+  const [description, setDescription] =
+    useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
-  const [countryCode, setCountryCode] = useState("GB");
+  const [countryCode, setCountryCode] =
+    useState("GB");
+
+  const [addressLine1, setAddressLine1] =
+    useState("");
+  const [addressLine2, setAddressLine2] =
+    useState("");
+  const [postalTown, setPostalTown] =
+    useState("");
+  const [county, setCounty] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+
   const [maxGuests, setMaxGuests] = useState(2);
   const [bedrooms, setBedrooms] = useState(1);
   const [bathrooms, setBathrooms] = useState(1);
-  const [nightlyPrice, setNightlyPrice] = useState(100);
-  const [cleaningFee, setCleaningFee] = useState(0);
-  const [minStayNights, setMinStayNights] = useState(1);
-  const [maxStayNights, setMaxStayNights] = useState(365);
-  const [cancellationPolicyId, setCancellationPolicyId] = useState("");
-  const [checkInTime, setCheckInTime] = useState("15:00");
-  const [checkOutTime, setCheckOutTime] = useState("11:00");
-  const [houseRules, setHouseRules] = useState("");
 
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [nightlyPrice, setNightlyPrice] =
+    useState(100);
+  const [cleaningFee, setCleaningFee] =
+    useState(0);
+
+  const [minStayNights, setMinStayNights] =
+    useState(1);
+  const [maxStayNights, setMaxStayNights] =
+    useState(365);
+
+  const [
+    cancellationPolicyId,
+    setCancellationPolicyId,
+  ] = useState("");
+
+  const [checkInTime, setCheckInTime] =
+    useState("15:00");
+  const [checkOutTime, setCheckOutTime] =
+    useState("11:00");
+  const [houseRules, setHouseRules] =
+    useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+  const [error, setError] =
+    useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/host/amenities", { credentials: "include" })
-      .then(async (res) => {
-        if (res.status === 401) {
+    fetch("/api/host/amenities", {
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (response.status === 401) {
           setState("unauthenticated");
           return;
         }
 
-        if (res.status === 403) {
+        if (response.status === 403) {
           setState("forbidden");
           return;
         }
 
-        const data = await res.json();
+        const data = await response.json();
 
         if (data.success) {
           setAmenities(data.amenities);
@@ -80,8 +124,8 @@ export default function NewPropertyPage() {
     fetch("/api/host/cancellation-policies", {
       credentials: "include",
     })
-      .then(async (res) => {
-        const data = await res.json();
+      .then(async (response) => {
+        const data = await response.json();
 
         if (data.success) {
           setCancellationPolicies(data.policies);
@@ -104,7 +148,9 @@ export default function NewPropertyPage() {
     });
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (
+    event: React.FormEvent
+  ) => {
     event.preventDefault();
     setError(null);
 
@@ -119,17 +165,29 @@ export default function NewPropertyPage() {
     }
 
     if (nightlyPrice <= 0) {
-      setError("Nightly price must be greater than zero.");
+      setError(
+        "Nightly price must be greater than zero."
+      );
       return;
     }
 
-    if (minStayNights < 1 || minStayNights > 365) {
-      setError("Minimum stay must be between 1 and 365 nights.");
+    if (
+      minStayNights < 1 ||
+      minStayNights > 365
+    ) {
+      setError(
+        "Minimum stay must be between 1 and 365 nights."
+      );
       return;
     }
 
-    if (maxStayNights < 1 || maxStayNights > 365) {
-      setError("Maximum stay must be between 1 and 365 nights.");
+    if (
+      maxStayNights < 1 ||
+      maxStayNights > 365
+    ) {
+      setError(
+        "Maximum stay must be between 1 and 365 nights."
+      );
       return;
     }
 
@@ -140,37 +198,69 @@ export default function NewPropertyPage() {
       return;
     }
 
+    if (
+      (latitude === "") !==
+      (longitude === "")
+    ) {
+      setError(
+        "Latitude and longitude must be provided together."
+      );
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const response = await fetch("/api/host/properties", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name,
-          propertyType: propertyType || undefined,
-          description: description || undefined,
-          city,
-          district: district || undefined,
-          countryCode: countryCode || undefined,
-          maxGuests,
-          bedrooms,
-          bathrooms,
-          nightlyPrice,
-          cleaningFee,
-          minStayNights,
-          maxStayNights,
-          cancellationPolicyId: cancellationPolicyId || undefined,
-          checkInTime,
-          checkOutTime,
-          houseRules: houseRules || undefined,
-          amenityIds: Array.from(selectedAmenities),
-          status: "draft",
-        }),
-      });
+      const response = await fetch(
+        "/api/host/properties",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            name,
+            propertyType:
+              propertyType || undefined,
+            description:
+              description || undefined,
+            city,
+            district: district || undefined,
+            countryCode:
+              countryCode || undefined,
+            addressLine1,
+            addressLine2,
+            postalTown,
+            county,
+            postcode,
+            latitude:
+              latitude === ""
+                ? null
+                : Number(latitude),
+            longitude:
+              longitude === ""
+                ? null
+                : Number(longitude),
+            maxGuests,
+            bedrooms,
+            bathrooms,
+            nightlyPrice,
+            cleaningFee,
+            minStayNights,
+            maxStayNights,
+            cancellationPolicyId:
+              cancellationPolicyId || undefined,
+            checkInTime,
+            checkOutTime,
+            houseRules:
+              houseRules || undefined,
+            amenityIds:
+              Array.from(selectedAmenities),
+            status: "draft",
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -183,16 +273,21 @@ export default function NewPropertyPage() {
         return;
       }
 
-      window.location.href = `/host/properties/${data.propertyId}`;
+      window.location.href =
+        `/host/properties/${data.propertyId}`;
     } catch {
-      setError("Something went wrong reaching the server. Please try again.");
+      setError(
+        "Something went wrong reaching the server. Please try again."
+      );
       setSubmitting(false);
     }
   };
 
-  const selectedPolicy = cancellationPolicies.find(
-    (policy) => policy.id === cancellationPolicyId
-  );
+  const selectedPolicy =
+    cancellationPolicies.find(
+      (policy) =>
+        policy.id === cancellationPolicyId
+    );
 
   return (
     <div className="page-root">
@@ -237,15 +332,27 @@ export default function NewPropertyPage() {
           text-decoration: none;
         }
 
-        .header {
+        .header,
+        .wrap {
           margin: 0 auto;
           max-width: 720px;
-          padding: 8px 28px 20px;
+          padding-left: 28px;
+          padding-right: 28px;
+        }
+
+        .header {
+          padding-bottom: 20px;
+          padding-top: 8px;
         }
 
         .header h1 {
           font-size: 26px;
           font-weight: 400;
+        }
+
+        .wrap {
+          padding-bottom: 80px;
+          padding-top: 8px;
         }
 
         .state-block {
@@ -254,12 +361,6 @@ export default function NewPropertyPage() {
           max-width: 720px;
           padding: 0 28px;
           text-align: center;
-        }
-
-        .wrap {
-          margin: 0 auto;
-          max-width: 720px;
-          padding: 8px 28px 80px;
         }
 
         .card {
@@ -286,7 +387,8 @@ export default function NewPropertyPage() {
         }
 
         .field-grid.cols-3 {
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns:
+            1fr 1fr 1fr;
         }
 
         .field {
@@ -342,7 +444,8 @@ export default function NewPropertyPage() {
         .amenity-grid {
           display: grid;
           gap: 10px;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns:
+            repeat(2, 1fr);
         }
 
         .amenity-item {
@@ -358,7 +461,8 @@ export default function NewPropertyPage() {
         }
 
         .error-box {
-          background: rgba(224, 121, 107, 0.12);
+          background:
+            rgba(224, 121, 107, 0.12);
           border: 1px solid var(--error);
           border-radius: 4px;
           color: var(--error);
@@ -408,18 +512,25 @@ export default function NewPropertyPage() {
       `}</style>
 
       <div className="top-link">
-        <a href="/host/properties">← {ht("Back to Properties")}</a>
+        <a href="/host/properties">
+          ← {ht("Back to Properties")}
+        </a>
       </div>
 
       {state === "checking" && (
-        <div className="state-block">{ht("Loading…")}</div>
+        <div className="state-block">
+          {ht("Loading…")}
+        </div>
       )}
 
       {state === "unauthenticated" && (
         <div className="state-block">
           <p style={{ marginBottom: 16 }}>
-            {ht("Sign in to your host account.")}
+            {ht(
+              "Sign in to your host account."
+            )}
           </p>
+
           <a
             href={`/login?returnTo=${encodeURIComponent(
               "/host/properties/new"
@@ -433,30 +544,46 @@ export default function NewPropertyPage() {
 
       {state === "forbidden" && (
         <div className="state-block">
-          {ht("This account doesn't have host access.")}
+          {ht(
+            "This account doesn't have host access."
+          )}
         </div>
       )}
 
       {state === "ready" && (
         <>
           <div className="header">
-            <h1 className="display">{ht("Add property")}</h1>
+            <h1 className="display">
+              {ht("Add property")}
+            </h1>
           </div>
 
           <HostNav active="properties" />
 
-          <form className="wrap" onSubmit={handleSubmit}>
-            {error && <div className="error-box">{error}</div>}
+          <form
+            className="wrap"
+            onSubmit={handleSubmit}
+          >
+            {error && (
+              <div className="error-box">
+                {error}
+              </div>
+            )}
 
             <div className="card">
               <h2>{ht("Basics")}</h2>
 
               <div className="field full">
-                <label htmlFor="name">{ht("Property name")}</label>
+                <label htmlFor="name">
+                  {ht("Property name")}
+                </label>
+
                 <input
                   id="name"
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) =>
+                    setName(event.target.value)
+                  }
                 />
               </div>
 
@@ -465,55 +592,236 @@ export default function NewPropertyPage() {
                   <label htmlFor="propertyType">
                     {ht("Property type")}
                   </label>
+
                   <input
                     id="propertyType"
                     value={propertyType}
                     onChange={(event) =>
-                      setPropertyType(event.target.value)
+                      setPropertyType(
+                        event.target.value
+                      )
                     }
-                    placeholder={ht("Apartment, House…")}
+                    placeholder={ht(
+                      "Apartment, House…"
+                    )}
                   />
                 </div>
 
                 <div className="field">
-                  <label htmlFor="countryCode">{ht("Country code")}</label>
+                  <label htmlFor="countryCode">
+                    {ht("Country code")}
+                  </label>
+
                   <input
                     id="countryCode"
                     value={countryCode}
-                    onChange={(event) =>
-                      setCountryCode(event.target.value.toUpperCase())
-                    }
                     maxLength={2}
+                    onChange={(event) =>
+                      setCountryCode(
+                        event.target.value
+                          .toUpperCase()
+                      )
+                    }
                   />
                 </div>
 
                 <div className="field">
-                  <label htmlFor="city">{ht("City")}</label>
+                  <label htmlFor="city">
+                    {ht("City")}
+                  </label>
+
                   <input
                     id="city"
                     value={city}
-                    onChange={(event) => setCity(event.target.value)}
+                    onChange={(event) =>
+                      setCity(event.target.value)
+                    }
                   />
                 </div>
 
                 <div className="field">
-                  <label htmlFor="district">{ht("District")}</label>
+                  <label htmlFor="district">
+                    {ht("District")}
+                  </label>
+
                   <input
                     id="district"
                     value={district}
-                    onChange={(event) => setDistrict(event.target.value)}
+                    onChange={(event) =>
+                      setDistrict(
+                        event.target.value
+                      )
+                    }
                   />
                 </div>
               </div>
 
               <div className="field full">
-                <label htmlFor="description">{ht("Description")}</label>
+                <label htmlFor="description">
+                  {ht("Description")}
+                </label>
+
                 <textarea
                   id="description"
                   value={description}
-                  onChange={(event) => setDescription(event.target.value)}
+                  onChange={(event) =>
+                    setDescription(
+                      event.target.value
+                    )
+                  }
                 />
               </div>
+            </div>
+
+            <div className="card">
+              <h2>{ht("Private address")}</h2>
+
+              <p className="field-note">
+                {ht(
+                  "The exact address and coordinates are visible only to the property owner and authorised HOST operations. Guests receive only an approximate map point."
+                )}
+              </p>
+
+              <div
+                className="field full"
+                style={{ marginTop: 16 }}
+              >
+                <label htmlFor="addressLine1">
+                  {ht("Address line 1")}
+                </label>
+
+                <input
+                  id="addressLine1"
+                  autoComplete="address-line1"
+                  value={addressLine1}
+                  onChange={(event) =>
+                    setAddressLine1(
+                      event.target.value
+                    )
+                  }
+                />
+              </div>
+
+              <div className="field full">
+                <label htmlFor="addressLine2">
+                  {ht("Address line 2")}
+                </label>
+
+                <input
+                  id="addressLine2"
+                  autoComplete="address-line2"
+                  value={addressLine2}
+                  onChange={(event) =>
+                    setAddressLine2(
+                      event.target.value
+                    )
+                  }
+                />
+              </div>
+
+              <div className="field-grid">
+                <div className="field">
+                  <label htmlFor="postalTown">
+                    {ht("Postal town")}
+                  </label>
+
+                  <input
+                    id="postalTown"
+                    autoComplete="address-level2"
+                    value={postalTown}
+                    onChange={(event) =>
+                      setPostalTown(
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="county">
+                    {ht("County")}
+                  </label>
+
+                  <input
+                    id="county"
+                    autoComplete="address-level1"
+                    value={county}
+                    onChange={(event) =>
+                      setCounty(
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="postcode">
+                    {ht("Postcode")}
+                  </label>
+
+                  <input
+                    id="postcode"
+                    autoComplete="postal-code"
+                    value={postcode}
+                    onChange={(event) =>
+                      setPostcode(
+                        event.target.value
+                          .toUpperCase()
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="field-grid">
+                <div className="field">
+                  <label htmlFor="latitude">
+                    {ht("Exact latitude")}
+                  </label>
+
+                  <input
+                    id="latitude"
+                    type="number"
+                    min={-90}
+                    max={90}
+                    step="any"
+                    value={latitude}
+                    onChange={(event) =>
+                      setLatitude(
+                        event.target.value
+                      )
+                    }
+                    placeholder="53.4084"
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="longitude">
+                    {ht("Exact longitude")}
+                  </label>
+
+                  <input
+                    id="longitude"
+                    type="number"
+                    min={-180}
+                    max={180}
+                    step="any"
+                    value={longitude}
+                    onChange={(event) =>
+                      setLongitude(
+                        event.target.value
+                      )
+                    }
+                    placeholder="-2.9916"
+                  />
+                </div>
+              </div>
+
+              <p className="field-note">
+                {ht(
+                  "Enter both coordinates or leave both blank. HOST will derive the approximate public point automatically."
+                )}
+              </p>
             </div>
 
             <div className="card">
@@ -521,33 +829,50 @@ export default function NewPropertyPage() {
 
               <div className="field-grid cols-3">
                 <div className="field">
-                  <label htmlFor="maxGuests">{ht("Max guests")}</label>
+                  <label htmlFor="maxGuests">
+                    {ht("Max guests")}
+                  </label>
+
                   <input
                     id="maxGuests"
                     type="number"
                     min={1}
                     value={maxGuests}
                     onChange={(event) =>
-                      setMaxGuests(Number(event.target.value))
+                      setMaxGuests(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
 
                 <div className="field">
-                  <label htmlFor="bedrooms">{ht("Bedrooms")}</label>
+                  <label htmlFor="bedrooms">
+                    {ht("Bedrooms")}
+                  </label>
+
                   <input
                     id="bedrooms"
                     type="number"
                     min={0}
                     value={bedrooms}
                     onChange={(event) =>
-                      setBedrooms(Number(event.target.value))
+                      setBedrooms(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
 
                 <div className="field">
-                  <label htmlFor="bathrooms">{ht("Bathrooms")}</label>
+                  <label htmlFor="bathrooms">
+                    {ht("Bathrooms")}
+                  </label>
+
                   <input
                     id="bathrooms"
                     type="number"
@@ -555,7 +880,11 @@ export default function NewPropertyPage() {
                     step={0.5}
                     value={bathrooms}
                     onChange={(event) =>
-                      setBathrooms(Number(event.target.value))
+                      setBathrooms(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
@@ -570,6 +899,7 @@ export default function NewPropertyPage() {
                   <label htmlFor="nightlyPrice">
                     {ht("Base nightly price")}
                   </label>
+
                   <input
                     id="nightlyPrice"
                     type="number"
@@ -577,13 +907,20 @@ export default function NewPropertyPage() {
                     step={0.01}
                     value={nightlyPrice}
                     onChange={(event) =>
-                      setNightlyPrice(Number(event.target.value))
+                      setNightlyPrice(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
 
                 <div className="field">
-                  <label htmlFor="cleaningFee">{ht("Cleaning fee")}</label>
+                  <label htmlFor="cleaningFee">
+                    {ht("Cleaning fee")}
+                  </label>
+
                   <input
                     id="cleaningFee"
                     type="number"
@@ -591,7 +928,11 @@ export default function NewPropertyPage() {
                     step={0.01}
                     value={cleaningFee}
                     onChange={(event) =>
-                      setCleaningFee(Number(event.target.value))
+                      setCleaningFee(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
@@ -606,6 +947,7 @@ export default function NewPropertyPage() {
                   <label htmlFor="minStayNights">
                     {ht("Minimum stay")}
                   </label>
+
                   <input
                     id="minStayNights"
                     type="number"
@@ -613,7 +955,11 @@ export default function NewPropertyPage() {
                     max={365}
                     value={minStayNights}
                     onChange={(event) =>
-                      setMinStayNights(Number(event.target.value))
+                      setMinStayNights(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
@@ -622,6 +968,7 @@ export default function NewPropertyPage() {
                   <label htmlFor="maxStayNights">
                     {ht("Maximum stay")}
                   </label>
+
                   <input
                     id="maxStayNights"
                     type="number"
@@ -629,7 +976,11 @@ export default function NewPropertyPage() {
                     max={365}
                     value={maxStayNights}
                     onChange={(event) =>
-                      setMaxStayNights(Number(event.target.value))
+                      setMaxStayNights(
+                        Number(
+                          event.target.value
+                        )
+                      )
                     }
                   />
                 </div>
@@ -639,26 +990,39 @@ export default function NewPropertyPage() {
                 <label htmlFor="cancellationPolicyId">
                   {ht("Cancellation policy")}
                 </label>
+
                 <select
                   id="cancellationPolicyId"
                   value={cancellationPolicyId}
                   onChange={(event) =>
-                    setCancellationPolicyId(event.target.value)
+                    setCancellationPolicyId(
+                      event.target.value
+                    )
                   }
                 >
                   <option value="">
-                    {ht("Select a cancellation policy")}
+                    {ht(
+                      "Select a cancellation policy"
+                    )}
                   </option>
-                  {cancellationPolicies.map((policy) => (
-                    <option key={policy.id} value={policy.id}>
-                      {ht(policy.name)}
-                    </option>
-                  ))}
+
+                  {cancellationPolicies.map(
+                    (policy) => (
+                      <option
+                        key={policy.id}
+                        value={policy.id}
+                      >
+                        {ht(policy.name)}
+                      </option>
+                    )
+                  )}
                 </select>
 
                 {selectedPolicy?.description && (
                   <p className="field-note">
-                    {ht(selectedPolicy.description)}
+                    {ht(
+                      selectedPolicy.description
+                    )}
                   </p>
                 )}
               </div>
@@ -672,12 +1036,15 @@ export default function NewPropertyPage() {
                   <label htmlFor="checkInTime">
                     {ht("Check-in time")}
                   </label>
+
                   <input
                     id="checkInTime"
                     type="time"
                     value={checkInTime}
                     onChange={(event) =>
-                      setCheckInTime(event.target.value)
+                      setCheckInTime(
+                        event.target.value
+                      )
                     }
                   />
                 </div>
@@ -686,23 +1053,33 @@ export default function NewPropertyPage() {
                   <label htmlFor="checkOutTime">
                     {ht("Check-out time")}
                   </label>
+
                   <input
                     id="checkOutTime"
                     type="time"
                     value={checkOutTime}
                     onChange={(event) =>
-                      setCheckOutTime(event.target.value)
+                      setCheckOutTime(
+                        event.target.value
+                      )
                     }
                   />
                 </div>
               </div>
 
               <div className="field full">
-                <label htmlFor="houseRules">{ht("House rules")}</label>
+                <label htmlFor="houseRules">
+                  {ht("House rules")}
+                </label>
+
                 <textarea
                   id="houseRules"
                   value={houseRules}
-                  onChange={(event) => setHouseRules(event.target.value)}
+                  onChange={(event) =>
+                    setHouseRules(
+                      event.target.value
+                    )
+                  }
                 />
               </div>
             </div>
@@ -712,16 +1089,30 @@ export default function NewPropertyPage() {
                 <h2>{ht("Amenities")}</h2>
 
                 <div className="amenity-grid">
-                  {amenities.map((amenity) => (
-                    <label className="amenity-item" key={amenity.id}>
-                      <input
-                        type="checkbox"
-                        checked={selectedAmenities.has(amenity.id)}
-                        onChange={() => toggleAmenity(amenity.id)}
-                      />
-                      {ht(amenity.name)}
-                    </label>
-                  ))}
+                  {amenities.map(
+                    (amenity) => (
+                      <label
+                        className="amenity-item"
+                        key={amenity.id}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedAmenities.has(
+                              amenity.id
+                            )
+                          }
+                          onChange={() =>
+                            toggleAmenity(
+                              amenity.id
+                            )
+                          }
+                        />
+
+                        {ht(amenity.name)}
+                      </label>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -733,7 +1124,9 @@ export default function NewPropertyPage() {
                 disabled={submitting}
                 style={{ marginTop: 0 }}
               >
-                {submitting ? ht("Creating…") : ht("Create property")}
+                {submitting
+                  ? ht("Creating…")
+                  : ht("Create property")}
               </button>
 
               <span

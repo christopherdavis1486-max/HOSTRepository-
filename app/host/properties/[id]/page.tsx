@@ -37,6 +37,13 @@ type PropertyDetail = {
   minStayNights: number;
   maxStayNights: number;
   cancellationPolicyId: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  postalTown: string | null;
+  county: string | null;
+  postcode: string | null;
+  latitude: number | null;
+  longitude: number | null;
   checkInTime: string | null;
   checkOutTime: string | null;
   houseRules: string | null;
@@ -70,16 +77,27 @@ export default function HostPropertyDetailPage({
 }) {
   const { ht, hStatus } = useHostI18n();
 
-  const [propertyId, setPropertyId] = useState<string | null>(null);
-  const [property, setProperty] = useState<PropertyDetail | null>(null);
-  const [allAmenities, setAllAmenities] = useState<Amenity[]>([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<Set<string>>(
-    new Set()
-  );
-  const [cancellationPolicies, setCancellationPolicies] = useState<
-    CancellationPolicy[]
-  >([]);
-  const [state, setState] = useState<State>("loading");
+  const [propertyId, setPropertyId] =
+    useState<string | null>(null);
+
+  const [property, setProperty] =
+    useState<PropertyDetail | null>(null);
+
+  const [allAmenities, setAllAmenities] =
+    useState<Amenity[]>([]);
+
+  const [
+    selectedAmenities,
+    setSelectedAmenities,
+  ] = useState<Set<string>>(new Set());
+
+  const [
+    cancellationPolicies,
+    setCancellationPolicies,
+  ] = useState<CancellationPolicy[]>([]);
+
+  const [state, setState] =
+    useState<State>("loading");
 
   const [form, setForm] = useState({
     name: "",
@@ -88,6 +106,13 @@ export default function HostPropertyDetailPage({
     city: "",
     district: "",
     countryCode: "",
+    addressLine1: "",
+    addressLine2: "",
+    postalTown: "",
+    county: "",
+    postcode: "",
+    latitude: "",
+    longitude: "",
     maxGuests: 1,
     bedrooms: 0,
     bathrooms: 1,
@@ -102,28 +127,47 @@ export default function HostPropertyDetailPage({
     status: "draft",
   });
 
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saving, setSaving] =
+    useState(false);
 
-  const [availability, setAvailability] = useState<AvailabilityDay[]>([]);
-  const [blockFrom, setBlockFrom] = useState("");
-  const [blockTo, setBlockTo] = useState("");
-  const [availabilityBusy, setAvailabilityBusy] = useState(false);
-  const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(
-    null
-  );
+  const [saveError, setSaveError] =
+    useState<string | null>(null);
+
+  const [saveSuccess, setSaveSuccess] =
+    useState(false);
+
+  const [availability, setAvailability] =
+    useState<AvailabilityDay[]>([]);
+
+  const [blockFrom, setBlockFrom] =
+    useState("");
+
+  const [blockTo, setBlockTo] =
+    useState("");
+
+  const [
+    availabilityBusy,
+    setAvailabilityBusy,
+  ] = useState(false);
+
+  const [
+    availabilityMessage,
+    setAvailabilityMessage,
+  ] = useState<string | null>(null);
 
   useEffect(() => {
-    params.then(({ id }) => setPropertyId(id));
+    params.then(({ id }) =>
+      setPropertyId(id)
+    );
   }, [params]);
 
   const loadProperty = () => {
     if (!propertyId) return;
 
-    fetch(`/api/host/properties/${propertyId}`, {
-      credentials: "include",
-    })
+    fetch(
+      `/api/host/properties/${propertyId}`,
+      { credentials: "include" }
+    )
       .then(async (response) => {
         if (response.status === 401) {
           setState("unauthenticated");
@@ -147,61 +191,121 @@ export default function HostPropertyDetailPage({
           return;
         }
 
-        const loadedProperty: PropertyDetail = data.property;
+        const loaded: PropertyDetail =
+          data.property;
 
-        setProperty(loadedProperty);
+        setProperty(loaded);
+
         setForm({
-          name: loadedProperty.name,
-          propertyType: loadedProperty.propertyType ?? "",
-          description: loadedProperty.description ?? "",
-          city: loadedProperty.city,
-          district: loadedProperty.district ?? "",
-          countryCode: loadedProperty.countryCode ?? "",
-          maxGuests: loadedProperty.maxGuests,
-          bedrooms: loadedProperty.bedrooms ?? 0,
-          bathrooms: Number(loadedProperty.bathrooms ?? 1),
-          nightlyPrice: Number(loadedProperty.nightlyPrice),
-          cleaningFee: Number(loadedProperty.cleaningFee ?? 0),
-          minStayNights: loadedProperty.minStayNights ?? 1,
-          maxStayNights: loadedProperty.maxStayNights ?? 365,
+          name: loaded.name,
+          propertyType:
+            loaded.propertyType ?? "",
+          description:
+            loaded.description ?? "",
+          city: loaded.city,
+          district:
+            loaded.district ?? "",
+          countryCode:
+            loaded.countryCode ?? "",
+          addressLine1:
+            loaded.addressLine1 ?? "",
+          addressLine2:
+            loaded.addressLine2 ?? "",
+          postalTown:
+            loaded.postalTown ?? "",
+          county:
+            loaded.county ?? "",
+          postcode:
+            loaded.postcode ?? "",
+          latitude:
+            loaded.latitude === null
+              ? ""
+              : String(loaded.latitude),
+          longitude:
+            loaded.longitude === null
+              ? ""
+              : String(loaded.longitude),
+          maxGuests:
+            loaded.maxGuests,
+          bedrooms:
+            loaded.bedrooms ?? 0,
+          bathrooms:
+            Number(
+              loaded.bathrooms ?? 1
+            ),
+          nightlyPrice:
+            Number(
+              loaded.nightlyPrice
+            ),
+          cleaningFee:
+            Number(
+              loaded.cleaningFee ?? 0
+            ),
+          minStayNights:
+            loaded.minStayNights ?? 1,
+          maxStayNights:
+            loaded.maxStayNights ?? 365,
           cancellationPolicyId:
-            loadedProperty.cancellationPolicyId ?? "",
-          checkInTime: loadedProperty.checkInTime ?? "15:00",
-          checkOutTime: loadedProperty.checkOutTime ?? "11:00",
-          houseRules: loadedProperty.houseRules ?? "",
-          status: loadedProperty.status,
+            loaded.cancellationPolicyId ??
+            "",
+          checkInTime:
+            loaded.checkInTime ??
+            "15:00",
+          checkOutTime:
+            loaded.checkOutTime ??
+            "11:00",
+          houseRules:
+            loaded.houseRules ?? "",
+          status: loaded.status,
         });
+
         setSelectedAmenities(
-          new Set(loadedProperty.amenities.map((amenity) => amenity.id))
+          new Set(
+            loaded.amenities.map(
+              (amenity) => amenity.id
+            )
+          )
         );
+
         setState("loaded");
       })
-      .catch(() => setState("error"));
+      .catch(() =>
+        setState("error")
+      );
   };
 
   useEffect(loadProperty, [propertyId]);
 
   useEffect(() => {
-    fetch("/api/host/amenities", { credentials: "include" })
+    fetch("/api/host/amenities", {
+      credentials: "include",
+    })
       .then(async (response) => {
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (data.success) {
-          setAllAmenities(data.amenities);
+          setAllAmenities(
+            data.amenities
+          );
         }
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch("/api/host/cancellation-policies", {
-      credentials: "include",
-    })
+    fetch(
+      "/api/host/cancellation-policies",
+      { credentials: "include" }
+    )
       .then(async (response) => {
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (data.success) {
-          setCancellationPolicies(data.policies);
+          setCancellationPolicies(
+            data.policies
+          );
         }
       })
       .catch(() => {});
@@ -210,67 +314,112 @@ export default function HostPropertyDetailPage({
   const loadAvailability = () => {
     if (!propertyId) return;
 
-    fetch(`/api/host/properties/${propertyId}/availability`, {
-      credentials: "include",
-    })
-      .then((response) => response.json())
+    fetch(
+      `/api/host/properties/${propertyId}/availability`,
+      { credentials: "include" }
+    )
+      .then((response) =>
+        response.json()
+      )
       .then((data) => {
         if (data.success) {
-          setAvailability(data.availability);
+          setAvailability(
+            data.availability
+          );
         }
       })
       .catch(() => {});
   };
 
-  useEffect(loadAvailability, [propertyId]);
+  useEffect(
+    loadAvailability,
+    [propertyId]
+  );
 
-  const toggleAmenity = (id: string) => {
-    setSelectedAmenities((previous) => {
-      const next = new Set(previous);
+  const toggleAmenity = (
+    id: string
+  ) => {
+    setSelectedAmenities(
+      (previous) => {
+        const next =
+          new Set(previous);
 
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+
+        return next;
       }
-
-      return next;
-    });
+    );
   };
 
-  const handleSave = async (event: React.FormEvent) => {
+  const handleSave = async (
+    event: React.FormEvent
+  ) => {
     event.preventDefault();
+
     setSaveError(null);
     setSaveSuccess(false);
 
     if (!form.name.trim()) {
-      setSaveError("Property name is required.");
+      setSaveError(
+        "Property name is required."
+      );
       return;
     }
 
     if (!form.city.trim()) {
-      setSaveError("City is required.");
+      setSaveError(
+        "City is required."
+      );
       return;
     }
 
     if (form.nightlyPrice <= 0) {
-      setSaveError("Nightly price must be greater than zero.");
+      setSaveError(
+        "Nightly price must be greater than zero."
+      );
       return;
     }
 
-    if (form.minStayNights < 1 || form.minStayNights > 365) {
-      setSaveError("Minimum stay must be between 1 and 365 nights.");
+    if (
+      form.minStayNights < 1 ||
+      form.minStayNights > 365
+    ) {
+      setSaveError(
+        "Minimum stay must be between 1 and 365 nights."
+      );
       return;
     }
 
-    if (form.maxStayNights < 1 || form.maxStayNights > 365) {
-      setSaveError("Maximum stay must be between 1 and 365 nights.");
+    if (
+      form.maxStayNights < 1 ||
+      form.maxStayNights > 365
+    ) {
+      setSaveError(
+        "Maximum stay must be between 1 and 365 nights."
+      );
       return;
     }
 
-    if (form.minStayNights > form.maxStayNights) {
+    if (
+      form.minStayNights >
+      form.maxStayNights
+    ) {
       setSaveError(
         "Maximum stay must be greater than or equal to minimum stay."
+      );
+      return;
+    }
+
+    if (
+      (form.latitude === "") !==
+      (form.longitude === "")
+    ) {
+      setSaveError(
+        "Latitude and longitude must be provided together."
       );
       return;
     }
@@ -283,19 +432,37 @@ export default function HostPropertyDetailPage({
         {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           credentials: "include",
           body: JSON.stringify({
             ...form,
             cancellationPolicyId:
-              form.cancellationPolicyId || null,
-            amenityIds: Array.from(selectedAmenities),
+              form.cancellationPolicyId ||
+              null,
+            latitude:
+              form.latitude === ""
+                ? null
+                : Number(
+                    form.latitude
+                  ),
+            longitude:
+              form.longitude === ""
+                ? null
+                : Number(
+                    form.longitude
+                  ),
+            amenityIds:
+              Array.from(
+                selectedAmenities
+              ),
           }),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!data.success) {
         setSaveError(
@@ -310,76 +477,104 @@ export default function HostPropertyDetailPage({
       setSaving(false);
       loadProperty();
     } catch {
-      setSaveError("Something went wrong reaching the server. Please try again.");
+      setSaveError(
+        "Something went wrong reaching the server. Please try again."
+      );
       setSaving(false);
     }
   };
 
-  const handleAvailabilityAction = async (
-    action: "block" | "unblock"
-  ) => {
-    if (!blockFrom || !blockTo) {
-      setAvailabilityMessage("Select both a start and end date.");
-      return;
-    }
-
-    setAvailabilityBusy(true);
-    setAvailabilityMessage(null);
-
-    try {
-      const response = await fetch(
-        `/api/host/properties/${propertyId}/availability`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            action,
-            checkIn: blockFrom,
-            checkOut: blockTo,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!data.success) {
+  const handleAvailabilityAction =
+    async (
+      action: "block" | "unblock"
+    ) => {
+      if (!blockFrom || !blockTo) {
         setAvailabilityMessage(
-          data.error?.message ?? "Couldn't update availability."
+          "Select both a start and end date."
         );
-      } else {
-        const skippedNote =
-          data.skipped?.length > 0
-            ? ` (${data.skipped.length} date${
-                data.skipped.length === 1 ? "" : "s"
-              } skipped — already booked)`
-            : "";
-
-        setAvailabilityMessage(
-          `${action === "block" ? "Blocked" : "Unblocked"} ${
-            data.blocked.length
-          } date${data.blocked.length === 1 ? "" : "s"}${skippedNote}.`
-        );
-        loadAvailability();
+        return;
       }
-    } catch {
-      setAvailabilityMessage(
-        "Something went wrong reaching the server."
-      );
-    }
 
-    setAvailabilityBusy(false);
-  };
+      setAvailabilityBusy(true);
+      setAvailabilityMessage(null);
 
-  const blockedDates = availability.filter(
-    (day) => day.status !== "available"
-  );
+      try {
+        const response = await fetch(
+          `/api/host/properties/${propertyId}/availability`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              action,
+              checkIn: blockFrom,
+              checkOut: blockTo,
+            }),
+          }
+        );
 
-  const selectedPolicy = cancellationPolicies.find(
-    (policy) => policy.id === form.cancellationPolicyId
-  );
+        const data =
+          await response.json();
+
+        if (!data.success) {
+          setAvailabilityMessage(
+            data.error?.message ??
+              "Couldn't update availability."
+          );
+        } else {
+          const skippedNote =
+            data.skipped?.length > 0
+              ? ` (${
+                  data.skipped.length
+                } date${
+                  data.skipped.length ===
+                  1
+                    ? ""
+                    : "s"
+                } skipped — already booked)`
+              : "";
+
+          setAvailabilityMessage(
+            `${
+              action === "block"
+                ? "Blocked"
+                : "Unblocked"
+            } ${
+              data.blocked.length
+            } date${
+              data.blocked.length ===
+              1
+                ? ""
+                : "s"
+            }${skippedNote}.`
+          );
+
+          loadAvailability();
+        }
+      } catch {
+        setAvailabilityMessage(
+          "Something went wrong reaching the server."
+        );
+      }
+
+      setAvailabilityBusy(false);
+    };
+
+  const blockedDates =
+    availability.filter(
+      (day) =>
+        day.status !== "available"
+    );
+
+  const selectedPolicy =
+    cancellationPolicies.find(
+      (policy) =>
+        policy.id ===
+        form.cancellationPolicyId
+    );
 
   return (
     <div className="page-root">
@@ -414,7 +609,6 @@ export default function HostPropertyDetailPage({
         }
 
         .top-link {
-          display: block;
           padding: 24px 28px 0;
         }
 
@@ -422,14 +616,6 @@ export default function HostPropertyDetailPage({
           color: var(--warm-grey);
           font-size: 13px;
           text-decoration: none;
-        }
-
-        .state-block {
-          color: var(--warm-grey);
-          margin: 60px auto;
-          max-width: 640px;
-          padding: 0 28px;
-          text-align: center;
         }
 
         .header {
@@ -446,6 +632,14 @@ export default function HostPropertyDetailPage({
         .header h1 {
           font-size: 24px;
           font-weight: 400;
+        }
+
+        .state-block {
+          color: var(--warm-grey);
+          margin: 60px auto;
+          max-width: 640px;
+          padding: 0 28px;
+          text-align: center;
         }
 
         .wrap {
@@ -478,7 +672,8 @@ export default function HostPropertyDetailPage({
         }
 
         .field-grid.cols-3 {
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns:
+            1fr 1fr 1fr;
         }
 
         .field {
@@ -534,7 +729,8 @@ export default function HostPropertyDetailPage({
         .amenity-grid {
           display: grid;
           gap: 10px;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns:
+            repeat(2, 1fr);
         }
 
         .amenity-item {
@@ -590,13 +786,15 @@ export default function HostPropertyDetailPage({
         }
 
         .error-box {
-          background: rgba(224, 121, 107, 0.12);
+          background:
+            rgba(224, 121, 107, 0.12);
           border: 1px solid var(--error);
           color: var(--error);
         }
 
         .success-box {
-          background: rgba(201, 151, 75, 0.1);
+          background:
+            rgba(201, 151, 75, 0.1);
           border: 1px solid var(--brass);
           color: var(--brass);
         }
@@ -617,21 +815,30 @@ export default function HostPropertyDetailPage({
       `}</style>
 
       <div className="top-link">
-        <a href="/host/properties">← {ht("Back to Properties")}</a>
+        <a href="/host/properties">
+          ← {ht("Back to Properties")}
+        </a>
       </div>
 
       {state === "loading" && (
-        <div className="state-block">{ht("Loading property…")}</div>
+        <div className="state-block">
+          {ht("Loading property…")}
+        </div>
       )}
 
       {state === "unauthenticated" && (
         <div className="state-block">
           <p style={{ marginBottom: 16 }}>
-            {ht("Sign in to your host account.")}
+            {ht(
+              "Sign in to your host account."
+            )}
           </p>
+
           <a
             href={`/login?returnTo=${encodeURIComponent(
-              `/host/properties/${propertyId ?? ""}`
+              `/host/properties/${
+                propertyId ?? ""
+              }`
             )}`}
             className="btn-primary"
           >
@@ -640,9 +847,12 @@ export default function HostPropertyDetailPage({
         </div>
       )}
 
-      {(state === "forbidden" || state === "notFound") && (
+      {(state === "forbidden" ||
+        state === "notFound") && (
         <div className="state-block">
-          {ht("This property isn't available.")}
+          {ht(
+            "This property isn't available."
+          )}
         </div>
       )}
 
@@ -654,515 +864,1031 @@ export default function HostPropertyDetailPage({
         </div>
       )}
 
-      {state === "loaded" && property && (
-        <>
-          <div className="header">
-            <h1 className="display">{property.name}</h1>
+      {state === "loaded" &&
+        property && (
+          <>
+            <div className="header">
+              <h1 className="display">
+                {property.name}
+              </h1>
 
-            {property.slug && (
-              <a
-                href={`/stays/${property.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary"
-              >
-                {ht("Preview listing")} →
-              </a>
-            )}
-          </div>
-
-          <HostNav active="properties" />
-
-          <div className="wrap" style={{ paddingBottom: 0 }}>
-            <div className="card">
-              <h2>{ht("Property compliance")}</h2>
-              <p
-                style={{
-                  color: "var(--warm-grey)",
-                  lineHeight: 1.6,
-                }}
-              >
-                {ht("Status")}:{" "}
-                <strong style={{ color: "var(--ivory)" }}>
-                  {hStatus(property.complianceStatus)}
-                </strong>
-                {property.complianceStatus === "approved"
-                  ? "."
-                  : `. ${ht(
-                      "Complete the owner declarations and evidence review before publishing."
-                    )}`}
-              </p>
-
-              <a
-                className="btn-secondary"
-                href={`/host/properties/${property.id}/compliance`}
-              >
-                {ht("Manage compliance")} →
-              </a>
-            </div>
-          </div>
-
-          <form className="wrap" onSubmit={handleSave}>
-            {saveError && <div className="error-box">{saveError}</div>}
-            {saveSuccess && (
-              <div className="success-box">{ht("Changes saved.")}</div>
-            )}
-
-            <div className="card">
-              <h2>{ht("Listing status")}</h2>
-              <div className="field">
-                <label htmlFor="status">{ht("Status")}</label>
-                <select
-                  id="status"
-                  value={form.status}
-                  onChange={(event) =>
-                    setForm({ ...form, status: event.target.value })
-                  }
+              {property.slug && (
+                <a
+                  href={`/stays/${property.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
                 >
-                  <option value="draft">
-                    {ht("Draft — not visible to guests")}
-                  </option>
-                  <option value="published">
-                    {ht("Published — live and bookable")}
-                  </option>
-                  <option value="paused">
-                    {ht("Paused — temporarily hidden")}
-                  </option>
-                </select>
-              </div>
+                  {ht(
+                    "Preview listing"
+                  )}{" "}
+                  →
+                </a>
+              )}
             </div>
 
-            <div className="card">
-              <h2>{ht("Basics")}</h2>
+            <HostNav active="properties" />
 
-              <div className="field full">
-                <label htmlFor="name">{ht("Property name")}</label>
-                <input
-                  id="name"
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm({ ...form, name: event.target.value })
-                  }
-                />
-              </div>
+            <div
+              className="wrap"
+              style={{
+                paddingBottom: 0,
+              }}
+            >
+              <div className="card">
+                <h2>
+                  {ht(
+                    "Property compliance"
+                  )}
+                </h2>
 
-              <div className="field-grid">
-                <div className="field">
-                  <label htmlFor="propertyType">
-                    {ht("Property type")}
-                  </label>
-                  <input
-                    id="propertyType"
-                    value={form.propertyType}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        propertyType: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="countryCode">{ht("Country code")}</label>
-                  <input
-                    id="countryCode"
-                    value={form.countryCode}
-                    maxLength={2}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        countryCode: event.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="city">{ht("City")}</label>
-                  <input
-                    id="city"
-                    value={form.city}
-                    onChange={(event) =>
-                      setForm({ ...form, city: event.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="district">{ht("District")}</label>
-                  <input
-                    id="district"
-                    value={form.district}
-                    onChange={(event) =>
-                      setForm({ ...form, district: event.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="field full">
-                <label htmlFor="description">{ht("Description")}</label>
-                <textarea
-                  id="description"
-                  value={form.description}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      description: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="card">
-              <h2>{ht("Capacity")}</h2>
-              <div className="field-grid cols-3">
-                <div className="field">
-                  <label htmlFor="maxGuests">{ht("Max guests")}</label>
-                  <input
-                    id="maxGuests"
-                    type="number"
-                    min={1}
-                    value={form.maxGuests}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        maxGuests: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="bedrooms">{ht("Bedrooms")}</label>
-                  <input
-                    id="bedrooms"
-                    type="number"
-                    min={0}
-                    value={form.bedrooms}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        bedrooms: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="bathrooms">{ht("Bathrooms")}</label>
-                  <input
-                    id="bathrooms"
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={form.bathrooms}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        bathrooms: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <h2>{ht("Pricing")}</h2>
-              <div className="field-grid">
-                <div className="field">
-                  <label htmlFor="nightlyPrice">
-                    {ht("Base nightly price")}
-                  </label>
-                  <input
-                    id="nightlyPrice"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={form.nightlyPrice}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        nightlyPrice: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="cleaningFee">{ht("Cleaning fee")}</label>
-                  <input
-                    id="cleaningFee"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={form.cleaningFee}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        cleaningFee: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <h2>{ht("Booking terms")}</h2>
-
-              <div className="field-grid">
-                <div className="field">
-                  <label htmlFor="minStayNights">
-                    {ht("Minimum stay")}
-                  </label>
-                  <input
-                    id="minStayNights"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={form.minStayNights}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        minStayNights: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="maxStayNights">
-                    {ht("Maximum stay")}
-                  </label>
-                  <input
-                    id="maxStayNights"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={form.maxStayNights}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        maxStayNights: Number(event.target.value),
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="field full">
-                <label htmlFor="cancellationPolicyId">
-                  {ht("Cancellation policy")}
-                </label>
-                <select
-                  id="cancellationPolicyId"
-                  value={form.cancellationPolicyId}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      cancellationPolicyId: event.target.value,
-                    })
-                  }
+                <p
+                  style={{
+                    color:
+                      "var(--warm-grey)",
+                    lineHeight: 1.6,
+                  }}
                 >
-                  <option value="">
-                    {ht("Select a cancellation policy")}
-                  </option>
-                  {cancellationPolicies.map((policy) => (
-                    <option key={policy.id} value={policy.id}>
-                      {ht(policy.name)}
-                    </option>
-                  ))}
-                </select>
-
-                {(selectedPolicy?.description ||
-                  property.cancellationPolicy?.description) && (
-                  <p className="field-note">
-                    {ht(
-                      selectedPolicy?.description ??
-                        property.cancellationPolicy?.description ??
-                        ""
+                  {ht("Status")}:{" "}
+                  <strong
+                    style={{
+                      color:
+                        "var(--ivory)",
+                    }}
+                  >
+                    {hStatus(
+                      property.complianceStatus
                     )}
-                  </p>
+                  </strong>
+
+                  {property.complianceStatus ===
+                  "approved"
+                    ? "."
+                    : `. ${ht(
+                        "Complete the owner declarations and evidence review before publishing."
+                      )}`}
+                </p>
+
+                <a
+                  className="btn-secondary"
+                  href={`/host/properties/${property.id}/compliance`}
+                >
+                  {ht(
+                    "Manage compliance"
+                  )}{" "}
+                  →
+                </a>
+              </div>
+            </div>
+
+            <form
+              className="wrap"
+              onSubmit={handleSave}
+            >
+              {saveError && (
+                <div className="error-box">
+                  {saveError}
+                </div>
+              )}
+
+              {saveSuccess && (
+                <div className="success-box">
+                  {ht(
+                    "Changes saved."
+                  )}
+                </div>
+              )}
+
+              <div className="card">
+                <h2>
+                  {ht("Listing status")}
+                </h2>
+
+                <div className="field">
+                  <label htmlFor="status">
+                    {ht("Status")}
+                  </label>
+
+                  <select
+                    id="status"
+                    value={form.status}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        status:
+                          event.target
+                            .value,
+                      })
+                    }
+                  >
+                    <option value="draft">
+                      {ht(
+                        "Draft — not visible to guests"
+                      )}
+                    </option>
+
+                    <option value="published">
+                      {ht(
+                        "Published — live and bookable"
+                      )}
+                    </option>
+
+                    <option value="paused">
+                      {ht(
+                        "Paused — temporarily hidden"
+                      )}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="card">
+                <h2>{ht("Basics")}</h2>
+
+                <div className="field full">
+                  <label htmlFor="name">
+                    {ht(
+                      "Property name"
+                    )}
+                  </label>
+
+                  <input
+                    id="name"
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        name:
+                          event.target
+                            .value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="propertyType">
+                      {ht(
+                        "Property type"
+                      )}
+                    </label>
+
+                    <input
+                      id="propertyType"
+                      value={
+                        form.propertyType
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          propertyType:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="countryCode">
+                      {ht(
+                        "Country code"
+                      )}
+                    </label>
+
+                    <input
+                      id="countryCode"
+                      value={
+                        form.countryCode
+                      }
+                      maxLength={2}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          countryCode:
+                            event.target.value.toUpperCase(),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="city">
+                      {ht("City")}
+                    </label>
+
+                    <input
+                      id="city"
+                      value={form.city}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          city:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="district">
+                      {ht("District")}
+                    </label>
+
+                    <input
+                      id="district"
+                      value={
+                        form.district
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          district:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="field full">
+                  <label htmlFor="description">
+                    {ht("Description")}
+                  </label>
+
+                  <textarea
+                    id="description"
+                    value={
+                      form.description
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        description:
+                          event.target
+                            .value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="card">
+                <h2>
+                  {ht("Private address")}
+                </h2>
+
+                <p className="field-note">
+                  {ht(
+                    "The exact address and coordinates are visible only to the property owner and authorised HOST operations. Guests receive only an approximate map point."
+                  )}
+                </p>
+
+                <div
+                  className="field full"
+                  style={{
+                    marginTop: 16,
+                  }}
+                >
+                  <label htmlFor="addressLine1">
+                    {ht(
+                      "Address line 1"
+                    )}
+                  </label>
+
+                  <input
+                    id="addressLine1"
+                    autoComplete="address-line1"
+                    value={
+                      form.addressLine1
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        addressLine1:
+                          event.target
+                            .value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="field full">
+                  <label htmlFor="addressLine2">
+                    {ht(
+                      "Address line 2"
+                    )}
+                  </label>
+
+                  <input
+                    id="addressLine2"
+                    autoComplete="address-line2"
+                    value={
+                      form.addressLine2
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        addressLine2:
+                          event.target
+                            .value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="postalTown">
+                      {ht(
+                        "Postal town"
+                      )}
+                    </label>
+
+                    <input
+                      id="postalTown"
+                      autoComplete="address-level2"
+                      value={
+                        form.postalTown
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          postalTown:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="county">
+                      {ht("County")}
+                    </label>
+
+                    <input
+                      id="county"
+                      autoComplete="address-level1"
+                      value={
+                        form.county
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          county:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="postcode">
+                      {ht("Postcode")}
+                    </label>
+
+                    <input
+                      id="postcode"
+                      autoComplete="postal-code"
+                      value={
+                        form.postcode
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          postcode:
+                            event.target.value.toUpperCase(),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="latitude">
+                      {ht(
+                        "Exact latitude"
+                      )}
+                    </label>
+
+                    <input
+                      id="latitude"
+                      type="number"
+                      min={-90}
+                      max={90}
+                      step="any"
+                      value={
+                        form.latitude
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          latitude:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="longitude">
+                      {ht(
+                        "Exact longitude"
+                      )}
+                    </label>
+
+                    <input
+                      id="longitude"
+                      type="number"
+                      min={-180}
+                      max={180}
+                      step="any"
+                      value={
+                        form.longitude
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          longitude:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <p className="field-note">
+                  {ht(
+                    "Enter both coordinates or leave both blank. HOST derives the approximate public map point automatically."
+                  )}
+                </p>
+              </div>
+
+              <div className="card">
+                <h2>
+                  {ht("Capacity")}
+                </h2>
+
+                <div className="field-grid cols-3">
+                  <div className="field">
+                    <label htmlFor="maxGuests">
+                      {ht(
+                        "Max guests"
+                      )}
+                    </label>
+
+                    <input
+                      id="maxGuests"
+                      type="number"
+                      min={1}
+                      value={
+                        form.maxGuests
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          maxGuests:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="bedrooms">
+                      {ht("Bedrooms")}
+                    </label>
+
+                    <input
+                      id="bedrooms"
+                      type="number"
+                      min={0}
+                      value={
+                        form.bedrooms
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          bedrooms:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="bathrooms">
+                      {ht(
+                        "Bathrooms"
+                      )}
+                    </label>
+
+                    <input
+                      id="bathrooms"
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={
+                        form.bathrooms
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          bathrooms:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <h2>{ht("Pricing")}</h2>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="nightlyPrice">
+                      {ht(
+                        "Base nightly price"
+                      )}
+                    </label>
+
+                    <input
+                      id="nightlyPrice"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={
+                        form.nightlyPrice
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          nightlyPrice:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="cleaningFee">
+                      {ht(
+                        "Cleaning fee"
+                      )}
+                    </label>
+
+                    <input
+                      id="cleaningFee"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={
+                        form.cleaningFee
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          cleaningFee:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <h2>
+                  {ht("Booking terms")}
+                </h2>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="minStayNights">
+                      {ht(
+                        "Minimum stay"
+                      )}
+                    </label>
+
+                    <input
+                      id="minStayNights"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={
+                        form.minStayNights
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          minStayNights:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="maxStayNights">
+                      {ht(
+                        "Maximum stay"
+                      )}
+                    </label>
+
+                    <input
+                      id="maxStayNights"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={
+                        form.maxStayNights
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          maxStayNights:
+                            Number(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="field full">
+                  <label htmlFor="cancellationPolicyId">
+                    {ht(
+                      "Cancellation policy"
+                    )}
+                  </label>
+
+                  <select
+                    id="cancellationPolicyId"
+                    value={
+                      form.cancellationPolicyId
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        cancellationPolicyId:
+                          event.target
+                            .value,
+                      })
+                    }
+                  >
+                    <option value="">
+                      {ht(
+                        "Select a cancellation policy"
+                      )}
+                    </option>
+
+                    {cancellationPolicies.map(
+                      (policy) => (
+                        <option
+                          key={
+                            policy.id
+                          }
+                          value={
+                            policy.id
+                          }
+                        >
+                          {ht(
+                            policy.name
+                          )}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  {(selectedPolicy?.description ||
+                    property
+                      .cancellationPolicy
+                      ?.description) && (
+                    <p className="field-note">
+                      {ht(
+                        selectedPolicy?.description ??
+                          property
+                            .cancellationPolicy
+                            ?.description ??
+                          ""
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <h2>
+                  {ht("Check-in")}
+                </h2>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="checkInTime">
+                      {ht(
+                        "Check-in time"
+                      )}
+                    </label>
+
+                    <input
+                      id="checkInTime"
+                      type="time"
+                      value={
+                        form.checkInTime
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          checkInTime:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="checkOutTime">
+                      {ht(
+                        "Check-out time"
+                      )}
+                    </label>
+
+                    <input
+                      id="checkOutTime"
+                      type="time"
+                      value={
+                        form.checkOutTime
+                      }
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          checkOutTime:
+                            event.target
+                              .value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="field full">
+                  <label htmlFor="houseRules">
+                    {ht(
+                      "House rules"
+                    )}
+                  </label>
+
+                  <textarea
+                    id="houseRules"
+                    value={
+                      form.houseRules
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        houseRules:
+                          event.target
+                            .value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {allAmenities.length >
+                0 && (
+                <div className="card">
+                  <h2>
+                    {ht("Amenities")}
+                  </h2>
+
+                  <div className="amenity-grid">
+                    {allAmenities.map(
+                      (amenity) => (
+                        <label
+                          className="amenity-item"
+                          key={
+                            amenity.id
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAmenities.has(
+                              amenity.id
+                            )}
+                            onChange={() =>
+                              toggleAmenity(
+                                amenity.id
+                              )
+                            }
+                          />
+
+                          {ht(
+                            amenity.name
+                          )}
+                        </label>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={saving}
+              >
+                {saving
+                  ? ht("Saving…")
+                  : ht(
+                      "Save changes"
+                    )}
+              </button>
+            </form>
+
+            <div
+              className="wrap"
+              style={{ paddingTop: 0 }}
+            >
+              <div className="card">
+                <h2>
+                  {ht("Availability")}
+                </h2>
+
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="blockFrom">
+                      {ht("From")}
+                    </label>
+
+                    <input
+                      id="blockFrom"
+                      type="date"
+                      value={blockFrom}
+                      onChange={(event) =>
+                        setBlockFrom(
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="blockTo">
+                      {ht("To")}
+                    </label>
+
+                    <input
+                      id="blockTo"
+                      type="date"
+                      value={blockTo}
+                      onChange={(event) =>
+                        setBlockTo(
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                {availabilityMessage && (
+                  <div className="success-box">
+                    {
+                      availabilityMessage
+                    }
+                  </div>
+                )}
+
+                <div className="actions-row">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() =>
+                      handleAvailabilityAction(
+                        "block"
+                      )
+                    }
+                    disabled={
+                      availabilityBusy
+                    }
+                  >
+                    {ht(
+                      "Block these dates"
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() =>
+                      handleAvailabilityAction(
+                        "unblock"
+                      )
+                    }
+                    disabled={
+                      availabilityBusy
+                    }
+                  >
+                    {ht(
+                      "Unblock these dates"
+                    )}
+                  </button>
+                </div>
+
+                {blockedDates.length >
+                  0 && (
+                  <>
+                    <p
+                      style={{
+                        color:
+                          "var(--warm-grey)",
+                        fontSize: 12,
+                        marginBottom: 10,
+                        marginTop: 20,
+                      }}
+                    >
+                      {ht(
+                        "Upcoming availability — grey means manually blocked, gold means booked by a guest:"
+                      )}
+                    </p>
+
+                    <AvailabilityCalendar
+                      hostBlockedDates={
+                        new Set(
+                          blockedDates
+                            .filter(
+                              (day) =>
+                                day.source ===
+                                "host"
+                            )
+                            .map(
+                              (day) =>
+                                day.date
+                            )
+                        )
+                      }
+                      bookedDates={
+                        new Set(
+                          blockedDates
+                            .filter(
+                              (day) =>
+                                day.source ===
+                                "booking"
+                            )
+                            .map(
+                              (day) =>
+                                day.date
+                            )
+                        )
+                      }
+                      interactive={false}
+                    />
+                  </>
                 )}
               </div>
             </div>
-
-            <div className="card">
-              <h2>{ht("Check-in")}</h2>
-              <div className="field-grid">
-                <div className="field">
-                  <label htmlFor="checkInTime">
-                    {ht("Check-in time")}
-                  </label>
-                  <input
-                    id="checkInTime"
-                    type="time"
-                    value={form.checkInTime}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        checkInTime: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="checkOutTime">
-                    {ht("Check-out time")}
-                  </label>
-                  <input
-                    id="checkOutTime"
-                    type="time"
-                    value={form.checkOutTime}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        checkOutTime: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="field full">
-                <label htmlFor="houseRules">{ht("House rules")}</label>
-                <textarea
-                  id="houseRules"
-                  value={form.houseRules}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      houseRules: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            {allAmenities.length > 0 && (
-              <div className="card">
-                <h2>{ht("Amenities")}</h2>
-                <div className="amenity-grid">
-                  {allAmenities.map((amenity) => (
-                    <label className="amenity-item" key={amenity.id}>
-                      <input
-                        type="checkbox"
-                        checked={selectedAmenities.has(amenity.id)}
-                        onChange={() => toggleAmenity(amenity.id)}
-                      />
-                      {ht(amenity.name)}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={saving}
-            >
-              {saving ? ht("Saving…") : ht("Save changes")}
-            </button>
-          </form>
-
-          <div className="wrap" style={{ paddingTop: 0 }}>
-            <div className="card">
-              <h2>{ht("Availability")}</h2>
-
-              <div className="field-grid">
-                <div className="field">
-                  <label htmlFor="blockFrom">{ht("From")}</label>
-                  <input
-                    id="blockFrom"
-                    type="date"
-                    value={blockFrom}
-                    onChange={(event) =>
-                      setBlockFrom(event.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="blockTo">{ht("To")}</label>
-                  <input
-                    id="blockTo"
-                    type="date"
-                    value={blockTo}
-                    onChange={(event) => setBlockTo(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              {availabilityMessage && (
-                <div className="success-box">
-                  {availabilityMessage}
-                </div>
-              )}
-
-              <div className="actions-row">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => handleAvailabilityAction("block")}
-                  disabled={availabilityBusy}
-                >
-                  {ht("Block these dates")}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => handleAvailabilityAction("unblock")}
-                  disabled={availabilityBusy}
-                >
-                  {ht("Unblock these dates")}
-                </button>
-              </div>
-
-              {blockedDates.length > 0 && (
-                <>
-                  <p
-                    style={{
-                      color: "var(--warm-grey)",
-                      fontSize: 12,
-                      marginBottom: 10,
-                      marginTop: 20,
-                    }}
-                  >
-                    {ht(
-                      "Upcoming availability — grey means manually blocked, gold means booked by a guest:"
-                    )}
-                  </p>
-
-                  <AvailabilityCalendar
-                    hostBlockedDates={
-                      new Set(
-                        blockedDates
-                          .filter((day) => day.source === "host")
-                          .map((day) => day.date)
-                      )
-                    }
-                    bookedDates={
-                      new Set(
-                        blockedDates
-                          .filter((day) => day.source === "booking")
-                          .map((day) => day.date)
-                      )
-                    }
-                    interactive={false}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
     </div>
   );
 }

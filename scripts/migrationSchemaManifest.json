@@ -2202,24 +2202,94 @@
   "017_security_foundation.sql": {
     "tables": {
       "users": [
-        { "name": "session_version", "dataType": "integer", "nullable": false, "defaultExpression": "1" },
-        { "name": "password_changed_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null }
+        {
+          "name": "session_version",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "password_changed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
       ],
       "email_verification_tokens": [
-        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
-        { "name": "user_id", "dataType": "uuid", "nullable": false, "defaultExpression": null },
-        { "name": "token_hash", "dataType": "text", "nullable": false, "defaultExpression": null },
-        { "name": "expires_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": null },
-        { "name": "used_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null },
-        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" }
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "token_hash",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "used_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
       ],
       "security_events": [
-        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
-        { "name": "user_id", "dataType": "uuid", "nullable": true, "defaultExpression": null },
-        { "name": "event_type", "dataType": "text", "nullable": false, "defaultExpression": null },
-        { "name": "outcome", "dataType": "text", "nullable": false, "defaultExpression": null },
-        { "name": "metadata", "dataType": "jsonb", "nullable": false, "defaultExpression": "'{}'::jsonb" },
-        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" }
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "event_type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "metadata",
+          "dataType": "jsonb",
+          "nullable": false,
+          "defaultExpression": "'{}'::jsonb"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
       ]
     },
     "constraints": {},
@@ -2235,24 +2305,104 @@
   "018_account_security.sql": {
     "tables": {
       "auth_sessions": [
-        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
-        { "name": "user_id", "dataType": "uuid", "nullable": false, "defaultExpression": null },
-        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" },
-        { "name": "last_seen_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" },
-        { "name": "expires_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": null },
-        { "name": "revoked_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null },
-        { "name": "revoke_reason", "dataType": "text", "nullable": true, "defaultExpression": null }
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "last_seen_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "revoked_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "revoke_reason",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
       ],
       "webauthn_credentials": [
-        { "name": "id", "dataType": "uuid", "nullable": false, "defaultExpression": "gen_random_uuid()" },
-        { "name": "user_id", "dataType": "uuid", "nullable": false, "defaultExpression": null },
-        { "name": "credential_id", "dataType": "text", "nullable": false, "defaultExpression": null },
-        { "name": "public_key", "dataType": "text", "nullable": false, "defaultExpression": null },
-        { "name": "counter", "dataType": "bigint", "nullable": false, "defaultExpression": "0" },
-        { "name": "transports", "dataType": "ARRAY", "nullable": false, "defaultExpression": "'{}'::text[]" },
-        { "name": "label", "dataType": "text", "nullable": true, "defaultExpression": null },
-        { "name": "created_at", "dataType": "timestamp with time zone", "nullable": false, "defaultExpression": "now()" },
-        { "name": "last_used_at", "dataType": "timestamp with time zone", "nullable": true, "defaultExpression": null }
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "credential_id",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "public_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "counter",
+          "dataType": "bigint",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "transports",
+          "dataType": "ARRAY",
+          "nullable": false,
+          "defaultExpression": "'{}'::text[]"
+        },
+        {
+          "name": "label",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "last_used_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
       ]
     },
     "constraints": {},
@@ -2267,13 +2417,71 @@
   "025_language_preferences.sql": {
     "tables": {
       "users": [
-        { "name": "preferred_locale", "dataType": "text", "nullable": false, "defaultExpression": "'en'::text" }
+        {
+          "name": "preferred_locale",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'en'::text"
+        }
       ]
     },
     "constraints": {},
     "indexes": {},
     "functions": {},
     "triggers": {},
+    "extensions": []
+  },
+  "026_property_location.sql": {
+    "tables": {
+      "properties": [
+        {
+          "name": "address_line_1",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "address_line_2",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "postal_town",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "county",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "postcode",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "location_updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {
+      "idx_properties_public_location": "CREATE INDEX idx_properties_public_location ON properties USING gist (public_location)"
+    },
+    "functions": {
+      "derive_property_public_location": "CREATE OR REPLACE FUNCTION derive_property_public_location() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF NEW.private_location IS NULL THEN NEW.public_location := NULL; ELSE NEW.public_location := ST_SnapToGrid(NEW.private_location, 0.01); END IF; NEW.location_updated_at := NOW(); RETURN NEW; END; $function$"
+    },
+    "triggers": {
+      "properties_derive_public_location@properties": "CREATE TRIGGER properties_derive_public_location BEFORE INSERT OR UPDATE OF private_location ON properties FOR EACH ROW EXECUTE FUNCTION derive_property_public_location()"
+    },
     "extensions": []
   }
 }

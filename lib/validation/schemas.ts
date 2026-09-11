@@ -1,21 +1,26 @@
 import { z } from "zod";
 
-/**
- * Every route validates input before touching business logic and never
- * exposes raw internal errors to the caller.
- */
-
 export const registerSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  email: z.string().trim().toLowerCase().email(
+    "Enter a valid email address"
+  ),
   password: z.string()
     .min(12, "Password must be at least 12 characters")
     .max(200, "Password is too long")
-    .regex(/[A-Za-z]/, "Password must include at least one letter")
-    .regex(/[0-9]/, "Password must include at least one number"),
+    .regex(
+      /[A-Za-z]/,
+      "Password must include at least one letter"
+    )
+    .regex(
+      /[0-9]/,
+      "Password must include at least one number"
+    ),
 });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Enter your current password").max(200),
+  currentPassword: z.string()
+    .min(1, "Enter your current password")
+    .max(200),
   newPassword: registerSchema.shape.password,
   confirmPassword: z.string().max(200),
 })
@@ -35,7 +40,9 @@ export const changePasswordSchema = z.object({
   );
 
 export const createBookingSchema = z.object({
-  propertyId: z.string().uuid("propertyId must be a valid property ID"),
+  propertyId: z.string().uuid(
+    "propertyId must be a valid property ID"
+  ),
   checkIn: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
     "checkIn must be YYYY-MM-DD"
@@ -45,7 +52,10 @@ export const createBookingSchema = z.object({
     "checkOut must be YYYY-MM-DD"
   ),
   guests: z.number().int().min(1).max(50),
-  guestName: z.string().trim().min(1, "Guest name is required").max(200),
+  guestName: z.string()
+    .trim()
+    .min(1, "Guest name is required")
+    .max(200),
   guestEmail: z.string()
     .trim()
     .toLowerCase()
@@ -77,7 +87,8 @@ export const createBookingSchema = z.object({
       );
     },
     {
-      message: "checkIn cannot be more than 12 months in advance",
+      message:
+        "checkIn cannot be more than 12 months in advance",
       path: ["checkIn"],
     }
   );
@@ -87,7 +98,9 @@ export const cancelBookingSchema = z.object({
 });
 
 export const createPaymentIntentSchema = z.object({
-  bookingId: z.string().uuid("bookingId must be a valid booking ID"),
+  bookingId: z.string().uuid(
+    "bookingId must be a valid booking ID"
+  ),
 });
 
 export const hostOnboardingStartSchema = z.object({
@@ -105,7 +118,9 @@ export const hostOnboardingStartSchema = z.object({
 });
 
 export const adminRefundSchema = z.object({
-  bookingId: z.string().uuid("bookingId must be a valid booking ID"),
+  bookingId: z.string().uuid(
+    "bookingId must be a valid booking ID"
+  ),
   amountMinor: z.number()
     .int()
     .positive(
@@ -159,10 +174,16 @@ export const propertySearchQuerySchema = z.object({
   district: z.string().trim().min(1).max(100).optional(),
   guests: z.coerce.number().int().min(1).max(50).optional(),
   checkIn: z.string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "checkIn must be YYYY-MM-DD")
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "checkIn must be YYYY-MM-DD"
+    )
     .optional(),
   checkOut: z.string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "checkOut must be YYYY-MM-DD")
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "checkOut must be YYYY-MM-DD"
+    )
     .optional(),
 })
   .refine(
@@ -192,16 +213,27 @@ const VALID_PROPERTY_STATUSES = [
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/**
- * Postgres TIME values may be returned as HH:MM:SS. Normalize those
- * values to HH:MM before validation so a freshly loaded property can be
- * saved without an unrelated time-format failure.
- */
 const timeField = () =>
   z.preprocess(
     (value) =>
-      typeof value === "string" ? value.slice(0, 5) : value,
+      typeof value === "string"
+        ? value.slice(0, 5)
+        : value,
     z.string().regex(TIME_PATTERN, "must be HH:MM")
+  );
+
+const coordinateField = (
+  minimum: number,
+  maximum: number,
+  message: string
+) =>
+  z.preprocess(
+    (value) => value === "" ? null : value,
+    z.coerce.number()
+      .min(minimum, message)
+      .max(maximum, message)
+      .nullable()
+      .optional()
   );
 
 const propertySchema = z.object({
@@ -228,7 +260,10 @@ const propertySchema = z.object({
     (value) => value === "" ? undefined : value,
     z.string()
       .trim()
-      .length(2, "Country code must be a 2-letter ISO code")
+      .length(
+        2,
+        "Country code must be a 2-letter ISO code"
+      )
       .optional()
   ),
 
@@ -241,7 +276,9 @@ const propertySchema = z.object({
   bathrooms: z.coerce.number().min(0),
 
   nightlyPrice: z.coerce.number()
-    .positive("Nightly price must be greater than zero"),
+    .positive(
+      "Nightly price must be greater than zero"
+    ),
 
   cleaningFee: z.coerce.number().min(0).optional(),
 
@@ -260,16 +297,59 @@ const propertySchema = z.object({
   cancellationPolicyId: z.preprocess(
     (value) => value === "" ? undefined : value,
     z.string()
-      .uuid("Cancellation policy must be a valid ID")
+      .uuid(
+        "Cancellation policy must be a valid ID"
+      )
       .nullable()
       .optional()
+  ),
+
+  addressLine1: z.string()
+    .trim()
+    .max(200, "Address line 1 is too long")
+    .optional(),
+
+  addressLine2: z.string()
+    .trim()
+    .max(200, "Address line 2 is too long")
+    .optional(),
+
+  postalTown: z.string()
+    .trim()
+    .max(100, "Postal town is too long")
+    .optional(),
+
+  county: z.string()
+    .trim()
+    .max(100, "County is too long")
+    .optional(),
+
+  postcode: z.string()
+    .trim()
+    .toUpperCase()
+    .max(12, "Postcode is too long")
+    .optional(),
+
+  latitude: coordinateField(
+    -90,
+    90,
+    "Latitude must be between -90 and 90"
+  ),
+
+  longitude: coordinateField(
+    -180,
+    180,
+    "Longitude must be between -180 and 180"
   ),
 
   currency: z.preprocess(
     (value) => value === "" ? undefined : value,
     z.string()
       .trim()
-      .length(3, "Currency must be a 3-letter ISO code")
+      .length(
+        3,
+        "Currency must be a 3-letter ISO code"
+      )
       .optional()
   ),
 
@@ -288,14 +368,32 @@ const stayRangeIsValid = (data: {
   data.maxStayNights === undefined ||
   data.minStayNights <= data.maxStayNights;
 
-export const createPropertySchema = propertySchema.refine(
-  stayRangeIsValid,
-  {
+const locationPairIsValid = (data: {
+  latitude?: number | null;
+  longitude?: number | null;
+}) => {
+  const latitudeMissing =
+    data.latitude === undefined ||
+    data.latitude === null;
+
+  const longitudeMissing =
+    data.longitude === undefined ||
+    data.longitude === null;
+
+  return latitudeMissing === longitudeMissing;
+};
+
+export const createPropertySchema = propertySchema
+  .refine(stayRangeIsValid, {
     message:
       "Maximum stay must be greater than or equal to minimum stay",
     path: ["maxStayNights"],
-  }
-);
+  })
+  .refine(locationPairIsValid, {
+    message:
+      "Latitude and longitude must be provided together",
+    path: ["longitude"],
+  });
 
 export const updatePropertySchema = propertySchema
   .partial()
@@ -303,6 +401,11 @@ export const updatePropertySchema = propertySchema
     message:
       "Maximum stay must be greater than or equal to minimum stay",
     path: ["maxStayNights"],
+  })
+  .refine(locationPairIsValid, {
+    message:
+      "Latitude and longitude must be provided together",
+    path: ["longitude"],
   });
 
 const complianceCategorySchema = z.enum([
@@ -315,33 +418,44 @@ const complianceCategorySchema = z.enum([
   "licences_permissions",
 ]);
 
-const conditionallyApplicableComplianceCategories = new Set([
-  "gas_safety",
-  "licences_permissions",
-]);
+const conditionallyApplicableComplianceCategories =
+  new Set([
+    "gas_safety",
+    "licences_permissions",
+  ]);
 
 export const ownerComplianceSchema = z.object({
   submit: z.boolean().default(false),
+
   items: z.array(
     z.object({
       category: complianceCategorySchema,
-      applicability: z.enum(["required", "not_applicable"]),
+      applicability: z.enum([
+        "required",
+        "not_applicable",
+      ]),
       ownerDeclaredCompliant: z.boolean(),
+
       evidenceUrl: z.string()
         .trim()
         .max(2048)
         .nullable()
         .optional(),
+
       evidenceReference: z.string()
         .trim()
         .max(200)
         .nullable()
         .optional(),
+
       validUntil: z.union([
-        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        z.string().regex(
+          /^\d{4}-\d{2}-\d{2}$/
+        ),
         z.literal(""),
         z.null(),
       ]).optional(),
+
       ownerNote: z.string()
         .trim()
         .max(1000)
@@ -352,19 +466,28 @@ export const ownerComplianceSchema = z.object({
     .length(7)
     .refine(
       (items) =>
-        new Set(items.map((item) => item.category)).size === 7,
+        new Set(
+          items.map((item) => item.category)
+        ).size === 7,
       "Each compliance category must appear exactly once"
     ),
 }).superRefine((data, context) => {
   data.items.forEach((item, index) => {
     if (
       item.applicability === "not_applicable" &&
-      !conditionallyApplicableComplianceCategories.has(item.category)
+      !conditionallyApplicableComplianceCategories.has(
+        item.category
+      )
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["items", index, "applicability"],
-        message: "This core compliance check is always required",
+        path: [
+          "items",
+          index,
+          "applicability",
+        ],
+        message:
+          "This core compliance check is always required",
       });
     }
 
@@ -372,12 +495,15 @@ export const ownerComplianceSchema = z.object({
       data.submit &&
       item.applicability === "required"
     ) {
-      const evidenceUrl = item.evidenceUrl ?? "";
+      const evidenceUrl =
+        item.evidenceUrl ?? "";
+
       let validHttpsUrl = false;
 
       try {
         validHttpsUrl =
-          new URL(evidenceUrl).protocol === "https:";
+          new URL(evidenceUrl).protocol ===
+          "https:";
       } catch {
         validHttpsUrl = false;
       }
@@ -385,8 +511,13 @@ export const ownerComplianceSchema = z.object({
       if (!validHttpsUrl) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["items", index, "evidenceUrl"],
-          message: "Enter a valid HTTPS evidence link",
+          path: [
+            "items",
+            index,
+            "evidenceUrl",
+          ],
+          message:
+            "Enter a valid HTTPS evidence link",
         });
       }
     }
@@ -394,19 +525,28 @@ export const ownerComplianceSchema = z.object({
 });
 
 export const adminComplianceReviewSchema = z.object({
-  decision: z.enum(["approved", "changes_required"]),
+  decision: z.enum([
+    "approved",
+    "changes_required",
+  ]),
+
   note: z.string()
     .trim()
-    .min(8, "Review note must be at least 8 characters")
+    .min(
+      8,
+      "Review note must be at least 8 characters"
+    )
     .max(2000),
 });
 
 export const availabilityActionSchema = z.object({
   action: z.enum(["block", "unblock"]),
+
   checkIn: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
     "checkIn must be YYYY-MM-DD"
   ),
+
   checkOut: z.string().regex(
     /^\d{4}-\d{2}-\d{2}$/,
     "checkOut must be YYYY-MM-DD"
@@ -414,7 +554,8 @@ export const availabilityActionSchema = z.object({
 }).refine(
   (data) => data.checkOut > data.checkIn,
   {
-    message: "checkOut must be after checkIn",
+    message:
+      "checkOut must be after checkIn",
     path: ["checkOut"],
   }
 );
@@ -428,17 +569,25 @@ export const notificationPreferencesSchema = z.object({
 export const accountProfileSchema = z.object({
   fullName: z.string()
     .trim()
-    .max(120, "Name must be 120 characters or fewer")
+    .max(
+      120,
+      "Name must be 120 characters or fewer"
+    )
     .nullable(),
+
   phone: z.string()
     .trim()
-    .max(30, "Phone number must be 30 characters or fewer")
+    .max(
+      30,
+      "Phone number must be 30 characters or fewer"
+    )
     .nullable(),
 });
 
 export const savePropertySchema = z.object({
-  propertyId: z.string()
-    .uuid("propertyId must be a valid property ID"),
+  propertyId: z.string().uuid(
+    "propertyId must be a valid property ID"
+  ),
 });
 
 export const passwordResetRequestSchema = z.object({
@@ -449,15 +598,30 @@ export const passwordResetRequestSchema = z.object({
 });
 
 export const passwordResetConfirmSchema = z.object({
-  token: z.string().min(1, "token is required"),
+  token: z.string().min(
+    1,
+    "token is required"
+  ),
+
   newPassword: z.string()
-    .min(12, "Password must be at least 12 characters")
+    .min(
+      12,
+      "Password must be at least 12 characters"
+    )
     .max(200, "Password is too long")
-    .regex(/[A-Za-z]/, "Password must include at least one letter")
-    .regex(/[0-9]/, "Password must include at least one number"),
+    .regex(
+      /[A-Za-z]/,
+      "Password must include at least one letter"
+    )
+    .regex(
+      /[0-9]/,
+      "Password must include at least one number"
+    ),
 });
 
-export function validationErrorResponse(error: z.ZodError) {
+export function validationErrorResponse(
+  error: z.ZodError
+) {
   return {
     success: false as const,
     error: {
