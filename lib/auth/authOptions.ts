@@ -139,7 +139,7 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user?.id) {
         // Only re-resolve roles at sign-in time, not on every request —
         // role changes (e.g. becoming a host) take effect on next login.
@@ -158,6 +158,13 @@ export const authOptions: NextAuthOptions = {
           [sessionId, user.id]
         );
         token.sessionId = sessionId;
+      }
+
+      if (trigger === "update" && token.userId) {
+        const refreshed = await resolveRoles(token.userId as string);
+        token.roles = refreshed.roles;
+        token.hostProfileId = refreshed.hostProfileId;
+        token.adminRole = refreshed.adminRole;
       }
       return token;
     },

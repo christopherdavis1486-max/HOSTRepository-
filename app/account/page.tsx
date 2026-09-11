@@ -318,7 +318,7 @@ export default function AccountPage() {
                 <a href="/trips">{ui("myTrips")}</a>
                 <a href="/favourites">{ui("savedStays")}</a>
                 {isHost && <a href="/host/dashboard">{ui("hostDashboard")}</a>}
-                {!isHost && <a href="/hosts/onboarding/connect-account">{ui("becomeHost")}</a>}
+                {!isHost && <a href="/host/onboarding/connect-account">{ui("becomeHost")}</a>}
               </div>
             </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
 
 /**
@@ -22,12 +23,14 @@ type Status = "checking" | "active" | "pending" | "not_connected" | "unauthentic
 
 export default function HostOnboardingCompletePage() {
   const { ht } = useHostI18n();
+  const { update } = useSession();
   const [status, setStatus] = useState<Status>("checking");
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/hosts/onboarding/status", { credentials: "include" })
+    update()
+      .then(() => fetch("/api/hosts/onboarding/status", { credentials: "include" }))
       .then((r) => r.json())
       .then((data) => {
         if (!data.success) {
@@ -37,7 +40,7 @@ export default function HostOnboardingCompletePage() {
         setStatus(data.status as Status);
       })
       .catch(() => setStatus("error"));
-  }, []);
+  }, [update]);
 
   const handleResume = async () => {
     setResuming(true);
@@ -102,7 +105,7 @@ export default function HostOnboardingCompletePage() {
           <>
             <h1 className="display">{ht("Your payout account is connected.")}</h1>
             <p>{ht("You're ready to receive bookings and payouts.")}</p>
-            <a href="/" className="btn-primary">{ht("Continue")}</a>
+            <a href="/host/dashboard" className="btn-primary">{ht("Continue")}</a>
           </>
         )}
 
