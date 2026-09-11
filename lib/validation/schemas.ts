@@ -65,7 +65,11 @@ export const createPaymentIntentSchema = z.object({
 });
 
 export const hostOnboardingStartSchema = z.object({
-  country: z.string().length(2, "country must be a 2-letter ISO code (e.g. GB, DE)").toUpperCase(),
+  country: z.string()
+    .trim()
+    .length(2, "country must be a 2-letter ISO code")
+    .toUpperCase()
+    .refine((country) => country === "GB", { message: "Pilot host onboarding is currently available in GB only" }),
 });
 
 export const adminRefundSchema = z.object({

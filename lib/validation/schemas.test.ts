@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createBookingSchema } from "./schemas";
+import { createBookingSchema, hostOnboardingStartSchema } from "./schemas";
 
 const validBase = {
   propertyId: "00000000-0000-0000-0000-000000000000",
@@ -53,5 +53,22 @@ test("a check-in exactly at the 12-month boundary is accepted", () => {
 
 test("checkOut must still be after checkIn, unaffected by the new checks", () => {
   const result = createBookingSchema.safeParse({ ...validBase, checkIn: isoPlusDays(10), checkOut: isoPlusDays(5) });
+  assert.equal(result.success, false);
+});
+
+
+test("GB host onboarding is accepted", () => {
+  const result = hostOnboardingStartSchema.safeParse({ country: "GB" });
+  assert.equal(result.success, true);
+});
+
+test("lowercase gb is normalised and accepted", () => {
+  const result = hostOnboardingStartSchema.safeParse({ country: "gb" });
+  assert.equal(result.success, true);
+  if (result.success) assert.equal(result.data.country, "GB");
+});
+
+test("non-GB host onboarding is rejected during the pilot", () => {
+  const result = hostOnboardingStartSchema.safeParse({ country: "DE" });
   assert.equal(result.success, false);
 });
