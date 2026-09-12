@@ -1,8 +1,9 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
-import { db } from "../db";
+import { db, withTransaction } from "../db";
 import { blockDates, unblockDates, listAvailabilityForProperty } from "./hostAvailability";
+import { hashToBigint } from "../utils/advisoryLock";
 
 async function createTestProperty(suffix: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`avail-host-${suffix}@test.host`]);
@@ -94,4 +95,144 @@ test("listAvailabilityForProperty only returns today-or-later dates, distinguish
   const byDate = Object.fromEntries(availability.map((d) => [d.date, d]));
   assert.equal(byDate["2026-12-01"].source, "host");
   assert.equal(byDate["2026-12-05"].source, "booking");
+});
+
+
+function futureIsoDate(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+test("calendar-sync rows cannot be overwritten or removed by host actions", async () => {
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const propertyId = await createTestProperty(suffix);
+  const date = futureIsoDate(60);
+  const checkOut = futureIsoDate(61);
+
+  await db.query(
+    `INSERT INTO availability_blocks (
+       property_id,
+       date,
+       status,
+       source
+     )
+     VALUES ($1, $2, 'blocked', 'ical_sync')`,
+    [propertyId, date]
+  );
+
+  const blockResult = await blockDates(
+    propertyId,
+    date,
+    checkOut
+  );
+
+  assert.deepEqual(blockResult.blocked, []);
+  assert.deepEqual(blockResult.skipped, [
+    {
+      date,
+      reason: "managed by calendar sync",
+    },
+  ]);
+
+  const unblockResult = await unblockDates(
+    propertyId,
+    date,
+    checkOut
+  );
+
+  assert.deepEqual(unblockResult.blocked, []);
+  assert.deepEqual(unblockResult.skipped, [
+    {
+      date,
+      reason: "managed by calendar sync",
+    },
+  ]);
+
+  const row = await db.query(
+    `SELECT status, source
+     FROM availability_blocks
+     WHERE property_id = $1
+       AND date = $2`,
+    [propertyId, date]
+  );
+
+  assert.equal(row.rows.length, 1);
+  assert.equal(row.rows[0].status, "blocked");
+  assert.equal(row.rows[0].source, "ical_sync");
+});
+
+test("host blocking serializes against a concurrent booking write", async () => {
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const propertyId = await createTestProperty(suffix);
+  const date = futureIsoDate(70);
+  const checkOut = futureIsoDate(71);
+
+  let signalLockAcquired!: () => void;
+  const lockAcquired = new Promise<void>((resolve) => {
+    signalLockAcquired = resolve;
+  });
+
+  let releaseBookingLock!: () => void;
+  const bookingMayContinue = new Promise<void>(
+    (resolve) => {
+      releaseBookingLock = resolve;
+    }
+  );
+
+  const bookingWrite = withTransaction(
+    async (client) => {
+      await client.query(
+        `SELECT pg_advisory_xact_lock($1)`,
+        [hashToBigint(propertyId)]
+      );
+
+      signalLockAcquired();
+      await bookingMayContinue;
+
+      await client.query(
+        `INSERT INTO availability_blocks (
+           property_id,
+           date,
+           status,
+           source
+         )
+         VALUES ($1, $2, 'booked', 'booking')`,
+        [propertyId, date]
+      );
+    }
+  );
+
+  await lockAcquired;
+
+  const hostWrite = blockDates(
+    propertyId,
+    date,
+    checkOut
+  );
+
+  releaseBookingLock();
+
+  await bookingWrite;
+  const result = await hostWrite;
+
+  assert.deepEqual(result.blocked, []);
+  assert.deepEqual(result.skipped, [
+    {
+      date,
+      reason: "already booked",
+    },
+  ]);
+
+  const row = await db.query(
+    `SELECT status, source
+     FROM availability_blocks
+     WHERE property_id = $1
+       AND date = $2`,
+    [propertyId, date]
+  );
+
+  assert.equal(row.rows.length, 1);
+  assert.equal(row.rows[0].status, "booked");
+  assert.equal(row.rows[0].source, "booking");
 });

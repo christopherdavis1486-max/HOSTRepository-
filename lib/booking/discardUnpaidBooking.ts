@@ -1,4 +1,5 @@
 import { withTransaction } from "../db";
+import { hashToBigint } from "../utils/advisoryLock";
 import { BookingError } from "./types";
 
 export type DiscardEligibility = {
@@ -37,6 +38,11 @@ export async function discardUnpaidBooking(bookingId: string, guestId: string) {
     if (!result.rows[0]) throw new BookingError("BOOKING_NOT_FOUND", "Booking does not exist");
     const booking = result.rows[0];
     assertDiscardableUnpaidBooking(booking);
+
+    await client.query(
+      `SELECT pg_advisory_xact_lock($1)`,
+      [hashToBigint(booking.property_id)]
+    );
 
     await client.query(
       `UPDATE availability_blocks SET status = 'available', source = 'host'

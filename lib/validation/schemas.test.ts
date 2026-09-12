@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  availabilityActionSchema,
   createBookingSchema,
   createPropertySchema,
   hostOnboardingStartSchema,
@@ -252,4 +253,56 @@ test("an empty cancellation policy selection is accepted as undefined", () => {
   if (result.success) {
     assert.equal(result.data.cancellationPolicyId, undefined);
   }
+});
+
+test("availability accepts a bounded future range", () => {
+  const result = availabilityActionSchema.safeParse({
+    action: "block",
+    checkIn: isoPlusDays(1),
+    checkOut: isoPlusDays(5),
+  });
+
+  assert.equal(result.success, true);
+});
+
+test("availability rejects a past start date", () => {
+  const result = availabilityActionSchema.safeParse({
+    action: "block",
+    checkIn: isoPlusDays(-2),
+    checkOut: isoPlusDays(2),
+  });
+
+  assert.equal(result.success, false);
+});
+
+test("availability rejects impossible calendar dates", () => {
+  const result = availabilityActionSchema.safeParse({
+    action: "block",
+    checkIn: "2027-02-30",
+    checkOut: "2027-03-02",
+  });
+
+  assert.equal(result.success, false);
+});
+
+test("availability requires check-out after check-in", () => {
+  const date = isoPlusDays(5);
+
+  const result = availabilityActionSchema.safeParse({
+    action: "unblock",
+    checkIn: date,
+    checkOut: date,
+  });
+
+  assert.equal(result.success, false);
+});
+
+test("availability rejects ranges beyond the 12-month horizon", () => {
+  const result = availabilityActionSchema.safeParse({
+    action: "block",
+    checkIn: isoPlusDays(1),
+    checkOut: isoPlusDays(370),
+  });
+
+  assert.equal(result.success, false);
 });

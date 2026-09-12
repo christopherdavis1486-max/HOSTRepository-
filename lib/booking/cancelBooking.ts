@@ -1,4 +1,5 @@
 import { withTransaction } from "../db";
+import { hashToBigint } from "../utils/advisoryLock";
 import { calculateCancellation } from "./cancellationEngine";
 import { BookingError } from "./types";
 import { initiateRefund } from "../payments/refund";
@@ -35,6 +36,11 @@ export async function cancelBooking(input: CancelBookingInput) {
     if (!["confirmed", "pending_payment"].includes(b.status)) {
       throw new BookingError("NOT_CANCELLABLE", `Booking status '${b.status}' cannot be cancelled`);
     }
+
+    await client.query(
+      `SELECT pg_advisory_xact_lock($1)`,
+      [hashToBigint(b.property_id)]
+    );
 
     const policy = { id: "snapshot", name: "snapshot", rules: b.cancellation_policy_snapshot };
     const outcome = calculateCancellation(policy, b.check_in, b.guest_total_minor, b.host_payout_minor);

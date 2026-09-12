@@ -20,7 +20,7 @@ async function createTestProperty(suffix: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`race-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
   const property = await db.query(
-    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'Race Condition Test Property', 'Liverpool', 'GBP', 100, 4, 'published') RETURNING id`,
+    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'Race Condition Test Property', 'Liverpool', 'GBP', 100, 4, 'published', 'approved') RETURNING id`,
     [hostProfile.rows[0].id]
   );
   return property.rows[0].id as string;

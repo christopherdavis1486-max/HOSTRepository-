@@ -21,12 +21,12 @@ import { db } from "@/lib/db";
  * variable the tests control.
  */
 
-let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[] } } | null = null;
+let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[]; sessionId: string; sessionVersion: number } } | null = null;
 let GET: typeof import("./route").GET;
 let POST: typeof import("./route").POST;
 
 before(async () => {
-  mock.module("next-auth", { namedExports: { getServerSession: async () => mockSession } });
+  mock.module("next-auth", { exports: { getServerSession: async () => mockSession } } as any);
   ({ GET, POST } = await import("./route"));
 
   const check = await db.query(`SELECT COUNT(*) FROM fee_configs WHERE active = TRUE`);
@@ -44,10 +44,35 @@ async function createHostAndProperty(suffix: string) {
   return { hostProfileId: hostProfile.rows[0].id as string, propertyId: property.rows[0].id as string, userId: hostUser.rows[0].id as string };
 }
 
+async function createAuthenticatedSession(
+  userId: string,
+  hostProfileId: string
+) {
+  const sessionRow = await db.query(
+    `INSERT INTO auth_sessions (
+       user_id,
+       expires_at
+     )
+     VALUES ($1, NOW() + INTERVAL '1 day')
+     RETURNING id`,
+    [userId]
+  );
+
+  return {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles: ["host"],
+      sessionId: sessionRow.rows[0].id as string,
+      sessionVersion: 1,
+    },
+  };
+}
+
 test("HTTP END-TO-END: the exact reported lifecycle — block 2026-12-04→2026-12-06 through the real route, confirm DB, unblock through the real route, confirm both rows removed and a fresh read reports availability", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const { hostProfileId, propertyId, userId } = await createHostAndProperty(suffix);
-  mockSession = { user: { id: userId, hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(userId, hostProfileId);
 
   // STEP 1: block, through the real POST route handler.
   const blockRequest = new NextRequest(`http://localhost/api/host/properties/${propertyId}/availability`, {
@@ -96,7 +121,7 @@ test("HTTP END-TO-END: the exact reported lifecycle — block 2026-12-04→2026-
 test("HTTP END-TO-END: attempting to unblock a guest-booked night through the real route does not remove the booking-derived availability record", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const { hostProfileId, propertyId, userId } = await createHostAndProperty(suffix);
-  mockSession = { user: { id: userId, hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(userId, hostProfileId);
 
   // A real guest booking's availability lock — exactly what
   // createBooking.ts's own upsert writes.
@@ -127,7 +152,7 @@ test("HTTP END-TO-END: a different host cannot unblock another host's property t
 
   await db.query(`INSERT INTO availability_blocks (property_id, date, status, source) VALUES ($1, '2026-12-15', 'blocked', 'host')`, [a.propertyId]);
 
-  mockSession = { user: { id: b.userId, hostProfileId: b.hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(b.userId, b.hostProfileId);
   const request = new NextRequest(`http://localhost/api/host/properties/${a.propertyId}/availability`, {
     method: "POST",
     body: JSON.stringify({ action: "unblock", checkIn: "2026-12-15", checkOut: "2026-12-16" }),

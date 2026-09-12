@@ -55,6 +55,7 @@ const MIGRATION_FILES = [
   "026_property_location.sql",
   "027_property_images.sql",
   "028_listing_readiness.sql",
+  "029_availability_hardening.sql",
 ];
 
 function serializeSnapshot(snapshot: SchemaSnapshot) {

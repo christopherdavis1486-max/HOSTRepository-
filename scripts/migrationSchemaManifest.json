@@ -2661,5 +2661,17 @@
       "property_images_invalidate_pilot_review@property_images": "CREATE TRIGGER property_images_invalidate_pilot_review AFTER INSERT OR DELETE OR UPDATE ON property_images FOR EACH ROW EXECUTE FUNCTION invalidate_property_image_pilot_review()"
     },
     "extensions": []
+  },
+  "029_availability_hardening.sql": {
+    "tables": {},
+    "constraints": {
+      "availability_blocks_source_check": "CHECK ((source = ANY (ARRAY['host'::text, 'booking'::text, 'ical_sync'::text])))",
+      "availability_blocks_state_source_check": "CHECK ((((status = 'booked'::text) AND (source = 'booking'::text)) OR ((status = 'blocked'::text) AND (source = ANY (ARRAY['host'::text, 'ical_sync'::text]))) OR ((status = 'available'::text) AND (source = ANY (ARRAY['host'::text, 'ical_sync'::text])))))",
+      "availability_blocks_status_check": "CHECK ((status = ANY (ARRAY['available'::text, 'blocked'::text, 'booked'::text])))"
+    },
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
   }
 }

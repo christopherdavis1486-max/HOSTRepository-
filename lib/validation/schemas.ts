@@ -560,26 +560,106 @@ export const adminComplianceReviewSchema = z.object({
     .max(2000),
 });
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function isRealIsoDate(value: string): boolean {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
 export const availabilityActionSchema = z.object({
   action: z.enum(["block", "unblock"]),
 
   checkIn: z.string().regex(
-    /^\d{4}-\d{2}-\d{2}$/,
+    ISO_DATE_PATTERN,
     "checkIn must be YYYY-MM-DD"
   ),
 
   checkOut: z.string().regex(
-    /^\d{4}-\d{2}-\d{2}$/,
+    ISO_DATE_PATTERN,
     "checkOut must be YYYY-MM-DD"
   ),
-}).refine(
-  (data) => data.checkOut > data.checkIn,
-  {
-    message:
-      "checkOut must be after checkIn",
-    path: ["checkOut"],
+}).superRefine((data, context) => {
+  const checkInIsValid = isRealIsoDate(data.checkIn);
+  const checkOutIsValid = isRealIsoDate(data.checkOut);
+
+  if (!checkInIsValid) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "checkIn must be a real calendar date",
+      path: ["checkIn"],
+    });
   }
-);
+
+  if (!checkOutIsValid) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "checkOut must be a real calendar date",
+      path: ["checkOut"],
+    });
+  }
+
+  if (!checkInIsValid || !checkOutIsValid) return;
+
+  if (data.checkOut <= data.checkIn) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "checkOut must be after checkIn",
+      path: ["checkOut"],
+    });
+
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (data.checkIn < today) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "checkIn cannot be in the past",
+      path: ["checkIn"],
+    });
+  }
+
+  const maximumDate = new Date(`${today}T00:00:00Z`);
+  maximumDate.setUTCMonth(
+    maximumDate.getUTCMonth() + 12
+  );
+
+  if (
+    data.checkOut >
+    maximumDate.toISOString().slice(0, 10)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "checkOut cannot be more than 12 months in advance",
+      path: ["checkOut"],
+    });
+  }
+
+  const rangeDays =
+    (
+      new Date(`${data.checkOut}T00:00:00Z`).getTime() -
+      new Date(`${data.checkIn}T00:00:00Z`).getTime()
+    ) /
+    86400000;
+
+  if (rangeDays > 366) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Availability changes cannot exceed 366 dates",
+      path: ["checkOut"],
+    });
+  }
+});
 
 export const notificationPreferencesSchema = z.object({
   email: z.boolean().optional(),

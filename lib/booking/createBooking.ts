@@ -217,6 +217,11 @@ export async function releaseExpiredHold(bookingId: string) {
     if (new Date(b.hold_expires_at) > new Date()) return null; // not actually expired yet
 
     await client.query(
+      `SELECT pg_advisory_xact_lock($1)`,
+      [hashToBigint(b.property_id)]
+    );
+
+    await client.query(
       `UPDATE availability_blocks SET status = 'available', source = 'host'
        WHERE property_id = $1 AND date >= $2 AND date < $3 AND status = 'booked' AND source = 'booking'`,
       [b.property_id, b.check_in, b.check_out]
