@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CustomerNav } from "@/components/CustomerNav";
+import { PropertyGallery, type PublicPropertyImage } from "@/components/PropertyGallery";
 import { validateBookingForm } from "@/lib/booking/bookingFormValidation";
 import { interpretPropertyResponse } from "./interpretPropertyResponse";
 import {
@@ -40,6 +41,7 @@ type Property = {
   maxGuests: number; bedrooms: number | null; bathrooms: number | null;
   checkInTime: string | null; checkOutTime: string | null; houseRules: string | null;
   rating: string | number | null; reviewCount: number | null;
+  images: PublicPropertyImage[];
   cancellationPolicy: { name: string; description: string | null; rules: unknown } | null;
   compliance: { reviewStatus: string; reviewedAt: string | null; reviewedCheckCount: number; statement: string };
 };
@@ -377,7 +379,7 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
 
       {loadState === "loaded" && property && (
         <>
-          <div className="hero-tile" />
+          <PropertyGallery images={property.images ?? []} propertyName={property.name} />
           <div className="layout">
             <div>
               <div className="heading-row">

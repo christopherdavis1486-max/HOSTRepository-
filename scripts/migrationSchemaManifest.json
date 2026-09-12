@@ -2483,5 +2483,117 @@
       "properties_derive_public_location@properties": "CREATE TRIGGER properties_derive_public_location BEFORE INSERT OR UPDATE OF private_location ON properties FOR EACH ROW EXECUTE FUNCTION derive_property_public_location()"
     },
     "extensions": []
+  },
+  "027_property_images.sql": {
+    "tables": {
+      "property_images": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "blob_url",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "blob_pathname",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "content_type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "size_bytes",
+          "dataType": "bigint",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "width",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "height",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "alt_text",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "sort_order",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "is_cover",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        },
+        {
+          "name": "created_by_user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "property_images_blob_pathname_key": "UNIQUE (blob_pathname)",
+      "property_images_blob_url_key": "UNIQUE (blob_url)",
+      "property_images_content_type_check": "CHECK ((content_type = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text])))",
+      "property_images_created_by_user_id_fkey": "FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL",
+      "property_images_height_check": "CHECK (((height IS NULL) OR (height > 0)))",
+      "property_images_pkey": "PRIMARY KEY (id)",
+      "property_images_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+      "property_images_size_check": "CHECK (((size_bytes > 0) AND (size_bytes <= 10485760)))",
+      "property_images_sort_order_check": "CHECK ((sort_order >= 0))",
+      "property_images_width_check": "CHECK (((width IS NULL) OR (width > 0)))"
+    },
+    "indexes": {
+      "property_images_blob_pathname_key": "CREATE UNIQUE INDEX property_images_blob_pathname_key ON property_images USING btree (blob_pathname)",
+      "property_images_blob_url_key": "CREATE UNIQUE INDEX property_images_blob_url_key ON property_images USING btree (blob_url)",
+      "property_images_one_cover_idx": "CREATE UNIQUE INDEX property_images_one_cover_idx ON property_images USING btree (property_id) WHERE (is_cover = true)",
+      "property_images_pkey": "CREATE UNIQUE INDEX property_images_pkey ON property_images USING btree (id)",
+      "property_images_property_order_idx": "CREATE INDEX property_images_property_order_idx ON property_images USING btree (property_id, sort_order, created_at)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
   }
 }

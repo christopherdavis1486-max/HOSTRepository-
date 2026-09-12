@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { HostNav } from "@/components/HostNav";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { PropertyImageManager } from "@/components/PropertyImageManager";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
 
 type Amenity = {
@@ -1887,6 +1888,9 @@ export default function HostPropertyDetailPage({
                 )}
               </div>
             </div>
+            {propertyId && (
+              <PropertyImageManager propertyId={propertyId} />
+            )}
           </>
         )}
     </div>

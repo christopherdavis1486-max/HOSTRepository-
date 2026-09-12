@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/authOptions";
 import { db } from "@/lib/db";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
@@ -26,7 +27,10 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * layer is ever permitted to store or replay it across callers.
  */
 export const dynamic = "force-dynamic";
-const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store",
+};
 
 /**
  * Public, unauthenticated single-property detail. Explicit public-safe
@@ -37,14 +41,15 @@ const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
  * property_type, currency, nightly_price, cleaning_fee, max_guests,
  * bedrooms, bathrooms, min_stay_nights, max_stay_nights, check_in_time,
  * check_out_time, house_rules, rating, review_count, public_location
- * (as GeoJSON), plus the LINKED cancellation policy's name/rules — a
- * guest needs to see the actual cancellation terms before booking, and
- * cancellation_policies has no private/sensitive fields of its own.
+ * (as GeoJSON), safe ordered property-image display fields, plus the
+ * linked cancellation policy's name/rules. Guests need to see the
+ * cancellation terms before booking.
  *
- * EXCLUDED, deliberately: private_location, host_id (host_id is now
- * SELECTed internally for the owner-preview check below, but is still
- * never included in the response body — same discipline as before),
- * and anything from host_profiles/payments/users.
+ * EXCLUDED, deliberately: private_location, every private address
+ * field, image storage pathnames and upload metadata, host_id (host_id
+ * is selected internally for the owner-preview check below but is never
+ * included in the response body), and anything from
+ * host_profiles/payments/users.
  *
  * 404s for both a genuinely nonexistent id AND a real but unpublished
  * (draft/paused) property — UNLESS the caller is authenticated as the
@@ -63,104 +68,254 @@ const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
  * regardless of publish status. getServerSession() is called directly
  * here (not requireSession()), since this route must remain genuinely
  * public-first: an anonymous or session-less request must behave
- * EXACTLY as before, not throw or degrade. Every other caller — a guest,
- * an unauthenticated visitor, or a DIFFERENT host — gets precisely the
+ * exactly as before, not throw or degrade. Every other caller — a guest,
+ * an unauthenticated visitor, or a different host — gets precisely the
  * same 404-for-unpublished behavior this route always had; the bypass
  * only ever activates for the one true owner.
  */
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{ id: string }>;
+  }
+) {
   const { id } = await params;
 
   const isUuid = UUID_PATTERN.test(id);
+
   if (!isUuid && !SLUG_PATTERN.test(id)) {
-    return NextResponse.json({ success: false, error: { code: "INVALID_ID", message: "Property id must be a valid UUID or slug." } }, { status: 400, headers: NO_STORE_HEADERS });
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_ID",
+          message: "Property id must be a valid UUID or slug.",
+        },
+      },
+      {
+        status: 400,
+        headers: NO_STORE_HEADERS,
+      }
+    );
   }
 
   try {
     const result = await db.query(
       `SELECT
-         p.id, p.host_id, p.name, p.slug, p.description, p.city, p.district, p.country_code, p.property_type, p.status,
-         p.currency, p.nightly_price, p.cleaning_fee, p.max_guests, p.bedrooms, p.bathrooms,
-         p.min_stay_nights, p.max_stay_nights, p.check_in_time, p.check_out_time, p.house_rules,
-         p.rating, p.review_count, p.compliance_status, p.compliance_approved_at,
-         (SELECT COUNT(*)::int FROM property_compliance_items pci
-          WHERE pci.property_id = p.id AND pci.review_status = 'approved'
-            AND pci.applicability = 'required'
-            AND (pci.valid_until IS NULL OR pci.valid_until >= CURRENT_DATE)) AS reviewed_compliance_checks,
-         EXISTS (SELECT 1 FROM property_compliance_items pci
-          WHERE pci.property_id = p.id AND pci.applicability = 'required'
-            AND pci.valid_until IS NOT NULL AND pci.valid_until < CURRENT_DATE) AS has_expired_compliance,
+         p.id,
+         p.host_id,
+         p.name,
+         p.slug,
+         p.description,
+         p.city,
+         p.district,
+         p.country_code,
+         p.property_type,
+         p.status,
+         p.currency,
+         p.nightly_price,
+         p.cleaning_fee,
+         p.max_guests,
+         p.bedrooms,
+         p.bathrooms,
+         p.min_stay_nights,
+         p.max_stay_nights,
+         p.check_in_time,
+         p.check_out_time,
+         p.house_rules,
+         p.rating,
+         p.review_count,
+         p.compliance_status,
+         p.compliance_approved_at,
+         (
+           SELECT COUNT(*)::int
+           FROM property_compliance_items pci
+           WHERE pci.property_id = p.id
+             AND pci.review_status = 'approved'
+             AND pci.applicability = 'required'
+             AND (
+               pci.valid_until IS NULL
+               OR pci.valid_until >= CURRENT_DATE
+             )
+         ) AS reviewed_compliance_checks,
+         EXISTS (
+           SELECT 1
+           FROM property_compliance_items pci
+           WHERE pci.property_id = p.id
+             AND pci.applicability = 'required'
+             AND pci.valid_until IS NOT NULL
+             AND pci.valid_until < CURRENT_DATE
+         ) AS has_expired_compliance,
          ST_AsGeoJSON(p.public_location) AS public_location,
-         cp.name AS cancellation_policy_name, cp.description AS cancellation_policy_description, cp.rules AS cancellation_policy_rules
+         COALESCE(
+           (
+             SELECT json_agg(
+               json_build_object(
+                 'id', pi.id,
+                 'url', pi.blob_url,
+                 'altText', pi.alt_text,
+                 'width', pi.width,
+                 'height', pi.height,
+                 'sortOrder', pi.sort_order,
+                 'isCover', pi.is_cover
+               )
+               ORDER BY
+                 pi.sort_order,
+                 pi.created_at,
+                 pi.id
+             )
+             FROM property_images pi
+             WHERE pi.property_id = p.id
+           ),
+           '[]'::json
+         ) AS images,
+         cp.name AS cancellation_policy_name,
+         cp.description AS cancellation_policy_description,
+         cp.rules AS cancellation_policy_rules
        FROM properties p
-       LEFT JOIN cancellation_policies cp ON cp.id = p.cancellation_policy_id
-    WHERE ${isUuid ? "p.id = $1" : "p.slug = $1"}
-  AND p.status = 'published'
-  AND p.compliance_status = 'approved'
-  AND NOT EXISTS (
-    SELECT 1
-    FROM property_compliance_items expired_pci
-    WHERE expired_pci.property_id = p.id
-      AND expired_pci.applicability = 'required'
-      AND expired_pci.valid_until IS NOT NULL
-      AND expired_pci.valid_until < CURRENT_DATE
-  )`,
+       LEFT JOIN cancellation_policies cp
+         ON cp.id = p.cancellation_policy_id
+       WHERE ${isUuid ? "p.id = $1" : "p.slug = $1"}
+         AND p.status = 'published'
+         AND p.compliance_status = 'approved'
+         AND NOT EXISTS (
+           SELECT 1
+           FROM property_compliance_items expired_pci
+           WHERE expired_pci.property_id = p.id
+             AND expired_pci.applicability = 'required'
+             AND expired_pci.valid_until IS NOT NULL
+             AND expired_pci.valid_until < CURRENT_DATE
+         )`,
       [id]
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ success: false, error: { code: "PROPERTY_NOT_FOUND", message: "Property not found." } }, { status: 404, headers: NO_STORE_HEADERS });
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "PROPERTY_NOT_FOUND",
+            message: "Property not found.",
+          },
+        },
+        {
+          status: 404,
+          headers: NO_STORE_HEADERS,
+        }
+      );
     }
+
     const row = result.rows[0];
 
     if (row.status !== "published") {
-      const session = await getServerSession(authOptions).catch(() => null);
-      const isOwningHost = !!session?.user?.hostProfileId && session.user.hostProfileId === row.host_id;
+      const session = await getServerSession(
+        authOptions
+      ).catch(() => null);
+
+      const isOwningHost =
+        !!session?.user?.hostProfileId &&
+        session.user.hostProfileId === row.host_id;
+
       if (!isOwningHost) {
-        return NextResponse.json({ success: false, error: { code: "PROPERTY_NOT_FOUND", message: "Property not found." } }, { status: 404, headers: NO_STORE_HEADERS });
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "PROPERTY_NOT_FOUND",
+              message: "Property not found.",
+            },
+          },
+          {
+            status: 404,
+            headers: NO_STORE_HEADERS,
+          }
+        );
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      property: {
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        description: row.description,
-        city: row.city,
-        district: row.district,
-        countryCode: row.country_code,
-        propertyType: row.property_type,
-        currency: row.currency,
-        nightlyPrice: row.nightly_price,
-        cleaningFee: row.cleaning_fee,
-        maxGuests: row.max_guests,
-        bedrooms: row.bedrooms,
-        bathrooms: row.bathrooms,
-        minStayNights: row.min_stay_nights,
-        maxStayNights: row.max_stay_nights,
-        checkInTime: row.check_in_time,
-        checkOutTime: row.check_out_time,
-        houseRules: row.house_rules,
-        rating: row.rating,
-        reviewCount: row.review_count,
-        compliance: {
-          reviewStatus: row.compliance_status === "approved" && !row.has_expired_compliance && Number(row.reviewed_compliance_checks) > 0 ? "evidence_reviewed" : "owner_information_pending",
-          reviewedAt: row.compliance_status === "approved" && !row.has_expired_compliance ? row.compliance_approved_at : null,
-          reviewedCheckCount: row.compliance_status === "approved" && !row.has_expired_compliance ? Number(row.reviewed_compliance_checks) : 0,
-          statement: row.compliance_status === "approved" && !row.has_expired_compliance
-            ? "The owner supplied compliance declarations and supporting evidence reviewed by HOST. The owner remains responsible for the property and for keeping all checks current."
-            : "The property's compliance information has not yet completed HOST review.",
+    return NextResponse.json(
+      {
+        success: true,
+        property: {
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          description: row.description,
+          city: row.city,
+          district: row.district,
+          countryCode: row.country_code,
+          propertyType: row.property_type,
+          currency: row.currency,
+          nightlyPrice: row.nightly_price,
+          cleaningFee: row.cleaning_fee,
+          maxGuests: row.max_guests,
+          bedrooms: row.bedrooms,
+          bathrooms: row.bathrooms,
+          minStayNights: row.min_stay_nights,
+          maxStayNights: row.max_stay_nights,
+          checkInTime: row.check_in_time,
+          checkOutTime: row.check_out_time,
+          houseRules: row.house_rules,
+          rating: row.rating,
+          reviewCount: row.review_count,
+          compliance: {
+            reviewStatus:
+              row.compliance_status === "approved" &&
+              !row.has_expired_compliance &&
+              Number(row.reviewed_compliance_checks) > 0
+                ? "evidence_reviewed"
+                : "owner_information_pending",
+            reviewedAt:
+              row.compliance_status === "approved" &&
+              !row.has_expired_compliance
+                ? row.compliance_approved_at
+                : null,
+            reviewedCheckCount:
+              row.compliance_status === "approved" &&
+              !row.has_expired_compliance
+                ? Number(row.reviewed_compliance_checks)
+                : 0,
+            statement:
+              row.compliance_status === "approved" &&
+              !row.has_expired_compliance
+                ? "The owner supplied compliance declarations and supporting evidence reviewed by HOST. The owner remains responsible for the property and for keeping all checks current."
+                : "The property's compliance information has not yet completed HOST review.",
+          },
+          publicLocation: row.public_location
+            ? JSON.parse(row.public_location)
+            : null,
+          images: row.images,
+          cancellationPolicy: row.cancellation_policy_name
+            ? {
+                name: row.cancellation_policy_name,
+                description:
+                  row.cancellation_policy_description,
+                rules: row.cancellation_policy_rules,
+              }
+            : null,
         },
-        publicLocation: row.public_location ? JSON.parse(row.public_location) : null,
-        cancellationPolicy: row.cancellation_policy_name
-          ? { name: row.cancellation_policy_name, description: row.cancellation_policy_description, rules: row.cancellation_policy_rules }
-          : null,
       },
-    }, { headers: NO_STORE_HEADERS });
+      {
+        headers: NO_STORE_HEADERS,
+      }
+    );
   } catch (error) {
     console.error("[HOST properties/detail]", error);
-    return NextResponse.json({ success: false, error: { code: "DETAIL_FAILED", message: "Unable to load property." } }, { status: 500, headers: NO_STORE_HEADERS });
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "DETAIL_FAILED",
+          message: "Unable to load property.",
+        },
+      },
+      {
+        status: 500,
+        headers: NO_STORE_HEADERS,
+      }
+    );
   }
 }
