@@ -29,6 +29,10 @@ const pilotReviewSchema = z.object({
   note: z
     .string()
     .trim()
+    .min(
+      8,
+      "Review notes must be at least 8 characters"
+    )
     .max(
       2000,
       "Review notes must be 2,000 characters or fewer"
