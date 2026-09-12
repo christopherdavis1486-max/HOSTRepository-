@@ -1,4 +1,5 @@
 import { db, withTransaction } from "../db";
+import { assertListingReady, ListingReadinessError } from "../hosts/listingReadiness";
 
 export const COMPLIANCE_CATEGORIES = [
   "authority_to_list", "fire_safety", "gas_safety", "electrical_safety",
@@ -7,16 +8,15 @@ export const COMPLIANCE_CATEGORIES = [
 
 export type ComplianceCategory = typeof COMPLIANCE_CATEGORIES[number];
 
-export class CompliancePublishError extends Error {
-  constructor() { super("HOST must approve the property's compliance record before it can be published."); }
-}
+export {
+  ListingReadinessError
+    as CompliancePublishError,
+};
 
-export async function assertPropertyCanPublish(propertyId: string) {
-  const result = await db.query(
-    `SELECT p.compliance_status,
-            EXISTS (SELECT 1 FROM property_compliance_items i WHERE i.property_id = p.id AND i.applicability = 'required' AND i.valid_until IS NOT NULL AND i.valid_until < CURRENT_DATE) AS has_expired_evidence
-       FROM properties p WHERE p.id = $1`, [propertyId]);
-  if (result.rows[0]?.compliance_status !== "approved" || result.rows[0]?.has_expired_evidence) throw new CompliancePublishError();
+export async function assertPropertyCanPublish(
+  propertyId: string
+) {
+  return assertListingReady(propertyId);
 }
 
 export async function getPropertyCompliance(propertyId: string) {

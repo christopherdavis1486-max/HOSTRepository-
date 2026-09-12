@@ -106,7 +106,10 @@ export const createPaymentIntentSchema = z.object({
 export const hostOnboardingStartSchema = z.object({
   country: z.string()
     .trim()
-    .length(2, "country must be a 2-letter ISO code")
+    .length(
+      2,
+      "country must be a 2-letter ISO code"
+    )
     .toUpperCase()
     .refine(
       (country) => country === "GB",
@@ -115,6 +118,24 @@ export const hostOnboardingStartSchema = z.object({
           "Pilot host onboarding is currently available in GB only",
       }
     ),
+  hostAgreementAccepted: z.literal(
+    true,
+    {
+      errorMap: () => ({
+        message:
+          "You must accept the HOST host agreement before continuing",
+      }),
+    }
+  ),
+  defaultPoliciesAccepted: z.literal(
+    true,
+    {
+      errorMap: () => ({
+        message:
+          "You must accept HOST's default pilot policies before continuing",
+      }),
+    }
+  ),
 });
 
 export const adminRefundSchema = z.object({

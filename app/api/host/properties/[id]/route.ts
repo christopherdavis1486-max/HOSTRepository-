@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ success: true, property });
   } catch (error) {
     if (error instanceof CompliancePublishError) {
-      return NextResponse.json({ success: false, error: { code: "COMPLIANCE_APPROVAL_REQUIRED", message: error.message } }, { status: 409 });
+      return NextResponse.json({ success: false, error: { code: "LISTING_NOT_READY", message: error.message } }, { status: 409 });
     }
     if (error instanceof AuthError) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: error.message } }, { status: error.status });

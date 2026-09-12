@@ -1,6 +1,30 @@
 import { stripe } from "../payments/stripeClient";
 import { db } from "../db";
 
+export const HOST_AGREEMENT_VERSION =
+  "pilot-2026-09";
+
+export async function recordHostAgreementAcceptance(
+  hostProfileId: string
+): Promise<void> {
+  const result = await db.query(
+    `UPDATE host_profiles
+     SET host_agreement_version = $2,
+         host_agreement_accepted_at = NOW(),
+         default_policies_accepted_at = NOW(),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [
+      hostProfileId,
+      HOST_AGREEMENT_VERSION,
+    ]
+  );
+
+  if (result.rowCount === 0) {
+    throw new Error("Host profile not found");
+  }
+}
+
 /** Creates a host_profiles row for this user if one doesn't exist yet —
  *  called from the onboarding route now that hostProfileId comes from
  *  the session rather than the request body. Becoming a host is just

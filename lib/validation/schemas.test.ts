@@ -113,18 +113,27 @@ test("checkOut must still be after checkIn", () => {
   assert.equal(result.success, false);
 });
 
-test("GB host onboarding is accepted", () => {
-  const result = hostOnboardingStartSchema.safeParse({
-    country: "GB",
-  });
+const validHostOnboarding = {
+  country: "GB",
+  hostAgreementAccepted: true,
+  defaultPoliciesAccepted: true,
+} as const;
+
+test("GB host onboarding with required acceptances is accepted", () => {
+  const result =
+    hostOnboardingStartSchema.safeParse(
+      validHostOnboarding
+    );
 
   assert.equal(result.success, true);
 });
 
 test("lowercase gb is normalised and accepted", () => {
-  const result = hostOnboardingStartSchema.safeParse({
-    country: "gb",
-  });
+  const result =
+    hostOnboardingStartSchema.safeParse({
+      ...validHostOnboarding,
+      country: "gb",
+    });
 
   assert.equal(result.success, true);
 
@@ -134,9 +143,31 @@ test("lowercase gb is normalised and accepted", () => {
 });
 
 test("non-GB host onboarding is rejected during the pilot", () => {
-  const result = hostOnboardingStartSchema.safeParse({
-    country: "DE",
-  });
+  const result =
+    hostOnboardingStartSchema.safeParse({
+      ...validHostOnboarding,
+      country: "DE",
+    });
+
+  assert.equal(result.success, false);
+});
+
+test("host onboarding rejects missing host agreement acceptance", () => {
+  const result =
+    hostOnboardingStartSchema.safeParse({
+      country: "GB",
+      defaultPoliciesAccepted: true,
+    });
+
+  assert.equal(result.success, false);
+});
+
+test("host onboarding rejects missing default policy acceptance", () => {
+  const result =
+    hostOnboardingStartSchema.safeParse({
+      country: "GB",
+      hostAgreementAccepted: true,
+    });
 
   assert.equal(result.success, false);
 });
