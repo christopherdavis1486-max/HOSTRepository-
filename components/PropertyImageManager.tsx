@@ -352,9 +352,11 @@ export function PropertyImageManager({
             padding: "0 18px",
             borderRadius: 8,
             background: uploading
-              ? "var(--warm-grey)"
-              : "var(--gold)",
-            color: "#111",
+              ? "#c4a98b"
+              : "#d49a3f",
+            color: "#100f0c",
+            border: "1px solid #e9bd70",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.35)",
             fontWeight: 700,
             cursor: uploading ? "not-allowed" : "pointer",
           }}
