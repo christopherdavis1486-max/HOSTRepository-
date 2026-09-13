@@ -28,6 +28,11 @@ export function normalizeDefinition(def: string): string {
   return def
     .replace(/\bpublic\./gi, "")
     .replace(/\s+/g, " ")
+    .replace(/\bROW\(\s+/gi, "ROW(")
+    .replace(/\s+\)\s+IS DISTINCT FROM\s+ROW\(/gi, ") IS DISTINCT FROM ROW(")
+    .replace(/\s+\)\s+THEN\b/gi, ") THEN")
+    .replace(/\bAND\s+\(ROW\(/gi, "AND ROW(")
+    .replace(/\)\)\s+THEN\b/gi, ") THEN")
     .trim();
 }
 
@@ -167,8 +172,12 @@ export function schemaSatisfies(actual: SchemaSnapshot, required: SchemaSnapshot
       const actualDef = actualMap.get(name);
       if (actualDef === undefined) {
         missing.push(`${label} ${name}`);
-      } else if (actualDef !== requiredDef) {
-        missing.push(`${label} ${name} (definition mismatch — expected "${requiredDef}", found "${actualDef}")`);
+      } else {
+        const normalizedRequired = normalizeDefinition(requiredDef);
+        const normalizedActual = normalizeDefinition(actualDef);
+        if (normalizedActual !== normalizedRequired) {
+          missing.push(`${label} ${name} (definition mismatch — expected "${normalizedRequired}", found "${normalizedActual}")`);
+        }
       }
     }
   };

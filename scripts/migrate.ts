@@ -94,6 +94,10 @@ const MIGRATION_FILES = [
   "023_admin_operational_security.sql",
   "024_property_compliance.sql",
   "025_language_preferences.sql",
+  "026_property_location.sql",
+  "027_property_images.sql",
+  "028_listing_readiness.sql",
+  "029_availability_hardening.sql",
 ];
 
 // Postgres SQLSTATE codes for "the object this statement tries to
