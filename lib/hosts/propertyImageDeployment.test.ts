@@ -28,6 +28,28 @@ test("content security policy permits public property images", () => {
   );
 });
 
+test("the signed Blob callback has a narrowly scoped origin exemption", () => {
+  const middleware = read("middleware.ts");
+  const uploadRoute = read(
+    "app/api/host/properties/[id]/images/upload/route.ts"
+  );
+
+  assert.match(
+    middleware,
+    /const BLOB_UPLOAD_PATH = \/\^\\\/api\\\/host\\\/properties\\\/\[0-9a-f\]/
+  );
+  assert.match(
+    middleware,
+    /BLOB_UPLOAD_PATH\.test\(pathname\)/
+  );
+
+  assert.match(uploadRoute, /handleUpload\(\{/);
+  assert.match(uploadRoute, /onBeforeGenerateToken/);
+  assert.match(uploadRoute, /requireSession\(\)/);
+  assert.match(uploadRoute, /resolveHostPropertyAccess/);
+  assert.match(uploadRoute, /onUploadCompleted/);
+});
+
 test("property image upload control has explicit high contrast", () => {
   const manager = read("components/PropertyImageManager.tsx");
 

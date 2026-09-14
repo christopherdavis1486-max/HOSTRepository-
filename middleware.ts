@@ -23,8 +23,11 @@ function clientIp(request: NextRequest) { return request.headers.get("x-forwarde
 const AUTH_PATHS = ["/api/auth/register", "/api/auth/password-reset/request", "/api/auth/password-reset/confirm", "/api/auth/email-verification/confirm", "/api/auth/recovery-code", "/api/auth/callback/credentials", "/api/account/recovery-codes", "/api/account/password", "/api/account/privacy"];
 const FINANCIAL_PATHS = ["/api/payments/", "/api/bookings", "/api/admin/refunds", "/api/admin/security/actions"];
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// Vercel Blob completion callbacks have no browser Origin. This exact route
+// still verifies browser sessions/ownership or Vercel's signed callback in handleUpload().
+const BLOB_UPLOAD_PATH = /^\/api\/host\/properties\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/images\/upload$/i;
 function isExemptMutation(pathname: string) {
-  return pathname.startsWith("/api/webhooks/") || pathname === "/api/cron/sweep" ||
+  return BLOB_UPLOAD_PATH.test(pathname) || pathname.startsWith("/api/webhooks/") || pathname === "/api/cron/sweep" ||
     (pathname.startsWith("/api/auth/") && !AUTH_PATHS.some((path) => pathname.startsWith(path)));
 }
 function trustedOrigin(request: NextRequest) {
