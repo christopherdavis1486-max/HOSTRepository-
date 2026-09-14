@@ -419,7 +419,8 @@ export function PropertyImageManager({
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(auto-fit, minmax(240px, 1fr))",
+              "repeat(auto-fill, minmax(240px, 320px))",
+            justifyContent: "start",
             gap: 18,
           }}
         >

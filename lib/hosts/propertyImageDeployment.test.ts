@@ -57,3 +57,17 @@ test("property image upload control has explicit high contrast", () => {
   assert.match(manager, /color: "#100f0c"/);
   assert.match(manager, /border: "1px solid #e9bd70"/);
 });
+
+test("property image editor uses constrained thumbnail cards", () => {
+  const manager = read("components/PropertyImageManager.tsx");
+
+  assert.match(
+    manager,
+    /repeat\(auto-fill, minmax\(240px, 320px\)\)/
+  );
+  assert.match(manager, /justifyContent: "start"/);
+  assert.doesNotMatch(
+    manager,
+    /repeat\(auto-fit, minmax\(240px, 1fr\)\)/
+  );
+});
