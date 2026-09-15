@@ -1,7 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CustomerNav } from "@/components/CustomerNav";
 import { useI18n } from "@/components/I18nProvider";
+
+type SessionState = {
+  signedIn: boolean;
+  isHost: boolean;
+};
 
 const steps = [
   {
@@ -36,8 +42,45 @@ const requirements = [
 
 export default function HostWithUsPage() {
   const { t } = useI18n();
+  const [sessionState, setSessionState] =
+    useState<SessionState | null>(null);
+
   const showStaging =
     process.env.NEXT_PUBLIC_SHOW_STAGING_UI === "true";
+
+  useEffect(() => {
+    fetch("/api/auth/session", {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((response) => response.json())
+      .then((session) =>
+        setSessionState({
+          signedIn: Boolean(session?.user?.email),
+          isHost:
+            Array.isArray(session?.user?.roles) &&
+            session.user.roles.includes("host"),
+        }),
+      )
+      .catch(() =>
+        setSessionState({
+          signedIn: false,
+          isHost: false,
+        }),
+      );
+  }, []);
+
+  const primaryHref = sessionState?.isHost
+    ? "/host/dashboard"
+    : sessionState?.signedIn
+      ? "/host/onboarding/connect-account"
+      : "/login?mode=register&returnTo=%2Fhost%2Fonboarding%2Fconnect-account";
+
+  const primaryLabel = sessionState?.isHost
+    ? t("hostWorkspace")
+    : sessionState?.signedIn
+      ? "Continue host setup"
+      : t("listProperty");
 
   return (
     <main className="host-acquisition">
@@ -59,23 +102,25 @@ export default function HostWithUsPage() {
         }
 
         .host-hero {
-          padding: 92px 0 84px;
           display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+          grid-template-columns:
+            minmax(0, 1.2fr)
+            minmax(300px, 0.8fr);
           gap: 64px;
           align-items: center;
+          padding: 92px 0 84px;
         }
 
         .eyebrow {
           color: #d49a3f;
           font-size: 13px;
-          letter-spacing: .14em;
+          letter-spacing: 0.14em;
           text-transform: uppercase;
         }
 
         .host-hero h1 {
-          margin: 18px 0 24px;
           max-width: 760px;
+          margin: 18px 0 24px;
           font-family: Fraunces, Georgia, serif;
           font-size: clamp(46px, 7vw, 82px);
           font-weight: 500;
@@ -101,9 +146,10 @@ export default function HostWithUsPage() {
           padding: 14px 20px;
           border: 1px solid #3c3225;
           border-radius: 4px;
+          background: transparent;
           color: #fff8e8;
-          text-decoration: none;
           font-weight: 600;
+          text-decoration: none;
         }
 
         .host-button.primary {
@@ -168,7 +214,8 @@ export default function HostWithUsPage() {
 
         .host-steps {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
           gap: 16px;
         }
 
@@ -182,7 +229,7 @@ export default function HostWithUsPage() {
         .host-step-number {
           color: #d49a3f;
           font-size: 13px;
-          letter-spacing: .12em;
+          letter-spacing: 0.12em;
         }
 
         .host-step h3 {
@@ -253,6 +300,7 @@ export default function HostWithUsPage() {
       <section className="host-hero">
         <div>
           <span className="eyebrow">Host with us</span>
+
           <h1>Host exceptional stays with HOST</h1>
 
           <p className="host-hero-copy">
@@ -265,17 +313,19 @@ export default function HostWithUsPage() {
           <div className="host-actions">
             <a
               className="host-button primary"
-              href="/login?mode=register&returnTo=%2Fhost%2Fonboarding%2Fconnect-account"
+              href={primaryHref}
             >
-              {t("listProperty")}
+              {primaryLabel}
             </a>
 
-            <a
-              className="host-button"
-              href="/login?returnTo=%2Fhost%2Fonboarding%2Fconnect-account"
-            >
-              Sign in to continue
-            </a>
+            {sessionState?.signedIn === false && (
+              <a
+                className="host-button"
+                href="/login?returnTo=%2Fhost%2Fonboarding%2Fconnect-account"
+              >
+                Sign in to continue
+              </a>
+            )}
           </div>
         </div>
 
@@ -289,7 +339,9 @@ export default function HostWithUsPage() {
 
           <ul>
             {requirements.map((requirement) => (
-              <li key={requirement}>{requirement}</li>
+              <li key={requirement}>
+                {requirement}
+              </li>
             ))}
           </ul>
         </aside>
@@ -298,6 +350,7 @@ export default function HostWithUsPage() {
       <section className="host-section">
         <div className="host-section-heading">
           <span className="eyebrow">How it works</span>
+
           <h2>A guided path to publication</h2>
 
           <p>
@@ -308,8 +361,14 @@ export default function HostWithUsPage() {
 
         <div className="host-steps">
           {steps.map((step) => (
-            <article className="host-step" key={step.number}>
-              <span className="host-step-number">{step.number}</span>
+            <article
+              className="host-step"
+              key={step.number}
+            >
+              <span className="host-step-number">
+                {step.number}
+              </span>
+
               <h3>{step.title}</h3>
               <p>{step.text}</p>
             </article>
@@ -319,20 +378,32 @@ export default function HostWithUsPage() {
 
       <section className="host-section">
         <div className="host-callout">
-          <span className="eyebrow">Ready to start?</span>
-          <h2>Create your host account</h2>
+          <span className="eyebrow">
+            Ready to start?
+          </span>
+
+          <h2>
+            {sessionState?.isHost
+              ? "Manage your HOST properties"
+              : sessionState?.signedIn
+                ? "Continue your host application"
+                : "Create your host account"}
+          </h2>
 
           <p>
-            Begin your application now. You can save your property
-            information as a draft and return to complete it later.
+            {sessionState?.isHost
+              ? "Open your workspace to manage properties, bookings and reviews."
+              : sessionState?.signedIn
+                ? "Continue to the secure onboarding process and connect your payout account."
+                : "Begin your application now. You can save your property information as a draft and return to complete it later."}
           </p>
 
           <div className="host-actions">
             <a
               className="host-button primary"
-              href="/login?mode=register&returnTo=%2Fhost%2Fonboarding%2Fconnect-account"
+              href={primaryHref}
             >
-              Create account and start
+              {primaryLabel}
             </a>
           </div>
 

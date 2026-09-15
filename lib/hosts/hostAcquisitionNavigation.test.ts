@@ -28,7 +28,7 @@ test("the homepage provides host acquisition entry points", () => {
   assert.ok(source.includes('href="/host/dashboard"'));
 });
 
-test("the public host information page uses the secure onboarding route", () => {
+test("signed-out applicants use the secure registration and sign-in routes", () => {
   const source = read("app/host-with-us/page.tsx");
 
   assert.ok(source.includes(
@@ -45,32 +45,77 @@ test("the public host information page uses the secure onboarding route", () => 
   );
 });
 
-test("every supported language includes the list-property message", () => {
+test("signed-in applicants continue directly to host onboarding", () => {
+  const source = read("app/host-with-us/page.tsx");
+
+  assert.ok(source.includes(
+    '? "/host/onboarding/connect-account"',
+  ));
+
+  assert.ok(source.includes(
+    '? "Continue host setup"',
+  ));
+
+  assert.ok(source.includes(
+    "sessionState?.signedIn",
+  ));
+});
+
+test("existing hosts are directed to their workspace", () => {
+  const source = read("app/host-with-us/page.tsx");
+
+  assert.ok(source.includes(
+    '? "/host/dashboard"',
+  ));
+
+  assert.ok(source.includes(
+    '? t("hostWorkspace")',
+  ));
+
+  assert.ok(source.includes(
+    "sessionState?.isHost",
+  ));
+});
+
+test("every supported language includes the host-acquisition message", () => {
   const source = read("lib/i18n/messages.ts");
 
-  assert.ok(source.includes('listProperty: "Become a HOST"'));
-  assert.ok(source.includes('listProperty: "HOST-Gastgeber werden"'));
+  assert.ok(source.includes(
+    'listProperty: "Become a HOST"',
+  ));
+
+  assert.ok(source.includes(
+    'listProperty: "HOST-Gastgeber werden"',
+  ));
+
   assert.ok(source.includes(
     'listProperty: "Devenir hôte HOST"',
   ));
+
   assert.ok(source.includes(
     'listProperty: "Conviértete en anfitrión HOST"',
   ));
+
   assert.ok(source.includes(
     'listProperty: "Diventa host su HOST"',
   ));
+
   assert.ok(source.includes(
     'listProperty: "Word HOST-host"',
   ));
 });
 
-test("existing hosts retain direct access to their workspace", () => {
+test("existing hosts retain direct workspace access in shared navigation", () => {
   const customerNav = read("components/CustomerNav.tsx");
   const homepage = read("app/page.tsx");
 
   assert.ok(customerNav.includes("sessionState.isHost"));
-  assert.ok(customerNav.includes('href="/host/dashboard"'));
+  assert.ok(customerNav.includes(
+    'href="/host/dashboard"',
+  ));
 
   assert.ok(homepage.includes("sessionState.isHost"));
-  assert.ok(homepage.includes('href="/host/dashboard"'));
+  assert.ok(homepage.includes(
+    'href="/host/dashboard"',
+  ));
 });
