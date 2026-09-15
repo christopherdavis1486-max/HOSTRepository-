@@ -48,19 +48,19 @@ test("the public host information page uses the secure onboarding route", () => 
 test("every supported language includes the list-property message", () => {
   const source = read("lib/i18n/messages.ts");
 
-  assert.ok(source.includes('listProperty: "List your property"'));
-  assert.ok(source.includes('listProperty: "Unterkunft anbieten"'));
+  assert.ok(source.includes('listProperty: "Become a HOST"'));
+  assert.ok(source.includes('listProperty: "HOST-Gastgeber werden"'));
   assert.ok(source.includes(
-    'listProperty: "Proposer mon hébergement"',
+    'listProperty: "Devenir hôte HOST"',
   ));
   assert.ok(source.includes(
-    'listProperty: "Publica tu alojamiento"',
+    'listProperty: "Conviértete en anfitrión HOST"',
   ));
   assert.ok(source.includes(
-    'listProperty: "Pubblica il tuo alloggio"',
+    'listProperty: "Diventa host su HOST"',
   ));
   assert.ok(source.includes(
-    'listProperty: "Accommodatie aanbieden"',
+    'listProperty: "Word HOST-host"',
   ));
 });
 
