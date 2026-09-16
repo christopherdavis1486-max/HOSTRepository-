@@ -97,11 +97,11 @@ test("COMPLETE LIFECYCLE: available -> booked -> unavailable -> cancelled -> ava
   const bookedDatesAfterCancel = new Set(afterCancelAvailability.filter((d) => d.source === "booking").map((d) => d.date));
   assert.equal(bookedDatesAfterCancel.size, 0, "no booking-sourced availability rows should remain after cancellation");
 
-  // The raw rows still exist (released via UPDATE, not DELETE — see
-  // cancelBooking.ts) but must now report status='available'.
+  // Booking rows are removed when released. An absent row means the
+  // night is available; any active external-calendar event is rebuilt
+  // atomically by the cancellation transaction.
   const rawRows = await db.query(`SELECT date, status, source FROM availability_blocks WHERE property_id = $1 ORDER BY date`, [propertyId]);
-  assert.equal(rawRows.rows.length, 2);
-  assert.ok(rawRows.rows.every((r) => r.status === "available"), "both released rows must show status='available'");
+  assert.equal(rawRows.rows.length, 0, "released booking rows must be removed when no external calendar still blocks them");
 
   // STAGE 6: guest calendar classification available. The exact same
   // Set-construction the guest stay page performs, then real classification.

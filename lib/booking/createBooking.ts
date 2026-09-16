@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { isDelayedChargeBookingCreationEnabled } from "../config/featureFlags";
 import { decideChargeTiming } from "../payments/scheduledCharges";
 import { hashToBigint } from "../utils/advisoryLock";
+import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 
 export type CreateBookingInput = {
   propertyId: string;
@@ -222,9 +223,18 @@ export async function releaseExpiredHold(bookingId: string) {
     );
 
     await client.query(
-      `UPDATE availability_blocks SET status = 'available', source = 'host'
-       WHERE property_id = $1 AND date >= $2 AND date < $3 AND status = 'booked' AND source = 'booking'`,
+      `DELETE FROM availability_blocks
+       WHERE property_id = $1
+         AND date >= $2
+         AND date < $3
+         AND status = 'booked'
+         AND source = 'booking'`,
       [b.property_id, b.check_in, b.check_out]
+    );
+
+    await reconcileCalendarAvailability(
+      client,
+      b.property_id,
     );
     await client.query(`UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [bookingId]);
     return mapBookingRow({ ...b, status: "cancelled" });

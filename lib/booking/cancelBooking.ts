@@ -1,5 +1,6 @@
 import { withTransaction } from "../db";
 import { hashToBigint } from "../utils/advisoryLock";
+import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 import { calculateCancellation } from "./cancellationEngine";
 import { BookingError } from "./types";
 import { initiateRefund } from "../payments/refund";
@@ -50,9 +51,17 @@ export async function cancelBooking(input: CancelBookingInput) {
     // as the cancellation is accepted, not only once Stripe confirms money
     // has moved.
     await client.query(
-      `UPDATE availability_blocks SET status = 'available', source = 'host'
-       WHERE property_id = $1 AND date >= $2 AND date < $3 AND source = 'booking'`,
+      `DELETE FROM availability_blocks
+       WHERE property_id = $1
+         AND date >= $2
+         AND date < $3
+         AND source = 'booking'`,
       [b.property_id, b.check_in, b.check_out]
+    );
+
+    await reconcileCalendarAvailability(
+      client,
+      b.property_id,
     );
 
     await client.query(

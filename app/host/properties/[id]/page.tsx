@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { HostNav } from "@/components/HostNav";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { CalendarSyncPanel } from "@/components/CalendarSyncPanel";
 import { PropertyImageManager } from "@/components/PropertyImageManager";
 import { ListingReadinessPanel } from "@/components/ListingReadinessPanel";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
@@ -1869,6 +1870,20 @@ export default function HostPropertyDetailPage({
                             )
                         )
                       }
+                      calendarBlockedDates={
+                        new Set(
+                          blockedDates
+                            .filter(
+                              (day) =>
+                                day.source ===
+                                "ical_sync"
+                            )
+                            .map(
+                              (day) =>
+                                day.date
+                            )
+                        )
+                      }
                       bookedDates={
                         new Set(
                           blockedDates
@@ -1886,6 +1901,15 @@ export default function HostPropertyDetailPage({
                       interactive={false}
                     />
                   </>
+                )}
+
+                {propertyId && (
+                  <CalendarSyncPanel
+                    propertyId={propertyId}
+                    onAvailabilityChanged={
+                      loadAvailability
+                    }
+                  />
                 )}
               </div>
             </div>

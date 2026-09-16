@@ -81,3 +81,25 @@ test("interactive=false (host view) — no date is ever clickable, even an avail
   const result = classifyDay("2026-12-10", { ...baseOpts, interactive: false });
   assert.equal(result.clickable, false);
 });
+
+
+test("an imported calendar date is visually distinct and cannot be selected", () => {
+  const result = classifyDay(
+    "2026-12-08",
+    {
+      ...baseOpts,
+      calendarBlockedDates:
+        new Set(["2026-12-08"]),
+    },
+  );
+
+  assert.equal(result.isCalendarBlocked, true);
+  assert.ok(
+    result.classes.includes(
+      "calendar-blocked",
+    ),
+  );
+  assert.equal(result.isHostBlocked, false);
+  assert.equal(result.isBooked, false);
+  assert.equal(result.clickable, false);
+});

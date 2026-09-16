@@ -2673,5 +2673,187 @@
     "functions": {},
     "triggers": {},
     "extensions": []
+  },
+  "030_calendar_sync.sql": {
+    "tables": {
+      "property_calendar_feeds": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "name",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "feed_url",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "is_active",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "true"
+        },
+        {
+          "name": "last_sync_status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'never'::text"
+        },
+        {
+          "name": "last_sync_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_sync_completed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_successful_sync_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_error",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "remote_etag",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "remote_last_modified",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "property_calendar_events": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "feed_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "event_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "external_uid",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "starts_on",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "ends_on",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "summary",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "property_calendar_exports": [
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "export_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "rotated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {
+      "property_calendar_feeds_property_idx": "CREATE INDEX property_calendar_feeds_property_idx ON property_calendar_feeds USING btree (property_id, is_active)",
+      "property_calendar_feeds_sync_idx": "CREATE INDEX property_calendar_feeds_sync_idx ON property_calendar_feeds USING btree (is_active, last_successful_sync_at)",
+      "property_calendar_events_feed_dates_idx": "CREATE INDEX property_calendar_events_feed_dates_idx ON property_calendar_events USING btree (feed_id, starts_on, ends_on)",
+      "property_calendar_exports_token_idx": "CREATE INDEX property_calendar_exports_token_idx ON property_calendar_exports USING btree (export_token)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
   }
 }

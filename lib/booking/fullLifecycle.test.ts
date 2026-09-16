@@ -23,7 +23,7 @@ import { sendRefundWebhook, signEvent } from "../payments/webhookHandler.refund.
  * cancellation function.
  */
 
-let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[] } } | null = null;
+let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[]; sessionId: string; sessionVersion: number } } | null = null;
 let searchGET: typeof import("../../app/api/properties/route").GET;
 let messagesGET: typeof import("../../app/api/bookings/[id]/messages/route").GET;
 let messagesPOST: typeof import("../../app/api/bookings/[id]/messages/route").POST;
@@ -44,6 +44,36 @@ before(async () => {
 });
 after(async () => { await db.end(); });
 
+async function createAuthenticatedSession(
+  userId: string,
+  hostProfileId: string | null = null,
+  roles: string[] = ["guest"],
+) {
+  const sessionRow = await db.query(
+    `INSERT INTO auth_sessions (
+       user_id,
+       expires_at
+     )
+     VALUES (
+       $1,
+       NOW() + INTERVAL '1 day'
+     )
+     RETURNING id`,
+    [userId],
+  );
+
+  return {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles,
+      sessionId:
+        sessionRow.rows[0].id as string,
+      sessionVersion: 1,
+    },
+  };
+}
+
 test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation -> inventory blocked -> search excludes -> messaging -> cancellation -> refund -> inventory released -> search restored", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
 
@@ -54,7 +84,7 @@ test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation 
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, stripe_connect_account_id, payout_account_status) VALUES ($1, 'acct_test_fake', 'active') RETURNING id`, [hostUser.rows[0].id]);
   const testCity = `LifecycleTestCity-${suffix}`;
   const property = await db.query(
-    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'Full Lifecycle Test Property', $2, 'GBP', 150, 2, 'published') RETURNING id`,
+    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'Full Lifecycle Test Property', $2, 'GBP', 150, 2, 'published', 'approved') RETURNING id`,
     [hostProfile.rows[0].id, testCity]
   );
   const propertyId = property.rows[0].id;
@@ -111,21 +141,21 @@ test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation 
 
   // STAGE: messaging. The guest sends a real message through the real
   // route; the host reads it through the real route.
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(guestId);
   const sendResponse = await messagesPOST(
     new NextRequest(`http://localhost/api/bookings/${booking.id}/messages`, { method: "POST", body: JSON.stringify({ body: "What time works for check-in?" }) }),
     { params: Promise.resolve({ id: booking.id }) }
   );
   assert.equal(sendResponse.status, 200, "the guest must be able to message the host about this real booking");
 
-  mockSession = { user: { id: hostUserId, hostProfileId, roles: ["host"] } };
+  mockSession = await createAuthenticatedSession(hostUserId, hostProfileId, ["host"]);
   const hostReadResponse = await messagesGET(new NextRequest(`http://localhost/api/bookings/${booking.id}/messages`), { params: Promise.resolve({ id: booking.id }) });
   const hostReadData = await hostReadResponse.json();
   assert.ok(hostReadData.messages.some((m: any) => m.body === "What time works for check-in?"), "the host must be able to read the guest's real message");
 
   // STAGE: an unrelated third party must never access this conversation.
   const unrelated = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`lifecycle-unrelated-${suffix}@test.host`]);
-  mockSession = { user: { id: unrelated.rows[0].id, hostProfileId: null, roles: ["guest"] } };
+  mockSession = await createAuthenticatedSession(unrelated.rows[0].id);
   const unrelatedResponse = await messagesGET(new NextRequest(`http://localhost/api/bookings/${booking.id}/messages`), { params: Promise.resolve({ id: booking.id }) });
   assert.equal(unrelatedResponse.status, 403, "an unrelated party must never access this real booking's conversation");
 
@@ -142,10 +172,10 @@ test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation 
   const refundedBooking = await db.query(`SELECT status FROM bookings WHERE id = $1`, [booking.id]);
   assert.equal(refundedBooking.rows[0].status, "refunded", "the real refund webhook must have genuinely completed the refund");
 
-  // STAGE: inventory released. Rows updated to status='available', not
-  // deleted — matching the established, tested convention.
+  // STAGE: inventory released. Former booking rows are removed;
+  // absence means available unless another source still blocks a night.
   const releasedBlocks = await db.query(`SELECT status FROM availability_blocks WHERE property_id = $1 AND date >= '2026-12-01' AND date < '2026-12-03'`, [propertyId]);
-  assert.ok(releasedBlocks.rows.every((r) => r.status === "available"), "all previously-booked nights must show status='available' after the real refund");
+  assert.equal(releasedBlocks.rows.length, 0, "all previously-booked rows must be removed after the real refund");
 
   // STAGE: search availability restored.
   const searchAfterRefund = await searchGET(new NextRequest(`http://localhost/api/properties?city=${encodeURIComponent(testCity)}&checkIn=2026-12-01&checkOut=2026-12-03`));

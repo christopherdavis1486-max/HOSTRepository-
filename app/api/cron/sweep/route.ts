@@ -5,6 +5,7 @@ import { notifyUser } from "@/lib/notifications/sendNotification";
 import { findBookingsDueForScheduledCharge, attemptScheduledCharge } from "@/lib/payments/scheduledCharges";
 import { db } from "@/lib/db";
 import { executeDuePrivacyDeletions, purgeExpiredSecurityData } from "@/lib/privacy/retention";
+import { syncDueCalendarFeeds } from "@/lib/calendar/calendarSync";
 
 /**
  * The real, concrete piece of Batch 7's "Automation" requirement:
@@ -130,6 +131,18 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[HOST cron/sweep] privacy deletion sweep failed", error);
     results.privacyDeletionsError = (error as Error).message;
+  }
+
+  try {
+    results.calendarSync =
+      await syncDueCalendarFeeds(50);
+  } catch (error) {
+    console.error(
+      "[HOST cron/sweep] calendar sync failed",
+      error,
+    );
+    results.calendarSyncError =
+      (error as Error).message;
   }
 
   return NextResponse.json({ success: true, results }, { headers: { "Cache-Control": "private, no-store" } });

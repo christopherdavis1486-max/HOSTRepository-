@@ -1,5 +1,6 @@
 import { withTransaction } from "../db";
 import { hashToBigint } from "../utils/advisoryLock";
+import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 import { BookingError } from "./types";
 
 export type DiscardEligibility = {
@@ -45,10 +46,22 @@ export async function discardUnpaidBooking(bookingId: string, guestId: string) {
     );
 
     await client.query(
-      `UPDATE availability_blocks SET status = 'available', source = 'host'
-       WHERE property_id = $1 AND date >= $2 AND date < $3
-         AND status = 'booked' AND source = 'booking'`,
-      [booking.property_id, booking.check_in, booking.check_out]
+      `DELETE FROM availability_blocks
+       WHERE property_id = $1
+         AND date >= $2
+         AND date < $3
+         AND status = 'booked'
+         AND source = 'booking'`,
+      [
+        booking.property_id,
+        booking.check_in,
+        booking.check_out,
+      ]
+    );
+
+    await reconcileCalendarAvailability(
+      client,
+      booking.property_id,
     );
     await client.query(
       `UPDATE bookings SET status = 'cancelled', archived_at = NOW(), next_retry_at = NULL, updated_at = NOW()

@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { db, withTransaction } from "../db";
 import { blockDates, unblockDates, listAvailabilityForProperty } from "./hostAvailability";
 import { hashToBigint } from "../utils/advisoryLock";
+import { reconcileCalendarAvailability, setCalendarFeedActive } from "../calendar/calendarSync";
 
 async function createTestProperty(suffix: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`avail-host-${suffix}@test.host`]);
@@ -109,6 +110,37 @@ test("calendar-sync rows cannot be overwritten or removed by host actions", asyn
   const propertyId = await createTestProperty(suffix);
   const date = futureIsoDate(60);
   const checkOut = futureIsoDate(61);
+
+  const feed = await db.query(
+    `INSERT INTO property_calendar_feeds (
+       property_id,
+       name,
+       feed_url
+     )
+     VALUES ($1, 'Test calendar', $2)
+     RETURNING id`,
+    [
+      propertyId,
+      `https://calendar.example/${suffix}.ics`,
+    ]
+  );
+
+  await db.query(
+    `INSERT INTO property_calendar_events (
+       feed_id,
+       event_key,
+       external_uid,
+       starts_on,
+       ends_on
+     )
+     VALUES ($1, $2, $2, $3, $4)`,
+    [
+      feed.rows[0].id,
+      `external-${suffix}@example.com`,
+      date,
+      checkOut,
+    ]
+  );
 
   await db.query(
     `INSERT INTO availability_blocks (
@@ -235,4 +267,132 @@ test("host blocking serializes against a concurrent booking write", async () => 
   assert.equal(row.rows.length, 1);
   assert.equal(row.rows[0].status, "booked");
   assert.equal(row.rows[0].source, "booking");
+});
+
+
+test("calendar reconciliation expands imported ranges, preserves bookings, and clears disabled feeds", async () => {
+  const suffix =
+    crypto.randomBytes(4).toString("hex");
+  const propertyId =
+    await createTestProperty(suffix);
+
+  const startsOn = futureIsoDate(70);
+  const bookedOn = futureIsoDate(71);
+  const finalImportedOn = futureIsoDate(72);
+  const endsOn = futureIsoDate(73);
+
+  const feed = await db.query(
+    `INSERT INTO property_calendar_feeds (
+       property_id,
+       name,
+       feed_url
+     )
+     VALUES ($1, 'Integration calendar', $2)
+     RETURNING id`,
+    [
+      propertyId,
+      `https://calendar.example/integration-${suffix}.ics`,
+    ],
+  );
+
+  await db.query(
+    `INSERT INTO property_calendar_events (
+       feed_id,
+       event_key,
+       external_uid,
+       starts_on,
+       ends_on
+     )
+     VALUES ($1, $2, $2, $3, $4)`,
+    [
+      feed.rows[0].id,
+      `integration-${suffix}@example.com`,
+      startsOn,
+      endsOn,
+    ],
+  );
+
+  await db.query(
+    `INSERT INTO availability_blocks (
+       property_id,
+       date,
+       status,
+       source
+     )
+     VALUES ($1, $2, 'booked', 'booking')`,
+    [propertyId, bookedOn],
+  );
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `SELECT pg_advisory_xact_lock($1)`,
+      [hashToBigint(propertyId)],
+    );
+
+    await reconcileCalendarAvailability(
+      client,
+      propertyId,
+    );
+  });
+
+  const reconciled = await db.query(
+    `SELECT date, status, source
+     FROM availability_blocks
+     WHERE property_id = $1
+       AND date >= $2
+       AND date < $3
+     ORDER BY date`,
+    [propertyId, startsOn, endsOn],
+  );
+
+  const byDate = Object.fromEntries(
+    reconciled.rows.map((row) => [
+      row.date instanceof Date
+        ? row.date.toISOString().slice(0, 10)
+        : String(row.date).slice(0, 10),
+      row,
+    ]),
+  );
+
+  assert.equal(
+    byDate[startsOn].source,
+    "ical_sync",
+  );
+  assert.equal(
+    byDate[bookedOn].source,
+    "booking",
+  );
+  assert.equal(
+    byDate[bookedOn].status,
+    "booked",
+  );
+  assert.equal(
+    byDate[finalImportedOn].source,
+    "ical_sync",
+  );
+
+  await setCalendarFeedActive(
+    propertyId,
+    feed.rows[0].id,
+    false,
+  );
+
+  const afterDisable = await db.query(
+    `SELECT date, source
+     FROM availability_blocks
+     WHERE property_id = $1
+       AND date >= $2
+       AND date < $3
+     ORDER BY date`,
+    [propertyId, startsOn, endsOn],
+  );
+
+  assert.equal(
+    afterDisable.rows.length,
+    1,
+  );
+  assert.equal(
+    afterDisable.rows[0].source,
+    "booking",
+  );
 });

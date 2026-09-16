@@ -22,13 +22,14 @@ import { LOCALE_TAGS } from "@/lib/i18n/config";
  * whether a date is really available, it only renders what it's told.
  */
 
-export type DayStatus = "available" | "unavailable" | "host-blocked" | "booked" | "past" | "selected" | "in-range";
+export type DayStatus = "available" | "unavailable" | "host-blocked" | "calendar-blocked" | "booked" | "past" | "selected" | "in-range";
 
 type CalendarProps = {
   monthsToShow?: number;
   today?: Date;
   disabledDates?: Set<string>;
   hostBlockedDates?: Set<string>;
+  calendarBlockedDates?: Set<string>;
   bookedDates?: Set<string>;
   checkIn?: string;
   checkOut?: string;
@@ -52,6 +53,7 @@ export function AvailabilityCalendar({
   today = new Date(),
   disabledDates = new Set(),
   hostBlockedDates = new Set(),
+  calendarBlockedDates = new Set(),
   bookedDates = new Set(),
   checkIn,
   checkOut,
@@ -82,7 +84,7 @@ export function AvailabilityCalendar({
   return (
     <div className="avail-calendar">
       <style>{`
-        .avail-calendar { --cal-ink: #14120E; --cal-graphite: #1F1B15; --cal-stone: #2A251C; --cal-ivory: #F2ECDE; --cal-warm-grey: #A79E8C; --cal-brass: #C9974B; --cal-gold: #C9974B; --cal-grey: #6B6456; }
+        .avail-calendar { --cal-ink: #14120E; --cal-graphite: #1F1B15; --cal-stone: #2A251C; --cal-ivory: #F2ECDE; --cal-warm-grey: #A79E8C; --cal-brass: #C9974B; --cal-gold: #C9974B; --cal-grey: #6B6456; --cal-calendar: #536F73; }
         .avail-calendar { font-family: 'Space Grotesk', system-ui, sans-serif; }
         .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .cal-nav button { background: transparent; border: 1px solid var(--cal-stone); color: var(--cal-ivory); border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
@@ -94,10 +96,11 @@ export function AvailabilityCalendar({
         .cal-day.empty { visibility: hidden; cursor: default; }
         .cal-day.past, .cal-day.disabled { color: var(--cal-warm-grey); opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
         .cal-day.host-blocked { background: var(--cal-grey); color: var(--cal-ivory); cursor: default; }
+        .cal-day.calendar-blocked { background: var(--cal-calendar); color: var(--cal-ivory); cursor: default; }
         .cal-day.booked { background: var(--cal-gold); color: var(--cal-ink); font-weight: 600; cursor: default; }
         .cal-day.selected { background: var(--cal-brass); color: var(--cal-ink); font-weight: 600; border-color: var(--cal-brass); }
         .cal-day.in-range { background: rgba(201,151,75,0.18); }
-        .cal-day:not(.empty):not(.past):not(.disabled):not(.host-blocked):not(.booked):hover { border-color: var(--cal-brass); }
+        .cal-day:not(.empty):not(.past):not(.disabled):not(.host-blocked):not(.calendar-blocked):not(.booked):hover { border-color: var(--cal-brass); }
         .cal-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: var(--cal-warm-grey); flex-wrap: wrap; }
         .cal-legend-item { display: flex; align-items: center; gap: 5px; }
         .cal-legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
@@ -122,7 +125,7 @@ export function AvailabilityCalendar({
                 {cells.map((iso, i) => {
                   if (!iso) return <div className="cal-day empty" key={i} />;
                   const { classes, clickable } = classifyDay(iso, {
-                    todayIso, hostBlockedDates, bookedDates, disabledDates, checkIn, checkOut,
+                    todayIso, hostBlockedDates, calendarBlockedDates, bookedDates, disabledDates, checkIn, checkOut,
                     interactive, hasSelectHandler: !!onSelectDate,
                   });
                   return (
@@ -139,6 +142,15 @@ export function AvailabilityCalendar({
 
       <div className="cal-legend">
         <span className="cal-legend-item"><span className="cal-legend-swatch" style={{ background: "var(--cal-grey)" }} /> {gt("manuallyBlocked")}</span>
+        {calendarBlockedDates.size > 0 && (
+          <span className="cal-legend-item">
+            <span
+              className="cal-legend-swatch"
+              style={{ background: "var(--cal-calendar)" }}
+            />
+            Imported calendar
+          </span>
+        )}
         <span className="cal-legend-item"><span className="cal-legend-swatch" style={{ background: "var(--cal-gold)" }} /> {gt("bookedByGuest")}</span>
         <span className="cal-legend-item"><span className="cal-legend-swatch" style={{ background: "var(--cal-graphite)", border: "1px solid var(--cal-stone)" }} /> {gt("available")}</span>
       </div>

@@ -16,6 +16,7 @@
 export type DayClassification = {
   isPast: boolean;
   isHostBlocked: boolean;
+  isCalendarBlocked: boolean;
   isBooked: boolean;
   isDisabled: boolean;
   isSelected: boolean;
@@ -29,6 +30,7 @@ export function classifyDay(
   opts: {
     todayIso: string;
     hostBlockedDates: Set<string>;
+    calendarBlockedDates?: Set<string>;
     bookedDates: Set<string>;
     disabledDates: Set<string>;
     checkIn?: string;
@@ -39,6 +41,7 @@ export function classifyDay(
 ): DayClassification {
   const isPast = iso < opts.todayIso;
   const isHostBlocked = opts.hostBlockedDates.has(iso);
+  const isCalendarBlocked = opts.calendarBlockedDates?.has(iso) ?? false;
   const isBooked = opts.bookedDates.has(iso);
   const isDisabled = opts.disabledDates.has(iso);
   const isSelected = iso === opts.checkIn || iso === opts.checkOut;
@@ -47,12 +50,13 @@ export function classifyDay(
   const classes = ["cal-day"];
   if (isPast) classes.push("past");
   else if (isHostBlocked) classes.push("host-blocked");
+  else if (isCalendarBlocked) classes.push("calendar-blocked");
   else if (isBooked) classes.push("booked");
   else if (isDisabled) classes.push("disabled");
   if (isSelected) classes.push("selected");
   if (inRange) classes.push("in-range");
 
-  const clickable = opts.interactive && !isPast && !isHostBlocked && !isBooked && !isDisabled && opts.hasSelectHandler;
+  const clickable = opts.interactive && !isPast && !isHostBlocked && !isCalendarBlocked && !isBooked && !isDisabled && opts.hasSelectHandler;
 
-  return { isPast, isHostBlocked, isBooked, isDisabled, isSelected, inRange, classes, clickable };
+  return { isPast, isHostBlocked, isCalendarBlocked, isBooked, isDisabled, isSelected, inRange, classes, clickable };
 }
