@@ -464,17 +464,44 @@ export default function HomePage() {
           }
 
           .nav {
-            align-items: flex-start;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
             padding: 18px 20px;
           }
 
+          .wordmark {
+            align-self: center;
+          }
+
           .nav-actions {
-            gap: 6px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
+          }
+
+          .nav-actions > *,
+          .nav-link,
+          .nav-button {
+            width: 100%;
+            min-width: 0;
           }
 
           .nav-link,
           .nav-button {
-            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 8px;
+            text-align: center;
+          }
+
+          .nav-actions :global(.language-selector),
+          .nav-actions :global(.language-selector select) {
+            width: 100%;
+            max-width: none;
           }
 
           .staging-pill {

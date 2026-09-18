@@ -140,8 +140,14 @@ export function CustomerNav() {
 
         @media (max-width: 600px) {
           .customer-nav {
-            padding: 16px 10px;
-            align-items: flex-start;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+            padding: 16px 20px;
+          }
+
+          .customer-nav .customer-wordmark {
+            align-self: center;
           }
 
           .customer-nav .staging-pill {
@@ -149,12 +155,33 @@ export function CustomerNav() {
           }
 
           .customer-nav .customer-actions {
-            gap: 5px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
+          }
+
+          .customer-nav .customer-actions > *,
+          .customer-nav .customer-link,
+          .customer-nav .customer-button {
+            width: 100%;
+            min-width: 0;
           }
 
           .customer-nav .customer-link,
           .customer-nav .customer-button {
-            padding: 8px 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 8px;
+            text-align: center;
+          }
+
+          .customer-nav .customer-actions :global(.language-selector),
+          .customer-nav .customer-actions :global(.language-selector select) {
+            width: 100%;
+            max-width: none;
           }
         }
       `}</style>
