@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HostNav } from "@/components/HostNav";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
 
@@ -16,8 +16,20 @@ export default function HostPropertiesPage() {
   const [properties, setProperties] = useState<HostProperty[]>([]);
   const [state, setState] = useState<State>("checking");
 
-  useEffect(() => {
-    fetch("/api/host/properties", { credentials: "include" })
+  const loadProperties = useCallback(() => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      15000,
+    );
+
+    setState("checking");
+
+    fetch("/api/host/properties", {
+      credentials: "include",
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then(async (res) => {
         if (res.status === 401) { setState("unauthenticated"); return; }
         if (res.status === 403) { setState("forbidden"); return; }
@@ -26,8 +38,16 @@ export default function HostPropertiesPage() {
         setProperties(data.properties);
         setState("loaded");
       })
-      .catch(() => setState("error"));
+      .catch(() => setState("error"))
+      .finally(() => window.clearTimeout(timeoutId));
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
+
+  useEffect(() => loadProperties(), [loadProperties]);
 
   return (
     <div className="page-root">
@@ -83,7 +103,22 @@ export default function HostPropertiesPage() {
       )}
 
       {state === "error" && (
-        <div className="state-block"><div className="error-box">{ht("Something went wrong loading your properties. Please try again shortly.")}</div></div>
+        <div className="state-block">
+          <div className="error-box">
+            {ht("Something went wrong loading your properties. Please try again shortly.")}
+          </div>
+          <div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                loadProperties();
+              }}
+            >
+              {ht("Try again")}
+            </button>
+          </div>
+        </div>
       )}
 
       {state === "loaded" && (

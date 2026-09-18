@@ -527,6 +527,10 @@ export default function HomePage() {
                 {t("trips")}
               </a>
 
+              <a href="/favourites" className="nav-link">
+                {t("savedStays")}
+              </a>
+
               {sessionState.isHost && (
                 <a
                   href="/host/dashboard"

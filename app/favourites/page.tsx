@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/presentation/formatters";
+import { CustomerNav } from "@/components/CustomerNav";
 import { useInterfaceI18n } from "@/lib/i18n/useInterfaceI18n";
 
 type SavedProperty = {
@@ -56,8 +57,6 @@ export default function FavouritesPage() {
         }
         .page-root * { box-sizing: border-box; }
         .display { font-family: var(--font-display), Georgia, serif; }
-        .top-link { display: block; padding: 24px 28px 0; }
-        .top-link a { color: var(--warm-grey); font-size: 13px; text-decoration: none; }
         .header { max-width: 1080px; margin: 0 auto; padding: 8px 28px 20px; }
         .header h1 { font-size: 26px; font-weight: 400; }
         .state-block { max-width: 1080px; margin: 60px auto; padding: 0 28px; text-align: center; color: var(--warm-grey); }
@@ -76,7 +75,7 @@ export default function FavouritesPage() {
         .remove-btn:hover { border-color: var(--error); color: var(--error); }
       `}</style>
 
-      <div className="top-link"><a href="/">← {ui("backHost")}</a></div>
+      <CustomerNav />
 
       {state === "loading" && <div className="state-block">{ui("loadingSaved")}</div>}
 

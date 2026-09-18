@@ -119,3 +119,31 @@ test("existing hosts retain direct workspace access in shared navigation", () =>
     'href="/host/dashboard"',
   ));
 });
+
+test("signed-in users can reach trips, saved stays, and account from both customer navigations", () => {
+  const customerNav = read("components/CustomerNav.tsx");
+  const homepage = read("app/page.tsx");
+
+  for (const navigation of [customerNav, homepage]) {
+    assert.ok(navigation.includes(
+      "sessionState?.signedIn === true",
+    ));
+    assert.ok(navigation.includes('href="/trips"'));
+    assert.ok(navigation.includes('href="/favourites"'));
+    assert.ok(navigation.includes('href="/account"'));
+  }
+});
+
+
+test("saved stays retains the shared customer navigation", () => {
+  const source = read("app/favourites/page.tsx");
+
+  assert.ok(source.includes(
+    'import { CustomerNav } from "@/components/CustomerNav";',
+  ));
+  assert.ok(source.includes("<CustomerNav />"));
+  assert.equal(
+    source.includes('className="top-link"'),
+    false,
+  );
+});
