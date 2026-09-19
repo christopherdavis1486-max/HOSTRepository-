@@ -148,6 +148,7 @@ test("concierge interface exists in every supported language", () => {
     "conciergeDisclaimer",
     "conciergeClose",
     "conciergeViewStay",
+    "conciergePerNight",
     "conciergeSuggestions",
   ]) {
     assert.equal(

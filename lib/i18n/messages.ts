@@ -57,6 +57,8 @@ const en = {
 
   conciergeViewStay: "View stay",
 
+  conciergePerNight: "per night",
+
   conciergeSuggestions: "You could also ask",
 
   checkoutMissing: "Add a check-out date.",
@@ -136,6 +138,8 @@ export const messages: Record<
 
     conciergeViewStay: "Unterkunft ansehen",
 
+    conciergePerNight: "pro Nacht",
+
     conciergeSuggestions: "Sie könnten auch fragen",
 
     checkoutMissing:
@@ -208,6 +212,8 @@ export const messages: Record<
 
     conciergeViewStay: "Voir l’hébergement",
 
+    conciergePerNight: "par nuit",
+
     conciergeSuggestions: "Vous pourriez aussi demander",
 
     checkoutMissing:
@@ -278,6 +284,8 @@ export const messages: Record<
     conciergeClose: "Cerrar el conserje",
 
     conciergeViewStay: "Ver alojamiento",
+
+    conciergePerNight: "por noche",
 
     conciergeSuggestions: "También puedes preguntar",
 
@@ -350,6 +358,8 @@ export const messages: Record<
 
     conciergeViewStay: "Vedi alloggio",
 
+    conciergePerNight: "a notte",
+
     conciergeSuggestions: "Potresti anche chiedere",
 
     checkoutMissing:
@@ -420,6 +430,8 @@ export const messages: Record<
     conciergeClose: "Conciërge sluiten",
 
     conciergeViewStay: "Bekijk verblijf",
+
+    conciergePerNight: "per nacht",
 
     conciergeSuggestions: "Je kunt ook vragen",
 

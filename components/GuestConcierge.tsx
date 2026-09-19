@@ -209,9 +209,12 @@ export function GuestConcierge() {
                               property.nightlyPrice,
                               property.currency,
                             )}
-                            {" / night \u00b7 "}
+                            {" / "}
+                            {t("conciergePerNight")}
+                            {" \u00b7 "}
                             {property.maxGuests}
-                            {" guests"}
+                            {" "}
+                            {t("guests")}
                           </span>
                           <span className="property-action">
                             {t("conciergeViewStay")} {"\u2192"}
