@@ -79,7 +79,7 @@ export function PropertyMap({
 
       if (tilePane) {
         tilePane.style.filter =
-          "grayscale(1) contrast(1.32) brightness(1.28)";
+          "grayscale(1) contrast(1.08) brightness(1.02)";
       }
 
       const icon = L.divIcon({
@@ -193,7 +193,7 @@ export function PropertyMap({
         }
 
         .host-map :global(.leaflet-tile-pane) {
-          filter: grayscale(1) contrast(1.32) brightness(1.28);
+          filter: grayscale(1) contrast(1.08) brightness(1.02);
         }
 
         .host-map :global(.leaflet-control-zoom a) {
