@@ -169,3 +169,28 @@ test("OpenAI credentials remain server-only", () => {
   assert.doesNotMatch(env, /NEXT_PUBLIC_OPENAI/);
   assert.doesNotMatch(component, /OPENAI_API_KEY/);
 });
+
+
+test("concierge controls use encoding-safe symbols", () => {
+  const component = read(
+    "components/GuestConcierge.tsx",
+  );
+
+  for (const escape of [
+    "\\u2726",
+    "\\u00d7",
+    "\\u00b7",
+    "\\u2192",
+  ]) {
+    assert.ok(component.includes(escape));
+  }
+
+  assert.doesNotMatch(
+    component,
+    /aria-hidden="true">\?<\/span>/,
+  );
+  assert.doesNotMatch(
+    component,
+    /night \? /,
+  );
+});

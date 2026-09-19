@@ -135,7 +135,7 @@ export function GuestConcierge() {
           aria-expanded="false"
           aria-controls="host-concierge-panel"
         >
-          <span aria-hidden="true">?</span>
+          <span aria-hidden="true">{"\u2726"}</span>
           {t("conciergeButton")}
         </button>
       )}
@@ -164,7 +164,7 @@ export function GuestConcierge() {
               onClick={() => setOpen(false)}
               aria-label={t("conciergeClose")}
             >
-              ?
+              {"\u00d7"}
             </button>
           </header>
 
@@ -209,12 +209,12 @@ export function GuestConcierge() {
                               property.nightlyPrice,
                               property.currency,
                             )}
-                            {" / night ? "}
+                            {" / night \u00b7 "}
                             {property.maxGuests}
                             {" guests"}
                           </span>
                           <span className="property-action">
-                            {t("conciergeViewStay")} ?
+                            {t("conciergeViewStay")} {"\u2192"}
                           </span>
                         </a>
                       ),
