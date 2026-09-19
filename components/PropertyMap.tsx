@@ -74,9 +74,39 @@ export function PropertyMap({
         },
       ).addTo(map);
 
+      const tilePane = map.getPane("tilePane");
+
+      if (tilePane) {
+        tilePane.style.filter =
+          "grayscale(1) contrast(1.12) brightness(0.64)";
+      }
+
       const icon = L.divIcon({
         className: "host-map-marker",
-        html: '<span aria-hidden="true"><i></i></span>',
+        html: `<span
+          aria-hidden="true"
+          style="
+            position:relative;
+            display:block;
+            width:30px;
+            height:30px;
+            transform:rotate(-45deg);
+            border:2px solid #f2ecde;
+            border-radius:50% 50% 50% 4px;
+            background:#c9974b;
+            box-shadow:0 4px 14px rgba(0,0,0,0.55);
+          "
+        ><i
+          style="
+            position:absolute;
+            top:8px;
+            left:8px;
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            background:#14120e;
+          "
+        ></i></span>`,
         iconSize: [34, 42],
         iconAnchor: [17, 40],
         popupAnchor: [0, -38],

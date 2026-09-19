@@ -43,6 +43,9 @@ test("all property maps use monochrome tiles and gold markers", () => {
     /filter:\s*grayscale\(1\)/,
   );
   assert.ok(sharedMap.includes(
+    "tilePane.style.filter",
+  ));
+  assert.ok(sharedMap.includes(
     "background: #c9974b",
   ));
   assert.ok(sharedMap.includes(
