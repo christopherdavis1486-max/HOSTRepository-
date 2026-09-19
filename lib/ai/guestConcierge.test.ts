@@ -113,6 +113,9 @@ test("concierge requests are private and bounded", () => {
 
   assert.match(service, /store: false/);
   assert.match(service, /max_output_tokens: 1600/);
+  assert.match(service, /timeout: 30000/);
+  assert.match(service, /maxRetries: 0/);
+  assert.match(route, /maxDuration = 45/);
   assert.match(service, /\.max\(600\)/);
   assert.match(route, /contentLength > 10000/);
   assert.match(route, /Cache-Control": "no-store"/);

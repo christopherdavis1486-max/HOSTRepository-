@@ -224,8 +224,8 @@ export async function askGuestConcierge(
 
   const client = new OpenAI({
     apiKey,
-    timeout: 12000,
-    maxRetries: 1,
+    timeout: 30000,
+    maxRetries: 0,
   });
 
   const instructions = [

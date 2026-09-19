@@ -6,7 +6,7 @@ import {
 import { validationErrorResponse } from "@/lib/validation/schemas";
 
 export const runtime = "nodejs";
-export const maxDuration = 20;
+export const maxDuration = 45;
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
