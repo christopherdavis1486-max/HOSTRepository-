@@ -105,6 +105,8 @@ test("concierge output is structured and grounded to real property ids", () => {
     service,
     /propertyIds:[\s\S]*max\(3\)/,
   );
+  assert.match(service, /maxLength: 1200/);
+  assert.match(service, /maxLength: 100/);
 });
 
 test("concierge requests are private and bounded", () => {

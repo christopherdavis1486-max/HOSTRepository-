@@ -272,11 +272,19 @@ export async function askGuestConcierge(
           type: "object",
           additionalProperties: false,
           properties: {
-            answer: { type: "string" },
+            answer: {
+              type: "string",
+              minLength: 1,
+              maxLength: 1200,
+            },
             propertyIds: {
               type: "array",
               maxItems: 3,
-              items: { type: "string" },
+              items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 100,
+              },
             },
             followUps: {
               type: "array",
