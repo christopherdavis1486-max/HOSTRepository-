@@ -13,6 +13,7 @@ const redis = redisUrl && redisToken
 const authLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "host:auth" }) : null;
 const financialLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "15 m"), prefix: "host:financial" }) : null;
 const aiLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(12, "15 m"), prefix: "host:ai" }) : null;
+const contactLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "host:contact" }) : null;
 
 function localLimit(key: string, limit: number, windowMs: number) {
   const now = Date.now(); const existing = localBuckets.get(key);
@@ -62,6 +63,52 @@ export async function middleware(request: NextRequest) {
   const authPath = MUTATING.has(request.method) && AUTH_PATHS.some((path) => pathname.startsWith(path));
   const financialPath = FINANCIAL_PATHS.some((path) => pathname.startsWith(path)) && MUTATING.has(request.method);
   const aiPath = pathname === "/api/ai/concierge" && request.method === "POST";
+  const contactPath = pathname === "/api/contact" && request.method === "POST";
+
+  if (contactPath) {
+    let allowed: boolean;
+
+    if (contactLimiter) {
+      allowed = (await contactLimiter.limit(ip)).success;
+    } else if (
+      process.env.NODE_ENV === "production" ||
+      process.env.SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT === "true"
+    ) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "SECURITY_NOT_CONFIGURED",
+              message: "Contact service is temporarily unavailable.",
+            },
+          },
+          { status: 503 },
+        ),
+      );
+    } else {
+      allowed = localLimit(
+        `contact:${ip}`,
+        5,
+        15 * 60_000,
+      );
+    }
+
+    if (!allowed) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "RATE_LIMITED",
+              message: "Too many contact requests. Try again later.",
+            },
+          },
+          { status: 429 },
+        ),
+      );
+    }
+  }
 
   if (aiPath) {
     let allowed: boolean;

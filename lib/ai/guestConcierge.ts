@@ -240,6 +240,7 @@ export async function askGuestConcierge(
     "Recommend no more than three properties and return only IDs that appear in the catalog.",
     "If no property is suitable, say so clearly without inventing one.",
     "Do not make reservations or modify accounts.",
+    "For account, payment, cancellation, complaint, safety, accessibility, or unresolved questions, direct the guest to the Contact HOST link shown in the concierge.",
     "Keep the answer concise, warm, and practical.",
   ].join(" ");
 

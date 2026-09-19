@@ -437,6 +437,12 @@ export default function HomePage() {
           color: var(--brass);
         }
 
+        .footer-links {
+          display: flex;
+          gap: 18px;
+          flex-wrap: wrap;
+        }
+
         @media (max-width: 820px) {
           .search-fields {
             grid-template-columns: 1fr 1fr;
@@ -745,9 +751,14 @@ export default function HomePage() {
           Test Mode and are not real transactions.
         </p>
 
-        <a href="/host-with-us">
-          {t("listProperty")}
-        </a>
+        <div className="footer-links">
+          <a href="/host-with-us">
+            {t("listProperty")}
+          </a>
+          <a href="/contact">
+            {t("contact")}
+          </a>
+        </div>
       </footer>
     </div>
   );

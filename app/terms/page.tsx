@@ -94,7 +94,7 @@ export default function TermsPage() {
       <h2>Changes and contact</h2>
       <p>
         We may update these terms as HOST develops. Questions can be sent to{" "}
-        <a href="mailto:hostplatform.admin@gmail.com">hostplatform.admin@gmail.com</a>.
+        <a href="/contact">Contact HOST form</a>.
       </p>
     </LegalPage>
   );

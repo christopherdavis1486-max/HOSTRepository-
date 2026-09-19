@@ -314,6 +314,13 @@ export function GuestConcierge() {
             <p className="concierge-disclaimer">
               {t("conciergeDisclaimer")}
             </p>
+
+            <a
+              className="concierge-contact"
+              href="/contact"
+            >
+              {t("conciergeContact")} {"\u2192"}
+            </a>
           </div>
         </section>
       )}
@@ -534,6 +541,19 @@ export function GuestConcierge() {
         .concierge-form-footer button:disabled {
           cursor: not-allowed;
           opacity: 0.55;
+        }
+
+        .concierge-contact {
+          display: inline-flex;
+          margin: 12px 22px 22px;
+          color: #d4a24f;
+          font-size: 13px;
+          font-weight: 700;
+          text-decoration: none;
+        }
+
+        .concierge-contact:hover {
+          color: #f2ecde;
         }
 
         .concierge-disclaimer {

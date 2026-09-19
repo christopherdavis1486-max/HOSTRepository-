@@ -18,12 +18,18 @@ function getResendClient(): Resend {
   return resendClient;
 }
 
-export async function sendEmail(to: string, subject: string, body: string) {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  body: string,
+  options?: { replyTo?: string },
+) {
   const client = getResendClient(); // throws here, at send time — not at import time
   return client.emails.send({
     from: process.env.EMAIL_FROM_ADDRESS ?? "HOST <notifications@example.com>",
     to,
     subject,
     text: body,
+    replyTo: options?.replyTo,
   });
 }

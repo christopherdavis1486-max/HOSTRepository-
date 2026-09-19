@@ -61,6 +61,12 @@ const en = {
 
   conciergeSuggestions: "You could also ask",
 
+
+  contact: "Contact HOST",
+
+
+  conciergeContact: "Need more help? Contact HOST",
+
   checkoutMissing: "Add a check-out date.",
   checkinMissing: "Add a check-in date.",
   datesInvalid:
@@ -142,6 +148,12 @@ export const messages: Record<
 
     conciergeSuggestions: "Sie könnten auch fragen",
 
+
+    contact: "HOST kontaktieren",
+
+
+    conciergeContact: "Weitere Hilfe? HOST kontaktieren",
+
     checkoutMissing:
       "Fügen Sie ein Abreisedatum hinzu.",
     checkinMissing:
@@ -216,6 +228,12 @@ export const messages: Record<
 
     conciergeSuggestions: "Vous pourriez aussi demander",
 
+
+    contact: "Contacter HOST",
+
+
+    conciergeContact: "Besoin d'aide ? Contacter HOST",
+
     checkoutMissing:
       "Ajoutez une date de départ.",
     checkinMissing:
@@ -288,6 +306,12 @@ export const messages: Record<
     conciergePerNight: "por noche",
 
     conciergeSuggestions: "También puedes preguntar",
+
+
+    contact: "Contactar con HOST",
+
+
+    conciergeContact: "Necesitas ayuda? Contacta con HOST",
 
     checkoutMissing:
       "Añade una fecha de salida.",
@@ -362,6 +386,12 @@ export const messages: Record<
 
     conciergeSuggestions: "Potresti anche chiedere",
 
+
+    contact: "Contatta HOST",
+
+
+    conciergeContact: "Serve altro aiuto? Contatta HOST",
+
     checkoutMissing:
       "Aggiungi una data di check-out.",
     checkinMissing:
@@ -434,6 +464,12 @@ export const messages: Record<
     conciergePerNight: "per nacht",
 
     conciergeSuggestions: "Je kunt ook vragen",
+
+
+    contact: "Contact opnemen",
+
+
+    conciergeContact: "Meer hulp nodig? Neem contact op",
 
     checkoutMissing:
       "Voeg een uitcheckdatum toe.",
