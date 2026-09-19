@@ -330,7 +330,8 @@ export function GuestConcierge() {
         .concierge-panel {
           width: min(390px, calc(100vw - 28px));
           max-height: min(690px, calc(100vh - 36px));
-          overflow: auto;
+          overflow-x: hidden;
+          overflow-y: auto;
           border: 1px solid #3a3226;
           border-radius: 10px;
           background: #14120e;
@@ -468,7 +469,9 @@ export function GuestConcierge() {
         }
 
         .concierge-form textarea {
+          box-sizing: border-box;
           width: 100%;
+          max-width: 100%;
           resize: vertical;
           min-height: 82px;
           padding: 11px 12px;
