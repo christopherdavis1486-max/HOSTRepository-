@@ -66,6 +66,22 @@ export function GuestConcierge() {
     setError(null);
 
     try {
+      const params = new URLSearchParams(
+        window.location.search,
+      );
+      const contextCheckIn = params.get("checkIn");
+      const contextCheckOut = params.get("checkOut");
+      const searchContext = {
+        city: params.get("city") || undefined,
+        guests: params.get("guests") || undefined,
+        ...(contextCheckIn && contextCheckOut
+          ? {
+              checkIn: contextCheckIn,
+              checkOut: contextCheckOut,
+            }
+          : {}),
+      };
+
       const response = await fetch("/api/ai/concierge", {
         method: "POST",
         credentials: "include",
@@ -76,6 +92,7 @@ export function GuestConcierge() {
         body: JSON.stringify({
           question: trimmedQuestion,
           locale,
+          ...searchContext,
         }),
       });
 

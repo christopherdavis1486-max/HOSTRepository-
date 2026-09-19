@@ -49,6 +49,26 @@ test("concierge inventory contains only public approved listings", () => {
   }
 });
 
+test("concierge applies structured live search criteria", () => {
+  const service = read("lib/ai/guestConcierge.ts");
+  const component = read(
+    "components/GuestConcierge.tsx",
+  );
+
+  assert.match(
+    service,
+    /\.and\(propertySearchQuerySchema\)/,
+  );
+  assert.match(service, /p\.max_guests >= \$/);
+  assert.match(service, /FROM availability_blocks ab/);
+  assert.match(service, /ab\.status != 'available'/);
+  assert.match(service, /p\.min_stay_nights <= \$/);
+  assert.match(service, /p\.max_stay_nights >= \$/);
+  assert.match(component, /params\.get\("checkIn"\)/);
+  assert.match(component, /params\.get\("checkOut"\)/);
+  assert.match(component, /\.\.\.searchContext/);
+});
+
 test("concierge treats guest and listing text as untrusted", () => {
   const service = read("lib/ai/guestConcierge.ts");
 
