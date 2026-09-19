@@ -1,3 +1,11 @@
+"use client";
+
+import { useMemo } from "react";
+import {
+  PropertyMap,
+  type PropertyMapMarker,
+} from "@/components/PropertyMap";
+
 type PublicPoint = {
   type: "Point";
   coordinates: [number, number];
@@ -31,30 +39,27 @@ export function PropertyLocationMap({
   privacyMessage,
   placeLabel,
 }: PropertyLocationMapProps) {
-  if (
-    location.type !== "Point" ||
-    !validCoordinatePair(location.coordinates)
-  ) {
+  const markers = useMemo<PropertyMapMarker[]>(() => {
+    if (
+      location.type !== "Point" ||
+      !validCoordinatePair(location.coordinates)
+    ) {
+      return [];
+    }
+
+    const [longitude, latitude] = location.coordinates;
+
+    return [{
+      id: "property-location",
+      name: heading,
+      city: placeLabel,
+      position: [latitude, longitude],
+    }];
+  }, [heading, location, placeLabel]);
+
+  if (markers.length === 0) {
     return null;
   }
-
-  const [longitude, latitude] = location.coordinates;
-  const longitudeMargin = 0.025;
-  const latitudeMargin = 0.015;
-  const bbox = [
-    longitude - longitudeMargin,
-    latitude - latitudeMargin,
-    longitude + longitudeMargin,
-    latitude + latitudeMargin,
-  ].join(",");
-
-  const mapUrl =
-    "https://www.openstreetmap.org/export/embed.html" +
-    `?bbox=${encodeURIComponent(bbox)}` +
-    "&layer=mapnik" +
-    `&marker=${encodeURIComponent(
-      `${latitude},${longitude}`,
-    )}`;
 
   return (
     <section
@@ -72,15 +77,11 @@ export function PropertyLocationMap({
         {placeLabel}
       </p>
 
-      <div className="property-map-frame">
-        <iframe
-          src={mapUrl}
-          title={heading}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-popups"
-        />
-      </div>
+      <PropertyMap
+        markers={markers}
+        ariaLabel={heading}
+        compact
+      />
 
       <p className="property-location-privacy">
         {privacyMessage}
@@ -110,28 +111,6 @@ export function PropertyLocationMap({
 
         .property-location-privacy {
           margin: 10px 0 0;
-        }
-
-        .property-map-frame {
-          position: relative;
-          height: 300px;
-          overflow: hidden;
-          border: 1px solid var(--stone);
-          border-radius: 8px;
-          background: var(--graphite);
-        }
-
-        .property-map-frame iframe {
-          width: 100%;
-          height: 100%;
-          border: 0;
-          filter: grayscale(0.85) sepia(0.25) brightness(0.72);
-        }
-
-        @media (max-width: 600px) {
-          .property-map-frame {
-            height: 240px;
-          }
         }
       `}</style>
     </section>

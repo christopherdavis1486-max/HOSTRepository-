@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { HomepagePropertyMap } from "@/components/HomepagePropertyMap";
 import { useI18n } from "@/components/I18nProvider";
 
 const DESTINATIONS = [
@@ -694,6 +695,13 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      <HomepagePropertyMap
+        eyebrow={t("mapEyebrow")}
+        heading={t("mapHeading")}
+        privacyMessage={t("mapPrivacy")}
+        loadingMessage={t("mapLoading")}
+      />
 
       <section className="section" id="destinations">
         <div className="section-head">

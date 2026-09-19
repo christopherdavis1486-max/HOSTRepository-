@@ -1,5 +1,6 @@
 import { I18nProvider } from "@/components/I18nProvider";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
+import "leaflet/dist/leaflet.css";
 
 export const metadata = {
   title: "HOST",

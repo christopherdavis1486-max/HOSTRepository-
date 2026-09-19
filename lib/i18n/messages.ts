@@ -29,6 +29,14 @@ const en = {
   where: "Where to stay",
   firstLook:
     "A first look at HOST's European cities",
+  mapEyebrow: "Explore HOST",
+
+  mapHeading: "Stay close to the cities you came to experience",
+
+  mapPrivacy: "Markers show approximate areas only. Select a property marker to view the stay.",
+
+  mapLoading: "Loading property locations…",
+
   checkoutMissing: "Add a check-out date.",
   checkinMissing: "Add a check-in date.",
   datesInvalid:
@@ -78,6 +86,14 @@ export const messages: Record<
     where: "Wohin reisen?",
     firstLook:
       "Ein erster Blick auf die europäischen Städte von HOST",
+    mapEyebrow: "HOST entdecken",
+
+    mapHeading: "Übernachten Sie nah an den Städten, die Sie erleben möchten",
+
+    mapPrivacy: "Die Markierungen zeigen nur ungefähre Gebiete. Wählen Sie eine Unterkunft aus, um sie anzusehen.",
+
+    mapLoading: "Unterkunftsstandorte werden geladen…",
+
     checkoutMissing:
       "Fügen Sie ein Abreisedatum hinzu.",
     checkinMissing:
@@ -120,6 +136,14 @@ export const messages: Record<
     where: "Où séjourner",
     firstLook:
       "Un premier aperçu des villes européennes de HOST",
+    mapEyebrow: "Découvrir HOST",
+
+    mapHeading: "Séjournez au cœur des villes que vous souhaitez découvrir",
+
+    mapPrivacy: "Les marqueurs indiquent uniquement des zones approximatives. Sélectionnez un hébergement pour le consulter.",
+
+    mapLoading: "Chargement des emplacements…",
+
     checkoutMissing:
       "Ajoutez une date de départ.",
     checkinMissing:
@@ -161,6 +185,14 @@ export const messages: Record<
     where: "Dónde alojarse",
     firstLook:
       "Un primer vistazo a las ciudades europeas de HOST",
+    mapEyebrow: "Explora HOST",
+
+    mapHeading: "Alójate cerca de las ciudades que has venido a descubrir",
+
+    mapPrivacy: "Los marcadores muestran solo zonas aproximadas. Selecciona un alojamiento para verlo.",
+
+    mapLoading: "Cargando ubicaciones…",
+
     checkoutMissing:
       "Añade una fecha de salida.",
     checkinMissing:
@@ -202,6 +234,14 @@ export const messages: Record<
     where: "Dove soggiornare",
     firstLook:
       "Un primo sguardo alle città europee di HOST",
+    mapEyebrow: "Scopri HOST",
+
+    mapHeading: "Soggiorna vicino alle città che desideri vivere",
+
+    mapPrivacy: "I marcatori mostrano solo aree approssimative. Seleziona un alloggio per visualizzarlo.",
+
+    mapLoading: "Caricamento delle posizioni…",
+
     checkoutMissing:
       "Aggiungi una data di check-out.",
     checkinMissing:
@@ -243,6 +283,14 @@ export const messages: Record<
     where: "Waar verblijven",
     firstLook:
       "Een eerste blik op de Europese steden van HOST",
+    mapEyebrow: "Ontdek HOST",
+
+    mapHeading: "Verblijf dicht bij de steden die je wilt beleven",
+
+    mapPrivacy: "Markeringen tonen alleen globale gebieden. Selecteer een accommodatie om deze te bekijken.",
+
+    mapLoading: "Locaties van accommodaties laden…",
+
     checkoutMissing:
       "Voeg een uitcheckdatum toe.",
     checkinMissing:
