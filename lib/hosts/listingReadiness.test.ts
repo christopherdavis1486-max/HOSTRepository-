@@ -270,3 +270,21 @@ test(
     );
   }
 );
+
+test(
+  "already-published listings can be edited without re-entering publication",
+  () => {
+    assert.match(
+      propertyService,
+      /SELECT status FROM properties WHERE id = \$1/
+    );
+    assert.match(
+      propertyService,
+      /currentStatus\.rows\[0\]\?\.status !==[\s\S]*"published"/
+    );
+    assert.match(
+      propertyService,
+      /assertPropertyCanPublish\(propertyId\)/
+    );
+  }
+);

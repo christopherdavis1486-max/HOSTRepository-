@@ -191,7 +191,17 @@ export async function updatePropertyForHost(
   input: PropertyInput
 ) {
   if (input.status === "published") {
-    await assertPropertyCanPublish(propertyId);
+    const currentStatus = await db.query<{ status: string }>(
+      `SELECT status FROM properties WHERE id = $1`,
+      [propertyId]
+    );
+
+    if (
+      currentStatus.rows[0]?.status !==
+      "published"
+    ) {
+      await assertPropertyCanPublish(propertyId);
+    }
   }
 
   const fieldMap: Record<string, unknown> = {
