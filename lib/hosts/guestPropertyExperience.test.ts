@@ -72,3 +72,31 @@ test("guest reviews remain visible after the location map", () => {
   assert.ok(mapPosition >= 0);
   assert.ok(reviewsPosition > mapPosition);
 });
+
+
+test("public reviews require both the review and property to be published", () => {
+  const service = read("lib/reviews/createReview.ts");
+
+  assert.match(
+    service,
+    /JOIN properties p ON p\.id = r\.property_id/,
+  );
+  assert.match(
+    service,
+    /r\.status = 'published'/,
+  );
+  assert.match(
+    service,
+    /p\.status = 'published'/,
+  );
+  const publicListingFunction = service.slice(
+    service.indexOf(
+      "export async function listPropertyReviews",
+    ),
+  );
+
+  assert.doesNotMatch(
+    publicListingFunction,
+    /guest_id/,
+  );
+});

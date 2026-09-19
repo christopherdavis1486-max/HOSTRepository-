@@ -136,8 +136,15 @@ export async function listReviewsForHost(hostProfileId: string) {
 
 export async function listPropertyReviews(propertyId: string) {
   const result = await db.query(
-    `SELECT id, overall, cleanliness, location_rating, accuracy, communication, comfort, body, host_reply, host_reply_at, created_at
-     FROM reviews WHERE property_id = $1 AND status = 'published' ORDER BY created_at DESC`,
+    `SELECT r.id, r.overall, r.cleanliness, r.location_rating,
+            r.accuracy, r.communication, r.comfort, r.body,
+            r.host_reply, r.host_reply_at, r.created_at
+     FROM reviews r
+     JOIN properties p ON p.id = r.property_id
+     WHERE r.property_id = $1
+       AND r.status = 'published'
+       AND p.status = 'published'
+     ORDER BY r.created_at DESC`,
     [propertyId]
   );
   return result.rows;
