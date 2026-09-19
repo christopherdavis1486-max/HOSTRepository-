@@ -12,6 +12,7 @@ import {
 import { formatTime, formatCurrency } from "@/lib/presentation/formatters";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { PropertyReviews } from "@/components/PropertyReviews";
+import { PropertyLocationMap } from "@/components/PropertyLocationMap";
 import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
 
 /**
@@ -41,6 +42,7 @@ type Property = {
   maxGuests: number; bedrooms: number | null; bathrooms: number | null;
   checkInTime: string | null; checkOutTime: string | null; houseRules: string | null;
   rating: string | number | null; reviewCount: number | null;
+  publicLocation: { type: "Point"; coordinates: [number, number] } | null;
   images: PublicPropertyImage[];
   cancellationPolicy: { name: string; description: string | null; rules: unknown } | null;
   compliance: { reviewStatus: string; reviewedAt: string | null; reviewedCheckCount: number; statement: string };
@@ -463,6 +465,17 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
                     {property.cancellationPolicy.description && <p style={{ marginTop: 0 }}>{property.cancellationPolicy.description}</p>}
                   </div>
                 </section>
+              )}
+
+              {property.publicLocation && (
+                <PropertyLocationMap
+                  location={property.publicLocation}
+                  heading={gt("approximateLocation")}
+                  privacyMessage={gt("locationPrivacy")}
+                  placeLabel={[property.district, property.city]
+                    .filter(Boolean)
+                    .join(", ")}
+                />
               )}
 
               <PropertyReviews

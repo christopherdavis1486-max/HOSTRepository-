@@ -42,7 +42,7 @@ function addSecurityHeaders(response: NextResponse) {
     "default-src 'self'", `script-src 'self' 'unsafe-inline'${devEval} https://js.stripe.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://*.blob.vercel-storage.com", "connect-src 'self' https://api.stripe.com https://*.stripe.com https://vercel.com https://*.blob.vercel-storage.com",
-    "frame-src https://js.stripe.com https://hooks.stripe.com", "object-src 'none'", "base-uri 'self'",
+    "frame-src https://js.stripe.com https://hooks.stripe.com https://www.openstreetmap.org", "object-src 'none'", "base-uri 'self'",
     "form-action 'self'", "frame-ancestors 'none'",
   ].join("; "));
   response.headers.set("X-Content-Type-Options", "nosniff"); response.headers.set("X-Frame-Options", "DENY");
