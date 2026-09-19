@@ -46,6 +46,9 @@ test("all property maps use monochrome tiles and gold markers", () => {
     "tilePane.style.filter",
   ));
   assert.ok(sharedMap.includes(
+    "detectRetina: true",
+  ));
+  assert.ok(sharedMap.includes(
     "background: #c9974b",
   ));
   assert.ok(sharedMap.includes(

@@ -71,6 +71,7 @@ export function PropertyMap({
           attribution:
             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
           maxZoom: 18,
+          detectRetina: true,
         },
       ).addTo(map);
 
@@ -78,7 +79,7 @@ export function PropertyMap({
 
       if (tilePane) {
         tilePane.style.filter =
-          "grayscale(1) contrast(1.12) brightness(0.64)";
+          "grayscale(1) contrast(1.32) brightness(1.28)";
       }
 
       const icon = L.divIcon({
@@ -192,7 +193,7 @@ export function PropertyMap({
         }
 
         .host-map :global(.leaflet-tile-pane) {
-          filter: grayscale(1) contrast(1.12) brightness(0.64);
+          filter: grayscale(1) contrast(1.32) brightness(1.28);
         }
 
         .host-map :global(.leaflet-control-zoom a) {
