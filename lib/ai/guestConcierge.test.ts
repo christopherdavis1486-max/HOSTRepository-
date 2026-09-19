@@ -112,7 +112,7 @@ test("concierge requests are private and bounded", () => {
   const route = read("app/api/ai/concierge/route.ts");
 
   assert.match(service, /store: false/);
-  assert.match(service, /max_output_tokens: 600/);
+  assert.match(service, /max_output_tokens: 1600/);
   assert.match(service, /\.max\(600\)/);
   assert.match(route, /contentLength > 10000/);
   assert.match(route, /Cache-Control": "no-store"/);

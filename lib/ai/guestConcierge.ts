@@ -262,7 +262,7 @@ export async function askGuestConcierge(
       publicPropertyCatalog:
         publicCatalogForModel(listings),
     }),
-    max_output_tokens: 600,
+    max_output_tokens: 1600,
     text: {
       format: {
         type: "json_schema",
