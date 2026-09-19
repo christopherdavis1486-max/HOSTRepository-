@@ -12,6 +12,7 @@ const redis = redisUrl && redisToken
   : null;
 const authLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "host:auth" }) : null;
 const financialLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "15 m"), prefix: "host:financial" }) : null;
+const aiLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(12, "15 m"), prefix: "host:ai" }) : null;
 
 function localLimit(key: string, limit: number, windowMs: number) {
   const now = Date.now(); const existing = localBuckets.get(key);
@@ -60,6 +61,54 @@ export async function middleware(request: NextRequest) {
   }
   const authPath = MUTATING.has(request.method) && AUTH_PATHS.some((path) => pathname.startsWith(path));
   const financialPath = FINANCIAL_PATHS.some((path) => pathname.startsWith(path)) && MUTATING.has(request.method);
+  const aiPath = pathname === "/api/ai/concierge" && request.method === "POST";
+
+  if (aiPath) {
+    let allowed: boolean;
+
+    if (aiLimiter) {
+      allowed = (await aiLimiter.limit(ip)).success;
+    } else if (
+      process.env.NODE_ENV === "production" ||
+      process.env.SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT === "true"
+    ) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "SECURITY_NOT_CONFIGURED",
+              message: "Security service is temporarily unavailable.",
+            },
+          },
+          { status: 503 },
+        ),
+      );
+    } else {
+      allowed = localLimit(
+        `ai:${ip}`,
+        12,
+        15 * 60_000,
+      );
+    }
+
+    if (!allowed) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "RATE_LIMITED",
+              message:
+                "The concierge has received too many questions. Try again later.",
+            },
+          },
+          { status: 429 },
+        ),
+      );
+    }
+  }
+
   if (authPath || financialPath) {
     const distributed = authPath ? authLimiter : financialLimiter; let allowed: boolean;
     if (distributed) allowed = (await distributed.limit(ip)).success;

@@ -37,6 +37,28 @@ const en = {
 
   mapLoading: "Loading property locations…",
 
+  conciergeButton: "Ask HOST",
+
+  conciergeTitle: "HOST concierge",
+
+  conciergeWelcome: "Tell me what kind of city stay you are looking for.",
+
+  conciergePlaceholder: "A quiet city stay for two…",
+
+  conciergeSend: "Ask",
+
+  conciergeThinking: "Finding suitable stays…",
+
+  conciergeError: "The concierge is temporarily unavailable. Please try again.",
+
+  conciergeDisclaimer: "AI recommendations use published listing details. Confirm live availability and final pricing before booking. Do not share personal or payment information.",
+
+  conciergeClose: "Close concierge",
+
+  conciergeViewStay: "View stay",
+
+  conciergeSuggestions: "You could also ask",
+
   checkoutMissing: "Add a check-out date.",
   checkinMissing: "Add a check-in date.",
   datesInvalid:
@@ -94,6 +116,28 @@ export const messages: Record<
 
     mapLoading: "Unterkunftsstandorte werden geladen…",
 
+    conciergeButton: "HOST fragen",
+
+    conciergeTitle: "HOST-Concierge",
+
+    conciergeWelcome: "Beschreiben Sie, welche Art von Städtereise Sie suchen.",
+
+    conciergePlaceholder: "Ein ruhiger Städteaufenthalt für zwei…",
+
+    conciergeSend: "Fragen",
+
+    conciergeThinking: "Passende Unterkünfte werden gesucht…",
+
+    conciergeError: "Der Concierge ist vorübergehend nicht verfügbar. Bitte versuchen Sie es erneut.",
+
+    conciergeDisclaimer: "KI-Empfehlungen basieren auf veröffentlichten Unterkunftsangaben. Prüfen Sie Verfügbarkeit und Endpreis. Teilen Sie keine persönlichen Daten oder Zahlungsinformationen.",
+
+    conciergeClose: "Concierge schließen",
+
+    conciergeViewStay: "Unterkunft ansehen",
+
+    conciergeSuggestions: "Sie könnten auch fragen",
+
     checkoutMissing:
       "Fügen Sie ein Abreisedatum hinzu.",
     checkinMissing:
@@ -144,6 +188,28 @@ export const messages: Record<
 
     mapLoading: "Chargement des emplacements…",
 
+    conciergeButton: "Demander à HOST",
+
+    conciergeTitle: "Concierge HOST",
+
+    conciergeWelcome: "Décrivez le type de séjour urbain que vous recherchez.",
+
+    conciergePlaceholder: "Un séjour paisible en ville pour deux…",
+
+    conciergeSend: "Demander",
+
+    conciergeThinking: "Recherche d’hébergements adaptés…",
+
+    conciergeError: "Le concierge est temporairement indisponible. Veuillez réessayer.",
+
+    conciergeDisclaimer: "Les recommandations de l’IA utilisent les informations publiées. Vérifiez les disponibilités et le prix final. Ne partagez aucune donnée personnelle ou de paiement.",
+
+    conciergeClose: "Fermer le concierge",
+
+    conciergeViewStay: "Voir l’hébergement",
+
+    conciergeSuggestions: "Vous pourriez aussi demander",
+
     checkoutMissing:
       "Ajoutez une date de départ.",
     checkinMissing:
@@ -192,6 +258,28 @@ export const messages: Record<
     mapPrivacy: "Los marcadores muestran solo zonas aproximadas. Selecciona un alojamiento para verlo.",
 
     mapLoading: "Cargando ubicaciones…",
+
+    conciergeButton: "Preguntar a HOST",
+
+    conciergeTitle: "Conserje HOST",
+
+    conciergeWelcome: "Cuéntanos qué tipo de estancia urbana buscas.",
+
+    conciergePlaceholder: "Una estancia tranquila para dos…",
+
+    conciergeSend: "Preguntar",
+
+    conciergeThinking: "Buscando alojamientos adecuados…",
+
+    conciergeError: "El conserje no está disponible temporalmente. Inténtalo de nuevo.",
+
+    conciergeDisclaimer: "Las recomendaciones de IA usan datos publicados. Confirma la disponibilidad y el precio final. No compartas datos personales ni de pago.",
+
+    conciergeClose: "Cerrar el conserje",
+
+    conciergeViewStay: "Ver alojamiento",
+
+    conciergeSuggestions: "También puedes preguntar",
 
     checkoutMissing:
       "Añade una fecha de salida.",
@@ -242,6 +330,28 @@ export const messages: Record<
 
     mapLoading: "Caricamento delle posizioni…",
 
+    conciergeButton: "Chiedi a HOST",
+
+    conciergeTitle: "Concierge HOST",
+
+    conciergeWelcome: "Descrivi il tipo di soggiorno in città che stai cercando.",
+
+    conciergePlaceholder: "Un soggiorno tranquillo per due…",
+
+    conciergeSend: "Chiedi",
+
+    conciergeThinking: "Ricerca degli alloggi adatti…",
+
+    conciergeError: "Il concierge non è temporaneamente disponibile. Riprova.",
+
+    conciergeDisclaimer: "I consigli dell’IA utilizzano dati pubblicati. Verifica disponibilità e prezzo finale. Non condividere dati personali o di pagamento.",
+
+    conciergeClose: "Chiudi il concierge",
+
+    conciergeViewStay: "Vedi alloggio",
+
+    conciergeSuggestions: "Potresti anche chiedere",
+
     checkoutMissing:
       "Aggiungi una data di check-out.",
     checkinMissing:
@@ -290,6 +400,28 @@ export const messages: Record<
     mapPrivacy: "Markeringen tonen alleen globale gebieden. Selecteer een accommodatie om deze te bekijken.",
 
     mapLoading: "Locaties van accommodaties laden…",
+
+    conciergeButton: "Vraag HOST",
+
+    conciergeTitle: "HOST-conciërge",
+
+    conciergeWelcome: "Vertel ons wat voor stedelijk verblijf je zoekt.",
+
+    conciergePlaceholder: "Een rustig verblijf voor twee…",
+
+    conciergeSend: "Vraag",
+
+    conciergeThinking: "Geschikte accommodaties zoeken…",
+
+    conciergeError: "De conciërge is tijdelijk niet beschikbaar. Probeer het opnieuw.",
+
+    conciergeDisclaimer: "AI-aanbevelingen gebruiken gepubliceerde informatie. Controleer beschikbaarheid en de definitieve prijs. Deel geen persoonlijke of betaalgegevens.",
+
+    conciergeClose: "Conciërge sluiten",
+
+    conciergeViewStay: "Bekijk verblijf",
+
+    conciergeSuggestions: "Je kunt ook vragen",
 
     checkoutMissing:
       "Voeg een uitcheckdatum toe.",

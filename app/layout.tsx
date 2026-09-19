@@ -1,5 +1,6 @@
 import { I18nProvider } from "@/components/I18nProvider";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
+import { GuestConcierge } from "@/components/GuestConcierge";
 import "leaflet/dist/leaflet.css";
 
 export const metadata = {
@@ -14,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body><AuthSessionProvider><I18nProvider>{children}</I18nProvider></AuthSessionProvider></body>
+      <body><AuthSessionProvider><I18nProvider>{children}<GuestConcierge /></I18nProvider></AuthSessionProvider></body>
     </html>
   )
 }
