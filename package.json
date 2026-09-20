@@ -9,7 +9,7 @@
     "staging:preflight": "node --import tsx --env-file=.env.staging.local scripts/verifyStagingConfig.ts",
     "seed": "tsx --env-file=.env.local scripts/seedFeeConfig.ts",
     "migrate": "tsx --env-file=.env.local scripts/migrate.ts",
-    "test": "node --import tsx --env-file=.env.local --experimental-test-module-mocks --test \"lib/**/*.test.ts\" \"app/**/*.test.ts\" \"components/**/*.test.ts\" \"scripts/**/*.test.ts\""
+    "test": "node --import tsx --env-file-if-exists=.env.test.local --experimental-test-module-mocks --test \"lib/**/*.test.ts\" \"app/**/*.test.ts\" \"components/**/*.test.ts\" \"scripts/**/*.test.ts\""
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
