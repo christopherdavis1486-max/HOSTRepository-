@@ -1,4 +1,7 @@
 import { Pool } from "pg";
+import { assertSafeTestDatabase } from "./testDatabaseGuard";
+
+assertSafeTestDatabase();
 
 const globalForDb = globalThis as unknown as { pool?: Pool };
 
