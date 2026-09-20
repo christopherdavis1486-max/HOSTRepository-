@@ -16,9 +16,9 @@ async function createTestProperty(status = "published", slug?: string) {
   );
 
   const result = await db.query(
-    `INSERT INTO properties (host_id, name, slug, city, district, description, currency, nightly_price, cleaning_fee, max_guests, bedrooms, bathrooms, status, cancellation_policy_id)
-     VALUES ($1, $2, $3, 'Berlin', 'Kreuzberg', 'A real test description', 'GBP', 175, 25, 4, 2, 1, $4, $5) RETURNING id`,
-    [hostProfileResult.rows[0].id, `Detail Test Property ${suffix}`, slug ?? null, status, policyResult.rows[0].id]
+    `INSERT INTO properties (host_id, name, slug, city, district, description, currency, nightly_price, cleaning_fee, max_guests, bedrooms, bathrooms, status, cancellation_policy_id, compliance_status)
+     VALUES ($1, $2, $3, 'Berlin', 'Kreuzberg', 'A real test description', 'GBP', 175, 25, 4, 2, 1, $4, $5, $6) RETURNING id`,
+    [hostProfileResult.rows[0].id, `Detail Test Property ${suffix}`, slug ?? null, status, policyResult.rows[0].id, status === "published" ? "approved" : "not_started"]
   );
   return result.rows[0].id as string;
 }
@@ -82,7 +82,7 @@ test("returns a published property with exactly the documented public-safe field
     "id", "name", "slug", "description", "city", "district", "countryCode", "propertyType",
     "currency", "nightlyPrice", "cleaningFee", "maxGuests", "bedrooms", "bathrooms",
     "minStayNights", "maxStayNights", "checkInTime", "checkOutTime", "houseRules",
-    "rating", "reviewCount", "publicLocation", "cancellationPolicy",
+    "rating", "reviewCount", "compliance", "publicLocation", "images", "cancellationPolicy",
   ]);
   for (const key of Object.keys(data.property)) {
     assert.ok(allowedKeys.has(key), `unexpected field "${key}" — must be an explicit public-safe field`);
@@ -136,7 +136,7 @@ test("a property with no cancellation policy set returns cancellationPolicy: nul
   const hostUserResult = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`prop-nopolicy-${suffix}@test.host`]);
   const hostProfileResult = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUserResult.rows[0].id]);
   const propertyResult = await db.query(
-    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'No Policy Property', 'Berlin', 'GBP', 100, 2, 'published') RETURNING id`,
+    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'No Policy Property', 'Berlin', 'GBP', 100, 2, 'published', 'approved') RETURNING id`,
     [hostProfileResult.rows[0].id]
   );
   const propertyId = propertyResult.rows[0].id;

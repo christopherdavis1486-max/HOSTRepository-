@@ -15,8 +15,8 @@ async function createTestProperty(overrides: Partial<{
     [hostUserResult.rows[0].id]
   );
   const result = await db.query(
-    `INSERT INTO properties (host_id, name, city, district, currency, nightly_price, max_guests, status)
-     VALUES ($1, $2, $3, $4, 'GBP', 150, $5, $6) RETURNING id`,
+    `INSERT INTO properties (host_id, name, city, district, currency, nightly_price, max_guests, status, compliance_status)
+     VALUES ($1, $2, $3, $4, 'GBP', 150, $5, $6, $7) RETURNING id`,
     [
       hostProfileResult.rows[0].id,
       overrides.name ?? `Search Test Property ${suffix}`,
@@ -24,6 +24,9 @@ async function createTestProperty(overrides: Partial<{
       overrides.district ?? "Mitte",
       overrides.maxGuests ?? 2,
       overrides.status ?? "published",
+      (overrides.status ?? "published") === "published"
+        ? "approved"
+        : "not_started",
     ]
   );
   return result.rows[0].id as string;
@@ -51,7 +54,7 @@ test("returns published properties with only the documented public-safe fields",
   const allowedKeys = new Set([
     "id", "name", "slug", "city", "district", "country_code", "property_type",
     "currency", "nightly_price", "max_guests", "bedrooms", "bathrooms",
-    "rating", "review_count", "publicLocation",
+    "rating", "review_count", "publicLocation", "coverImage",
   ]);
   for (const key of Object.keys(found)) {
     assert.ok(allowedKeys.has(key), `unexpected field "${key}" present in search results — must be an explicit public-safe field`);

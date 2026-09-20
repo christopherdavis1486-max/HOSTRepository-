@@ -222,28 +222,67 @@ test("updating amenities replaces the full set, not merges with it", async () =>
   assert.deepEqual(slugs, ["parking"], "wifi must be gone, replaced entirely by parking, not merged");
 });
 
-test("changing status to published then back to draft/paused works, and each status is stored literally", async () => {
+test("draft and paused transitions are stored literally, while incomplete publication is rejected", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const hostId = await createTestHost(suffix);
   const propertyId = await createPropertyForHost(hostId, {
     name: "Status Test", city: "Liverpool", maxGuests: 2, bedrooms: 1, bathrooms: 1, nightlyPrice: 100,
   });
 
-  await updatePropertyForHost(propertyId, { status: "published" });
-  assert.equal((await getHostPropertyDetail(propertyId))!.status, "published");
+  await assert.rejects(
+    () =>
+      updatePropertyForHost(propertyId, {
+        status: "published",
+      }),
+    (error: unknown) =>
+      error instanceof Error &&
+      (error as Error & { code?: string }).code ===
+        "LISTING_NOT_READY"
+  );
 
-  await updatePropertyForHost(propertyId, { status: "paused" });
-  assert.equal((await getHostPropertyDetail(propertyId))!.status, "paused");
+  assert.equal(
+    (await getHostPropertyDetail(propertyId))!.status,
+    "draft",
+    "a rejected publication must leave the listing in draft"
+  );
+
+  await updatePropertyForHost(propertyId, {
+    status: "paused",
+  });
+  assert.equal(
+    (await getHostPropertyDetail(propertyId))!.status,
+    "paused"
+  );
+
+  await updatePropertyForHost(propertyId, {
+    status: "draft",
+  });
+  assert.equal(
+    (await getHostPropertyDetail(propertyId))!.status,
+    "draft"
+  );
 });
 
-test("a published property is publicly visible via the same query the public route uses", async () => {
+test("creating an incomplete property directly as published is rejected", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const hostId = await createTestHost(suffix);
-  const propertyId = await createPropertyForHost(hostId, {
-    name: "Public Visibility Test", city: "Liverpool", maxGuests: 2, bedrooms: 1, bathrooms: 1, nightlyPrice: 100, status: "published",
-  });
-  const publicRow = await db.query(`SELECT status FROM properties WHERE id = $1 AND status = 'published'`, [propertyId]);
-  assert.equal(publicRow.rows.length, 1);
+
+  await assert.rejects(
+    () =>
+      createPropertyForHost(hostId, {
+        name: "Public Visibility Test",
+        city: "Liverpool",
+        maxGuests: 2,
+        bedrooms: 1,
+        bathrooms: 1,
+        nightlyPrice: 100,
+        status: "published",
+      }),
+    (error: unknown) =>
+      error instanceof Error &&
+      (error as Error & { code?: string }).code ===
+        "LISTING_NOT_READY"
+  );
 });
 
 test("a draft property is correctly excluded from the public-visible filter", async () => {

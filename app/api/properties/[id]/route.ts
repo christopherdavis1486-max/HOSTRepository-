@@ -177,17 +177,7 @@ export async function GET(
        FROM properties p
        LEFT JOIN cancellation_policies cp
          ON cp.id = p.cancellation_policy_id
-       WHERE ${isUuid ? "p.id = $1" : "p.slug = $1"}
-         AND p.status = 'published'
-         AND p.compliance_status = 'approved'
-         AND NOT EXISTS (
-           SELECT 1
-           FROM property_compliance_items expired_pci
-           WHERE expired_pci.property_id = p.id
-             AND expired_pci.applicability = 'required'
-             AND expired_pci.valid_until IS NOT NULL
-             AND expired_pci.valid_until < CURRENT_DATE
-         )`,
+       WHERE ${isUuid ? "p.id = $1" : "p.slug = $1"}`,
       [id]
     );
 
@@ -209,7 +199,12 @@ export async function GET(
 
     const row = result.rows[0];
 
-    if (row.status !== "published") {
+    const isPubliclyVisible =
+      row.status === "published" &&
+      row.compliance_status === "approved" &&
+      !row.has_expired_compliance;
+
+    if (!isPubliclyVisible) {
       const session = await getServerSession(
         authOptions
       ).catch(() => null);

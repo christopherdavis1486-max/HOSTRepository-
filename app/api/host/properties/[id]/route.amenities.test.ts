@@ -25,7 +25,7 @@ import { db } from "@/lib/db";
  * to a fresh mock (confirmed directly in that earlier work).
  */
 
-let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[] } } | null = null;
+let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[]; sessionId: string; sessionVersion: number } } | null = null;
 let PATCH: typeof import("./route").PATCH;
 let GET: typeof import("./route").GET;
 
@@ -48,7 +48,19 @@ async function createHostAndProperty(suffix: string) {
      VALUES ($1, 'Amenity Regression Property', 'Liverpool', 'GBP', 100, 2, 1, 1, '15:00', '11:00', 'draft') RETURNING id`,
     [hostProfile.rows[0].id]
   );
-  return { hostProfileId: hostProfile.rows[0].id as string, propertyId: property.rows[0].id as string, userId: hostUser.rows[0].id as string };
+  const session = await db.query(
+    `INSERT INTO auth_sessions (user_id, expires_at)
+     VALUES ($1, NOW() + INTERVAL '1 day')
+     RETURNING id`,
+    [hostUser.rows[0].id]
+  );
+
+  return {
+    hostProfileId: hostProfile.rows[0].id as string,
+    propertyId: property.rows[0].id as string,
+    userId: hostUser.rows[0].id as string,
+    sessionId: session.rows[0].id as string,
+  };
 }
 
 async function getAmenityIds() {
@@ -73,8 +85,16 @@ function realisticFormPayload(overrides: Record<string, unknown> = {}) {
 
 test("REGRESSION: the exact realistic PATCH payload that previously 400'd now succeeds", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { hostProfileId, propertyId, userId } = await createHostAndProperty(suffix);
-  mockSession = { user: { id: userId, hostProfileId, roles: ["host"] } };
+  const { hostProfileId, propertyId, userId, sessionId } = await createHostAndProperty(suffix);
+  mockSession = {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles: ["host"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const request = new NextRequest(`http://localhost/api/host/properties/${propertyId}`, {
     method: "PATCH",
@@ -86,8 +106,16 @@ test("REGRESSION: the exact realistic PATCH payload that previously 400'd now su
 
 test("REGRESSION: select Wi-Fi + Kitchen → save → fresh read → both amenities are still associated", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { hostProfileId, propertyId, userId } = await createHostAndProperty(suffix);
-  mockSession = { user: { id: userId, hostProfileId, roles: ["host"] } };
+  const { hostProfileId, propertyId, userId, sessionId } = await createHostAndProperty(suffix);
+  mockSession = {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles: ["host"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
   const amenities = await getAmenityIds();
 
   const saveRequest = new NextRequest(`http://localhost/api/host/properties/${propertyId}`, {
@@ -108,8 +136,16 @@ test("REGRESSION: select Wi-Fi + Kitchen → save → fresh read → both amenit
 
 test("removing one amenity (Kitchen) while keeping the other (Wi-Fi) persists correctly", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { hostProfileId, propertyId, userId } = await createHostAndProperty(suffix);
-  mockSession = { user: { id: userId, hostProfileId, roles: ["host"] } };
+  const { hostProfileId, propertyId, userId, sessionId } = await createHostAndProperty(suffix);
+  mockSession = {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles: ["host"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
   const amenities = await getAmenityIds();
 
   await PATCH(
@@ -130,8 +166,16 @@ test("removing one amenity (Kitchen) while keeping the other (Wi-Fi) persists co
 
 test("saving an empty amenity list clears the full set — matches unchecking every checkbox", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { hostProfileId, propertyId, userId } = await createHostAndProperty(suffix);
-  mockSession = { user: { id: userId, hostProfileId, roles: ["host"] } };
+  const { hostProfileId, propertyId, userId, sessionId } = await createHostAndProperty(suffix);
+  mockSession = {
+    user: {
+      id: userId,
+      hostProfileId,
+      roles: ["host"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
   const amenities = await getAmenityIds();
 
   await PATCH(
@@ -156,7 +200,15 @@ test("a different host still cannot modify another host's amenities — real 403
   const b = await createHostAndProperty(suffixB);
   const amenities = await getAmenityIds();
 
-  mockSession = { user: { id: b.userId, hostProfileId: b.hostProfileId, roles: ["host"] } };
+  mockSession = {
+    user: {
+      id: b.userId,
+      hostProfileId: b.hostProfileId,
+      roles: ["host"],
+      sessionId: b.sessionId,
+      sessionVersion: 1,
+    },
+  };
   const request = new NextRequest(`http://localhost/api/host/properties/${a.propertyId}`, {
     method: "PATCH",
     body: JSON.stringify(realisticFormPayload({ amenityIds: [amenities.wifi] })),

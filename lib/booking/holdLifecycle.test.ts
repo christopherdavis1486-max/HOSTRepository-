@@ -46,7 +46,7 @@ after(async () => { await db.end(); });
 async function setupPublishedProperty(suffix: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b-hl-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
-  const property = await db.query(`INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'HL Test Property', 'Liverpool', 'GBP', 100, 2, 'published') RETURNING id`, [hostProfile.rows[0].id]);
+  const property = await db.query(`INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'HL Test Property', 'Liverpool', 'GBP', 100, 2, 'published', 'approved') RETURNING id`, [hostProfile.rows[0].id]);
   const guestUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b-hl-guest-${suffix}@test.host`]);
   return { propertyId: property.rows[0].id as string, guestId: guestUser.rows[0].id as string };
 }

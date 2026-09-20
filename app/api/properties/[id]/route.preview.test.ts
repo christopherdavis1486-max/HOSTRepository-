@@ -115,13 +115,77 @@ test("the TRUE owning host's session sees their own draft property — the actua
   assert.equal("status" in data.property, false, "the response shape must remain exactly as before — status is not echoed back");
 });
 
+test("a published but unapproved property remains hidden from the public", async () => {
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const hostUser = await db.query(
+    `INSERT INTO users (email, password_hash, status)
+     VALUES ($1, 'x', 'active')
+     RETURNING id`,
+    [`preview-unapproved-host-${suffix}@test.host`]
+  );
+  const hostProfile = await db.query(
+    `INSERT INTO host_profiles (user_id, payout_account_status)
+     VALUES ($1, 'active')
+     RETURNING id`,
+    [hostUser.rows[0].id]
+  );
+  const property = await db.query(
+    `INSERT INTO properties (
+       host_id,
+       name,
+       slug,
+       city,
+       currency,
+       nightly_price,
+       max_guests,
+       status,
+       compliance_status
+     )
+     VALUES (
+       $1,
+       'Unapproved Published Test',
+       $2,
+       'Liverpool',
+       'GBP',
+       100,
+       2,
+       'published',
+       'submitted'
+     )
+     RETURNING id`,
+    [
+      hostProfile.rows[0].id,
+      `unapproved-published-test-${suffix}`,
+    ]
+  );
+
+  mockSession = null;
+
+  const response = await GET(
+    new NextRequest(
+      `http://localhost/api/properties/${property.rows[0].id}`
+    ),
+    {
+      params: Promise.resolve({
+        id: property.rows[0].id,
+      }),
+    }
+  );
+
+  assert.equal(
+    response.status,
+    404,
+    "published listings must remain private until compliance is approved"
+  );
+});
+
 test("a published property remains visible to everyone regardless of session, unchanged from before", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`preview-pub-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
   const property = await db.query(
-    `INSERT INTO properties (host_id, name, slug, city, currency, nightly_price, max_guests, status)
-     VALUES ($1, 'Published Test', $2, 'Liverpool', 'GBP', 100, 2, 'published') RETURNING id`,
+    `INSERT INTO properties (host_id, name, slug, city, currency, nightly_price, max_guests, status, compliance_status)
+     VALUES ($1, 'Published Test', $2, 'Liverpool', 'GBP', 100, 2, 'published', 'approved') RETURNING id`,
     [hostProfile.rows[0].id, `published-test-${suffix}`]
   );
   mockSession = null;

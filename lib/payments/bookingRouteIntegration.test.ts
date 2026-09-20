@@ -12,7 +12,7 @@ let intentPOST: typeof import("../../app/api/payments/intent/route").POST;
 let setupIntentPOST: typeof import("../../app/api/payments/setup-intent/route").POST;
 let bookingsPOST: typeof import("../../app/api/bookings/route").POST;
 let bookingDetailGET: typeof import("../../app/api/bookings/[id]/route").GET;
-let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[] } } | null = null;
+let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[]; sessionId: string; sessionVersion: number } } | null = null;
 
 before(async () => {
   mock.module("next-auth", { namedExports: { getServerSession: async () => mockSession } });
@@ -38,16 +38,34 @@ after(async () => { await db.end(); });
 async function setupPublishedProperty(suffix: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b10-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, stripe_connect_account_id, payout_account_status) VALUES ($1, 'acct_test', 'active') RETURNING id`, [hostUser.rows[0].id]);
-  const property = await db.query(`INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'B10 Test Property', 'Liverpool', 'GBP', 100, 2, 'published') RETURNING id`, [hostProfile.rows[0].id]);
+  const property = await db.query(`INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'B10 Test Property', 'Liverpool', 'GBP', 100, 2, 'published', 'approved') RETURNING id`, [hostProfile.rows[0].id]);
   const guestUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b10-guest-${suffix}@test.host`]);
-  return { propertyId: property.rows[0].id as string, guestId: guestUser.rows[0].id as string };
+  const session = await db.query(
+    `INSERT INTO auth_sessions (user_id, expires_at)
+     VALUES ($1, NOW() + INTERVAL '1 day')
+     RETURNING id`,
+    [guestUser.rows[0].id]
+  );
+  return {
+    propertyId: property.rows[0].id as string,
+    guestId: guestUser.rows[0].id as string,
+    sessionId: session.rows[0].id as string,
+  };
 }
 
 test("A: with the flag genuinely unset, POST /api/bookings creates destination_charge_legacy and /api/payments/intent works exactly as before", async () => {
   delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const bookingReq = new NextRequest("http://localhost/api/bookings", {
     method: "POST",
@@ -72,8 +90,16 @@ test("A: with the flag genuinely unset, POST /api/bookings creates destination_c
 
 test("A: /api/payments/setup-intent is not invoked and is not usable for a legacy booking", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const bookingReq = new NextRequest("http://localhost/api/bookings", {
     method: "POST",
@@ -93,8 +119,16 @@ test("A: /api/payments/setup-intent is not invoked and is not usable for a legac
 test("B: with the flag ON, POST /api/bookings creates separate_charges_delayed_v1 and /api/payments/setup-intent creates a real SetupIntent, never a PaymentIntent", async () => {
   process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const bookingReq = new NextRequest("http://localhost/api/bookings", {
     method: "POST",
@@ -128,8 +162,16 @@ test("B: with the flag ON, POST /api/bookings creates separate_charges_delayed_v
 test("B: /api/payments/intent is refused for a separate_charges_delayed_v1 booking", async () => {
   process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const bookingReq = new NextRequest("http://localhost/api/bookings", {
     method: "POST",
@@ -155,8 +197,16 @@ test("B: /api/payments/intent is refused for a separate_charges_delayed_v1 booki
 
 test("C: the same booking Idempotency-Key submitted twice does not create a second booking", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
   const idempotencyKey = crypto.randomUUID();
 
   const makeReq = () => new NextRequest("http://localhost/api/bookings", {
@@ -176,8 +226,16 @@ test("C: the same booking Idempotency-Key submitted twice does not create a seco
 test("C: calling /api/payments/setup-intent twice for the same booking does not create a duplicate Stripe Customer or SetupIntent", async () => {
   process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const bookingReq = new NextRequest("http://localhost/api/bookings", {
     method: "POST",
@@ -203,8 +261,16 @@ test("C: calling /api/payments/setup-intent twice for the same booking does not 
 
 test("GET /api/bookings/[id] exposes paymentFlowVersion explicitly, so the client never has to infer it", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  mockSession = { user: { id: guestId, hostProfileId: null, roles: ["guest"] } };
+  const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+  mockSession = {
+    user: {
+      id: guestId,
+      hostProfileId: null,
+      roles: ["guest"],
+      sessionId,
+      sessionVersion: 1,
+    },
+  };
 
   const bookingReq = new NextRequest("http://localhost/api/bookings", {
     method: "POST",

@@ -69,9 +69,9 @@ async function createProperty(suffix: string, status: string) {
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
   const slug = `e2e-stays-test-${suffix}`;
   const property = await db.query(
-    `INSERT INTO properties (host_id, name, slug, city, currency, nightly_price, max_guests, status)
-     VALUES ($1, 'End To End Test Property', $2, 'Manchester', 'GBP', 125, 2, $3) RETURNING id`,
-    [hostProfile.rows[0].id, slug, status]
+    `INSERT INTO properties (host_id, name, slug, city, currency, nightly_price, max_guests, status, compliance_status)
+     VALUES ($1, 'End To End Test Property', $2, 'Manchester', 'GBP', 125, 2, $3, $4) RETURNING id`,
+    [hostProfile.rows[0].id, slug, status, status === "published" ? "approved" : "not_started"]
   );
   return { propertyId: property.rows[0].id as string, hostProfileId: hostProfile.rows[0].id as string, slug };
 }

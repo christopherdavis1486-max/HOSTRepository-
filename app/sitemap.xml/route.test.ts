@@ -23,8 +23,8 @@ async function createProperty(suffix: string, status: string, slug: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`sitemap-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
   await db.query(
-    `INSERT INTO properties (host_id, name, slug, city, currency, nightly_price, max_guests, status) VALUES ($1, 'Sitemap Test Property', $2, 'Manchester', 'GBP', 100, 2, $3)`,
-    [hostProfile.rows[0].id, slug, status]
+    `INSERT INTO properties (host_id, name, slug, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'Sitemap Test Property', $2, 'Manchester', 'GBP', 100, 2, $3, $4)`,
+    [hostProfile.rows[0].id, slug, status, status === "published" ? "approved" : "not_started"]
   );
 }
 

@@ -197,7 +197,13 @@ const property = await client.query(
  *  used by the new cron sweep endpoint, not a second expiry mechanism. */
 export async function findExpiredHoldBookingIds(): Promise<string[]> {
   const result = await db.query(
-    `SELECT id FROM bookings WHERE status = 'pending_payment' AND hold_expires_at IS NOT NULL AND hold_expires_at <= NOW() LIMIT 200`
+    `SELECT id
+     FROM bookings
+     WHERE status = 'pending_payment'
+       AND hold_expires_at IS NOT NULL
+       AND hold_expires_at <= NOW()
+     ORDER BY hold_expires_at ASC, id ASC
+     LIMIT 200`
   );
   return result.rows.map((r: { id: string }) => r.id);
 }
