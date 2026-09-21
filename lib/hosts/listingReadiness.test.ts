@@ -17,6 +17,12 @@ const propertyService = read(
 const migration = read(
   "migrations/028_listing_readiness.sql"
 );
+const statusReconciliationMigration = read(
+  "migrations/031_listing_status_reconciliation.sql"
+);
+const migrationRunner = read(
+  "scripts/migrate.ts"
+);
 const onboardingService = read(
   "lib/hosts/onboarding.ts"
 );
@@ -285,6 +291,47 @@ test(
     assert.match(
       propertyService,
       /assertPropertyCanPublish\(propertyId\)/
+    );
+  }
+);
+
+test(
+  "legacy published listings without approved review are reconciled",
+  () => {
+    assert.match(
+      statusReconciliationMigration,
+      /UPDATE properties/
+    );
+    assert.match(
+      statusReconciliationMigration,
+      /SET status = 'draft'/
+    );
+    assert.match(
+      statusReconciliationMigration,
+      /WHERE status = 'published'/
+    );
+    assert.match(
+      statusReconciliationMigration,
+      /pilot_review_status IS DISTINCT FROM 'approved'/
+    );
+    assert.match(
+      migrationRunner,
+      /031_listing_status_reconciliation\.sql/
+    );
+    assert.match(
+      manifestGenerator,
+      /031_listing_status_reconciliation\.sql/
+    );
+    assert.deepEqual(
+      manifest["031_listing_status_reconciliation.sql"],
+      {
+        tables: {},
+        constraints: {},
+        indexes: {},
+        functions: {},
+        triggers: {},
+        extensions: [],
+      }
     );
   }
 );
