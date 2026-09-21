@@ -143,11 +143,40 @@ export function PropertyImageManager({
 
     try {
       for (const file of files) {
-        await upload(file.name, file, {
+        const blob = await upload(
+          `properties/${propertyId}/${file.name}`,
+          file,
+          {
           access: "public",
           handleUploadUrl:
             `/api/host/properties/${propertyId}/images/upload`,
-        });
+          }
+        );
+
+        if (
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1"
+        ) {
+          const confirmation = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              blobUrl: blob.url,
+            }),
+          });
+
+          const confirmationData = await confirmation.json();
+
+          if (!confirmation.ok || !confirmationData.success) {
+            throw new Error(
+              confirmationData.error?.message ??
+                "The image uploaded but could not be registered."
+            );
+          }
+        }
       }
 
       await loadImages();

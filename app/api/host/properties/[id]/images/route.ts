@@ -1,3 +1,4 @@
+import { head } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthError, requireSession } from "@/lib/auth/session";
@@ -5,10 +6,15 @@ import { resolveHostPropertyAccess } from "@/lib/auth/hostAccess";
 import {
   listPropertyImages,
   PropertyImageError,
+  registerUploadedPropertyImage,
   reorderPropertyImages,
   setPropertyImageCover,
   updatePropertyImageAltText,
 } from "@/lib/hosts/propertyImages";
+
+const registerUploadSchema = z.object({
+  blobUrl: z.string().url("Blob URL must be valid."),
+});
 
 const imageActionSchema = z.discriminatedUnion("action", [
   z.object({
@@ -71,6 +77,58 @@ export async function GET(
     });
   } catch (error) {
     return handleImageRouteError(error, "load");
+  }
+}
+
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: propertyId } = await params;
+
+  try {
+    const session = await requireSession();
+    await resolveHostPropertyAccess(session, propertyId);
+
+    if (!session.user?.id) {
+      throw new AuthError("Authentication required.", 401);
+    }
+
+    const parsed = registerUploadSchema.safeParse(await request.json());
+
+    if (!parsed.success) {
+      return validationResponse(parsed.error);
+    }
+
+    const details = await head(parsed.data.blobUrl);
+    const expectedPrefix = `properties/${propertyId}`;
+
+    if (!details.pathname.startsWith(expectedPrefix)) {
+      throw new PropertyImageError(
+        "INVALID_UPLOAD_PATH",
+        "The uploaded image does not belong to this property.",
+        400
+      );
+    }
+
+    const image = await registerUploadedPropertyImage(
+      propertyId,
+      session.user.id,
+      {
+        url: details.url,
+        pathname: details.pathname,
+        contentType: details.contentType,
+        size: details.size,
+      }
+    );
+
+    return NextResponse.json({
+      success: true,
+      image,
+    });
+  } catch (error) {
+    return handleImageRouteError(error, "update");
   }
 }
 

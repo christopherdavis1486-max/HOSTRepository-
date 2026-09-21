@@ -71,3 +71,34 @@ test("property image editor uses constrained thumbnail cards", () => {
     /repeat\(auto-fit, minmax\(240px, 1fr\)\)/
   );
 });
+
+test("localhost uploads use a property-scoped path and authenticated confirmation", () => {
+  const manager = read("components/PropertyImageManager.tsx");
+  const imagesRoute = read(
+    "app/api/host/properties/[id]/images/route.ts"
+  );
+
+  assert.ok(
+    manager.includes(
+      "`properties/${propertyId}/${file.name}`"
+    )
+  );
+  assert.match(manager, /window\.location\.hostname === "localhost"/);
+  assert.match(manager, /window\.location\.hostname === "127\.0\.0\.1"/);
+  assert.match(manager, /method: "POST"/);
+  assert.match(manager, /blobUrl: blob\.url/);
+
+  assert.match(imagesRoute, /export async function POST/);
+  assert.match(
+    imagesRoute,
+    /const details = await head\(parsed\.data\.blobUrl\)/
+  );
+  assert.ok(
+    imagesRoute.includes("const expectedPrefix = `properties/${propertyId}`")
+  );
+  assert.match(
+    imagesRoute,
+    /details\.pathname\.startsWith\(expectedPrefix\)/
+  );
+  assert.match(imagesRoute, /registerUploadedPropertyImage/);
+});
