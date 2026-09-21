@@ -341,9 +341,12 @@ export function PropertyImageManager({
   return (
     <section
       style={{
-        marginTop: 28,
-        paddingTop: 24,
-        borderTop: "1px solid var(--border)",
+        marginTop: 32,
+        padding: 24,
+        border: "1px solid var(--border)",
+        borderRadius: 14,
+        background: "var(--surface)",
+        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.16)",
       }}
     >
       <div
@@ -377,16 +380,17 @@ export function PropertyImageManager({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            minHeight: 42,
-            padding: "0 18px",
-            borderRadius: 8,
+            minHeight: 46,
+            padding: "0 20px",
+            borderRadius: 9,
             background: uploading
               ? "#c4a98b"
               : "#d49a3f",
             color: "#100f0c",
             border: "1px solid #e9bd70",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.35)",
-            fontWeight: 700,
+            boxShadow: "0 6px 18px rgba(0, 0, 0, 0.28)",
+            fontWeight: 800,
+            letterSpacing: "0.01em",
             cursor: uploading ? "not-allowed" : "pointer",
           }}
         >
@@ -448,9 +452,10 @@ export function PropertyImageManager({
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(auto-fill, minmax(240px, 320px))",
+              "repeat(auto-fill, minmax(220px, 260px))",
             justifyContent: "start",
-            gap: 18,
+            alignItems: "start",
+            gap: 20,
           }}
         >
           {images.map((image, index) => (
@@ -507,6 +512,17 @@ function ImageEditor({
     setAltText(image.altText ?? "");
   }, [image.altText]);
 
+  const actionButtonStyle = {
+    minHeight: 34,
+    padding: "6px 9px",
+    border: "1px solid #5b4a32",
+    borderRadius: 7,
+    background: "#221d16",
+    color: "#f7f0e3",
+    fontWeight: 700,
+    cursor: busy ? "not-allowed" : "pointer",
+  } as const;
+
   return (
     <article
       style={{
@@ -514,15 +530,16 @@ function ImageEditor({
         border: image.isCover
           ? "2px solid var(--gold)"
           : "1px solid var(--border)",
-        borderRadius: 10,
-        background: "var(--surface)",
+        borderRadius: 12,
+        background: "#17140f",
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.2)",
       }}
     >
       <div
         style={{
           position: "relative",
           aspectRatio: "4 / 3",
-          background: "#e8e5df",
+          background: "#242019",
         }}
       >
         <img
@@ -582,9 +599,11 @@ function ImageEditor({
             boxSizing: "border-box",
             minHeight: 40,
             padding: "8px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 7,
-            marginBottom: 10,
+            border: "1px solid #5b4a32",
+            borderRadius: 8,
+            background: "#fffaf0",
+            color: "#17140f",
+            marginBottom: 12,
           }}
         />
 
@@ -604,6 +623,7 @@ function ImageEditor({
             onClick={() =>
               void onSaveAltText(image.id, altText)
             }
+            style={actionButtonStyle}
           >
             Save description
           </button>
@@ -613,6 +633,11 @@ function ImageEditor({
               type="button"
               disabled={busy}
               onClick={() => void onSetCover(image.id)}
+              style={{
+                ...actionButtonStyle,
+                borderColor: "#d49a3f",
+                color: "#e9bd70",
+              }}
             >
               Make cover
             </button>
@@ -623,6 +648,7 @@ function ImageEditor({
             disabled={busy || index === 0}
             aria-label="Move image earlier"
             onClick={() => void onMove(image.id, -1)}
+            style={actionButtonStyle}
           >
             Move earlier
           </button>
@@ -632,6 +658,7 @@ function ImageEditor({
             disabled={busy || index === imageCount - 1}
             aria-label="Move image later"
             onClick={() => void onMove(image.id, 1)}
+            style={actionButtonStyle}
           >
             Move later
           </button>
@@ -640,7 +667,11 @@ function ImageEditor({
             type="button"
             disabled={busy}
             onClick={() => void onDelete(image)}
-            style={{ color: "#b42318" }}
+            style={{
+              ...actionButtonStyle,
+              borderColor: "rgba(255, 180, 171, 0.35)",
+              color: "#ffb4ab",
+            }}
           >
             Delete
           </button>

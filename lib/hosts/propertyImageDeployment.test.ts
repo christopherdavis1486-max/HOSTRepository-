@@ -63,7 +63,7 @@ test("property image editor uses constrained thumbnail cards", () => {
 
   assert.match(
     manager,
-    /repeat\(auto-fill, minmax\(240px, 320px\)\)/
+    /repeat\(auto-fill, minmax\(220px, 260px\)\)/
   );
   assert.match(manager, /justifyContent: "start"/);
   assert.doesNotMatch(
