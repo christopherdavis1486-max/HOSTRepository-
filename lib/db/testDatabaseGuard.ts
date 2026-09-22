@@ -4,10 +4,20 @@ type TestEnvironment = {
   NODE_TEST_CONTEXT?: string;
 };
 
+const LOOPBACK_TEST_HOSTS = new Set([
+  "127.0.0.1",
+  "localhost",
+  "::1",
+  "[::1]",
+]);
+
+const REQUIRED_TEST_DATABASE_NAME = "host_test";
+
 /**
  * Node's test runner sets NODE_TEST_CONTEXT in test workers.
- * Any database-backed test must explicitly name its permitted database host.
- * This prevents an accidentally supplied production URL from being used.
+ * Database-backed tests must use the dedicated local host_test
+ * database. TEST_DATABASE_HOST remains an explicit confirmation,
+ * but cannot authorize a remote host or non-test database.
  */
 export function assertSafeTestDatabase(
   environment: TestEnvironment = {
@@ -18,7 +28,9 @@ export function assertSafeTestDatabase(
 ): void {
   if (!environment.NODE_TEST_CONTEXT) return;
 
-  const expectedHost = environment.TEST_DATABASE_HOST?.trim().toLowerCase();
+  const expectedHost =
+    environment.TEST_DATABASE_HOST?.trim().toLowerCase();
+
   if (!expectedHost) {
     throw new Error(
       "Database tests are blocked: TEST_DATABASE_HOST is not configured.",
@@ -32,18 +44,41 @@ export function assertSafeTestDatabase(
     );
   }
 
-  let actualHost: string;
+  let parsedDatabaseUrl: URL;
   try {
-    actualHost = new URL(databaseUrl).hostname.toLowerCase();
+    parsedDatabaseUrl = new URL(databaseUrl);
   } catch {
     throw new Error(
       "Database tests are blocked: DATABASE_URL is not a valid URL.",
     );
   }
 
+  const actualHost =
+    parsedDatabaseUrl.hostname.toLowerCase();
+  const databaseName =
+    decodeURIComponent(parsedDatabaseUrl.pathname.slice(1));
+
+  if (!LOOPBACK_TEST_HOSTS.has(actualHost)) {
+    throw new Error(
+      `Database tests are blocked: DATABASE_URL host "${actualHost}" is not a local loopback host.`,
+    );
+  }
+
+  if (!LOOPBACK_TEST_HOSTS.has(expectedHost)) {
+    throw new Error(
+      `Database tests are blocked: TEST_DATABASE_HOST "${expectedHost}" is not a local loopback host.`,
+    );
+  }
+
   if (actualHost !== expectedHost) {
     throw new Error(
       `Database tests are blocked: DATABASE_URL host "${actualHost}" does not match permitted TEST_DATABASE_HOST "${expectedHost}".`,
+    );
+  }
+
+  if (databaseName !== REQUIRED_TEST_DATABASE_NAME) {
+    throw new Error(
+      `Database tests are blocked: database "${databaseName}" is not the required "${REQUIRED_TEST_DATABASE_NAME}" test database.`,
     );
   }
 }
