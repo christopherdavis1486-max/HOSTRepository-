@@ -91,7 +91,16 @@ export async function getBookingDetail(bookingId: string) {
     [bookingId]
   );
 
-  return { ...mapDetailRow(result.rows[0], latestAttempt), refunds: refunds.rows };
+  return {
+    ...mapDetailRow(result.rows[0], latestAttempt),
+    refunds: refunds.rows.map((refund) => ({
+      amountMinor: refund.amount_minor,
+      currency: refund.currency,
+      reason: refund.reason,
+      status: refund.status,
+      createdAt: refund.created_at,
+    })),
+  };
 }
 
 /**

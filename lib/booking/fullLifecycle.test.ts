@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { NextRequest } from "next/server";
 import { db } from "../db";
 import { sendRefundWebhook, signEvent } from "../payments/webhookHandler.refund.testHelpers";
+import { getBookingDetail } from "./tripHistory";
 
 /**
  * The complete required regression chain for Batch 7:
@@ -168,6 +169,11 @@ test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation 
   // Stripe genuinely confirms a refund.
   if (cancelResult.refundInitiated) {
     await sendRefundWebhook(booking.id, paymentIntentId, cancelResult.refundInitiated.amountMinor, cancelResult.refundInitiated.amountMinor, `re_lifecycle_${suffix}`);
+
+    const bookingDetail = await getBookingDetail(booking.id);
+    assert.equal(bookingDetail.refunds[0].amountMinor, cancelResult.refundInitiated.amountMinor, "trip detail must expose the refund amount in camelCase");
+    assert.equal(bookingDetail.refunds[0].currency, cancelResult.refundInitiated.currency, "trip detail must expose the refund currency");
+    assert.equal(bookingDetail.refunds[0].status, "succeeded", "trip detail must expose the completed refund status");
   }
   const refundedBooking = await db.query(`SELECT status FROM bookings WHERE id = $1`, [booking.id]);
   assert.equal(refundedBooking.rows[0].status, "refunded", "the real refund webhook must have genuinely completed the refund");
