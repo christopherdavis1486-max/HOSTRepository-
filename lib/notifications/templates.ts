@@ -7,7 +7,8 @@ export type NotificationType =
   | "checkin_reminder"
   | "checkin_info_available"
   | "review_request"
-  | "host_new_booking";
+  | "host_new_booking"
+  | "host_booking_cancelled";
 
 export type TemplateContext = {
   guestName?: string;
@@ -59,7 +60,7 @@ export function renderNotification(type: NotificationType, ctx: TemplateContext)
     case "new_message":
       return {
         subject: `New message about ${ctx.propertyName}`,
-        body: `You have a new message about your stay at ${ctx.propertyName}.`,
+        body: `You have a new message about the booking at ${ctx.propertyName}.`,
       };
     case "checkin_reminder":
       return {
@@ -80,6 +81,11 @@ export function renderNotification(type: NotificationType, ctx: TemplateContext)
       return {
         subject: `New booking for ${ctx.propertyName}`,
         body: `You have a new confirmed booking. ${ctx.propertyName}, ${ctx.checkIn} → ${ctx.checkOut}. Reference ${ctx.bookingRef}.`,
+      };
+    case "host_booking_cancelled":
+      return {
+        subject: `Booking cancelled for ${ctx.propertyName}`,
+        body: `The booking for ${ctx.propertyName}, ${ctx.checkIn} → ${ctx.checkOut}, has been cancelled. Reference ${ctx.bookingRef}.`,
       };
   }
 }

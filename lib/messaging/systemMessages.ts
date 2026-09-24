@@ -72,4 +72,5 @@ export async function sendBookingCancelledMessage(bookingId: string, refundAmoun
   const info = await bookingContext(bookingId);
   if (!info) return;
   await sendSystemMessage(bookingId, "booking_cancelled", { ...info.ctx, refundAmount: refundAmountFormatted }, info.guestId);
+  await notifyUser(info.hostUserId, "host_booking_cancelled", info.ctx);
 }

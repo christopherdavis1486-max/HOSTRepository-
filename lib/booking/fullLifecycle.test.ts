@@ -165,6 +165,21 @@ test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation 
   const cancelResult = await cancelBookingAndRefund({ bookingId: booking.id, cancelledBy: "guest" });
   assert.ok(cancelResult);
 
+  const hostCancellationNotification = await db.query(
+    `SELECT payload FROM notifications
+     WHERE user_id = $1
+       AND type = 'host_booking_cancelled'
+       AND channel = 'in_app'
+     ORDER BY created_at DESC`,
+    [hostUserId]
+  );
+  assert.equal(hostCancellationNotification.rows.length, 1, "the host must receive a cancellation notification");
+  assert.equal(
+    hostCancellationNotification.rows[0].payload.subject,
+    "Booking cancelled for Full Lifecycle Test Property",
+    "the host cancellation notification must use host-specific wording"
+  );
+
   // STAGE: refund. Real refund.updated webhook, exactly matching how
   // Stripe genuinely confirms a refund.
   if (cancelResult.refundInitiated) {

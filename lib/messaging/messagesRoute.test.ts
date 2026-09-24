@@ -93,6 +93,7 @@ test("the booking's own guest can send and read messages", async () => {
   assert.equal(notification.rows.length, 1);
   assert.equal(notification.rows[0].payload.propertyName, "Messaging Test Property");
   assert.equal(notification.rows[0].payload.subject, "New message about Messaging Test Property");
+  assert.equal(notification.rows[0].payload.body, "You have a new message about the booking at Messaging Test Property.");
 });
 
 test("the booking's own host can send and read messages in the same conversation", async () => {
