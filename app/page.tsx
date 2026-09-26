@@ -728,8 +728,6 @@ export default function HomePage() {
               className="city-card"
               key={destination.city}
             >
-              <div className="city-swatch" />
-
               <div className="city-body">
                 <div className="city-name display">
                   {destination.city}

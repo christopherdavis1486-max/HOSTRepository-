@@ -31,7 +31,7 @@ const en = {
     "A first look at HOST's European cities",
   mapEyebrow: "Explore HOST",
 
-  mapHeading: "Stay close to the cities you came to experience",
+  mapHeading: "Stay close to the cities you came to explore",
 
   mapPrivacy: "Markers show approximate areas only. Select a property marker to view the stay.",
 
