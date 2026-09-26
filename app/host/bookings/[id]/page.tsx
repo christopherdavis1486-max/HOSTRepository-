@@ -110,7 +110,7 @@ export default function HostBookingDetailPage({ params }: { params: Promise<{ id
         .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 14px; border-top: 1px solid var(--stone); }
         .row:first-of-type { border-top: none; }
         .row .label { color: var(--warm-grey); flex-shrink: 0; }
-        .row > span:last-child { text-align: right; word-break: break-word; font-variant-numeric: tabular-nums; }
+        .row > span:last-child { min-width: max-content; text-align: right; word-break: normal; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .row.subtotal { padding-top: 10px; border-top: 1px solid var(--stone); margin-top: 2px; }
         .row.subtotal .label { color: var(--ivory); }
         .row.total { font-family: var(--font-body), system-ui, sans-serif; font-variant-numeric: tabular-nums; font-size: 16px; padding-top: 12px; border-top: 1px solid var(--stone); margin-top: 4px; }

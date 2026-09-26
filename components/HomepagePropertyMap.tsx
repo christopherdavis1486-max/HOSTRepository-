@@ -11,6 +11,8 @@ type PublicProperty = {
   name: string;
   slug: string | null;
   city: string;
+  nightly_price: number | string;
+  currency: string;
   publicLocation: {
     type: "Point";
     coordinates: [number, number];
@@ -91,13 +93,21 @@ export function HomepagePropertyMap({
           name: property.name,
           city: property.city,
           slug: property.slug,
+          priceLabel: new Intl.NumberFormat("en-GB", {
+            style: "currency",
+            currency: property.currency || "GBP",
+            maximumFractionDigits: 0,
+          }).format(Number(property.nightly_price)),
           position: [latitude, longitude] as [number, number],
         }];
       }),
     [properties],
   );
 
-  if (state === "error") {
+  if (
+    state === "error" ||
+    (state === "loaded" && markers.length === 0)
+  ) {
     return null;
   }
 

@@ -2863,5 +2863,77 @@
     "functions": {},
     "triggers": {},
     "extensions": []
+  },
+  "032_newsletter_subscriptions.sql": {
+    "tables": {
+      "newsletter_subscriptions": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "email",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "locale",
+          "dataType": "character varying",
+          "nullable": false,
+          "defaultExpression": "'en'::character varying"
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'subscribed'::text"
+        },
+        {
+          "name": "consent_source",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "consented_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "unsubscribed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "newsletter_subscriptions_status_check": "CHECK ((status = ANY (ARRAY['subscribed'::text, 'unsubscribed'::text])))",
+      "newsletter_subscriptions_pkey": "PRIMARY KEY (id)"
+    },
+    "indexes": {
+      "newsletter_subscriptions_status_idx": "CREATE INDEX newsletter_subscriptions_status_idx ON newsletter_subscriptions USING btree (status, consented_at DESC)",
+      "newsletter_subscriptions_pkey": "CREATE UNIQUE INDEX newsletter_subscriptions_pkey ON newsletter_subscriptions USING btree (id)",
+      "newsletter_subscriptions_email_unique": "CREATE UNIQUE INDEX newsletter_subscriptions_email_unique ON newsletter_subscriptions USING btree (lower(email))"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
   }
 }

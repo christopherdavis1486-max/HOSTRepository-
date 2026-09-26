@@ -8,6 +8,7 @@ export type PropertyMapMarker = {
   name: string;
   city: string;
   slug?: string | null;
+  priceLabel?: string | null;
   position: [number, number];
 };
 
@@ -82,43 +83,28 @@ export function PropertyMap({
           "grayscale(1) contrast(1.08) brightness(1.02)";
       }
 
-      const icon = L.divIcon({
-        className: "host-map-marker",
-        html: `<span
-          aria-hidden="true"
-          style="
-            position:relative;
-            display:block;
-            width:30px;
-            height:30px;
-            transform:rotate(-45deg);
-            border:2px solid #f2ecde;
-            border-radius:50% 50% 50% 4px;
-            background:#c9974b;
-            box-shadow:0 4px 14px rgba(0,0,0,0.55);
-          "
-        ><i
-          style="
-            position:absolute;
-            top:8px;
-            left:8px;
-            width:10px;
-            height:10px;
-            border-radius:50%;
-            background:#14120e;
-          "
-        ></i></span>`,
-        iconSize: [34, 42],
-        iconAnchor: [17, 40],
-        popupAnchor: [0, -38],
-      });
+      const markerIcon = (marker: PropertyMapMarker) => {
+        const label = marker.priceLabel?.trim();
+
+        return L.divIcon({
+          className: "host-map-marker",
+          html: label
+            ? `<span class="host-map-price">${label}</span>`
+            : `<span class="host-map-pin" aria-hidden="true"><i></i></span>`,
+          iconSize: label ? [82, 38] : [34, 42],
+          iconAnchor: label ? [41, 34] : [17, 40],
+          popupAnchor: [0, -34],
+        });
+      };
 
       const bounds = L.latLngBounds([]);
 
       for (const marker of safeMarkers) {
         const mapMarker = L.marker(marker.position, {
-          icon,
-          title: marker.name,
+          icon: markerIcon(marker),
+          title: marker.priceLabel
+            ? `${marker.name}, ${marker.priceLabel} per night`
+            : marker.name,
         }).addTo(map);
 
         bounds.extend(marker.position);
@@ -139,6 +125,12 @@ export function PropertyMap({
         city.textContent = marker.city;
 
         popup.append(name, city);
+
+        if (marker.priceLabel) {
+          const price = document.createElement("b");
+          price.textContent = `${marker.priceLabel} per night`;
+          popup.append(price);
+        }
         mapMarker.bindPopup(popup);
       }
 
@@ -216,7 +208,7 @@ export function PropertyMap({
           border: 0;
         }
 
-        .host-map :global(.host-map-marker > span) {
+        .host-map :global(.host-map-pin) {
           position: relative;
           display: block;
           width: 30px;
@@ -228,7 +220,7 @@ export function PropertyMap({
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
         }
 
-        .host-map :global(.host-map-marker i) {
+        .host-map :global(.host-map-pin i) {
           position: absolute;
           top: 8px;
           left: 8px;
@@ -236,6 +228,39 @@ export function PropertyMap({
           height: 10px;
           border-radius: 50%;
           background: #14120e;
+        }
+
+        .host-map :global(.host-map-price) {
+          position: relative;
+          display: inline-flex;
+          min-width: 68px;
+          min-height: 34px;
+          align-items: center;
+          justify-content: center;
+          padding: 7px 11px;
+          border: 2px solid #f2ecde;
+          border-radius: 999px;
+          background: #c9974b;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+          color: #14120e;
+          font-family: "Space Grotesk", system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+
+        .host-map :global(.host-map-price)::after {
+          position: absolute;
+          bottom: -7px;
+          left: 50%;
+          width: 10px;
+          height: 10px;
+          transform: translateX(-50%) rotate(45deg);
+          border-right: 2px solid #f2ecde;
+          border-bottom: 2px solid #f2ecde;
+          background: #c9974b;
+          content: "";
         }
 
         .host-map :global(.leaflet-popup-content-wrapper),
@@ -271,6 +296,12 @@ export function PropertyMap({
         .host-map :global(.host-map-popup span) {
           color: #a79e8c;
           font-size: 11px;
+        }
+
+        .host-map :global(.host-map-popup b) {
+          color: #c9974b;
+          font-size: 12px;
+          font-variant-numeric: tabular-nums;
         }
 
         @media (max-width: 600px) {

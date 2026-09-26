@@ -46,10 +46,20 @@ export default function PrivacyPage() {
         <li>To prevent fraud, secure accounts, investigate failures and enforce our terms.</li>
         <li>To meet legal, accounting, regulatory and consumer-protection obligations.</li>
         <li>To communicate service, verification, security and transaction information.</li>
+        <li>To send HOST news and travel inspiration when you have explicitly subscribed. You can withdraw that consent at any time.</li>
       </ul>
       <p>
         We rely on contractual necessity, legal obligations, legitimate
         interests and consent where each basis is appropriate.
+      </p>
+
+      <h2>Marketing communications</h2>
+      <p>
+        HOST only sends optional news, destination ideas and offers when you
+        actively subscribe. Subscription consent is separate from accepting
+        the terms or making a booking. You may withdraw consent at any time by
+        contacting us; an automated unsubscribe option will also be included
+        in marketing messages before they are sent.
       </p>
 
       <h2>Service providers and disclosures</h2>

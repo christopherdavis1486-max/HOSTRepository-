@@ -14,6 +14,7 @@ const authLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWin
 const financialLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "15 m"), prefix: "host:financial" }) : null;
 const aiLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(12, "15 m"), prefix: "host:ai" }) : null;
 const contactLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "host:contact" }) : null;
+const newsletterLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "1 h"), prefix: "host:newsletter" }) : null;
 
 function localLimit(key: string, limit: number, windowMs: number) {
   const now = Date.now(); const existing = localBuckets.get(key);
@@ -64,6 +65,53 @@ export async function middleware(request: NextRequest) {
   const financialPath = FINANCIAL_PATHS.some((path) => pathname.startsWith(path)) && MUTATING.has(request.method);
   const aiPath = pathname === "/api/ai/concierge" && request.method === "POST";
   const contactPath = pathname === "/api/contact" && request.method === "POST";
+  const newsletterPath =
+    pathname === "/api/newsletter" && request.method === "POST";
+
+  if (newsletterPath) {
+    let allowed: boolean;
+
+    if (newsletterLimiter) {
+      allowed = (await newsletterLimiter.limit(ip)).success;
+    } else if (
+      process.env.NODE_ENV === "production" ||
+      process.env.SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT === "true"
+    ) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "SECURITY_NOT_CONFIGURED",
+              message: "Newsletter service is temporarily unavailable.",
+            },
+          },
+          { status: 503 },
+        ),
+      );
+    } else {
+      allowed = localLimit(
+        `newsletter:${ip}`,
+        5,
+        60 * 60_000,
+      );
+    }
+
+    if (!allowed) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "RATE_LIMITED",
+              message: "Too many subscription requests. Try again later.",
+            },
+          },
+          { status: 429 },
+        ),
+      );
+    }
+  }
 
   if (contactPath) {
     let allowed: boolean;

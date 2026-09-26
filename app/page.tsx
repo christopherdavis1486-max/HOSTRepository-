@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { HomepagePropertyMap } from "@/components/HomepagePropertyMap";
+import { FeaturedStays } from "@/components/FeaturedStays";
+import { SiteFooter } from "@/components/SiteFooter";
 import { useI18n } from "@/components/I18nProvider";
 
 const DESTINATIONS = [
@@ -702,6 +704,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <FeaturedStays />
+
       <HomepagePropertyMap
         eyebrow={t("mapEyebrow")}
         heading={t("mapHeading")}
@@ -744,22 +748,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="footer-note">
-        <p>
-          This is a staging deployment of HOST used for integration
-          testing — booking data, payments and listings are in Stripe
-          Test Mode and are not real transactions.
-        </p>
-
-        <div className="footer-links">
-          <a href="/host-with-us">
-            {t("listProperty")}
-          </a>
-          <a href="/contact">
-            {t("contact")}
-          </a>
-        </div>
-      </footer>
+      <SiteFooter showStaging={showStaging} />
     </div>
   );
 }
