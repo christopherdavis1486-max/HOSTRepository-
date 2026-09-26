@@ -184,31 +184,31 @@ export function PropertyMap({
           height: 100%;
         }
 
-        .host-map :global(.leaflet-tile-pane) {
+        .host-map .leaflet-tile-pane {
           filter: grayscale(1) contrast(1.08) brightness(1.02);
         }
 
-        .host-map :global(.leaflet-control-zoom a) {
+        .host-map .leaflet-control-zoom a {
           border-color: #2a251c;
           background: #14120e;
           color: #f2ecde;
         }
 
-        .host-map :global(.leaflet-control-attribution) {
+        .host-map .leaflet-control-attribution {
           background: rgba(20, 18, 14, 0.82);
           color: #a79e8c;
         }
 
-        .host-map :global(.leaflet-control-attribution a) {
+        .host-map .leaflet-control-attribution a {
           color: #c9974b;
         }
 
-        .host-map :global(.host-map-marker) {
+        .host-map .host-map-marker {
           background: transparent;
           border: 0;
         }
 
-        .host-map :global(.host-map-pin) {
+        .host-map .host-map-pin {
           position: relative;
           display: block;
           width: 30px;
@@ -220,7 +220,7 @@ export function PropertyMap({
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
         }
 
-        .host-map :global(.host-map-pin i) {
+        .host-map .host-map-pin i {
           position: absolute;
           top: 8px;
           left: 8px;
@@ -230,7 +230,7 @@ export function PropertyMap({
           background: #14120e;
         }
 
-        .host-map :global(.host-map-price) {
+        .host-map .host-map-price {
           position: relative;
           display: inline-flex;
           min-width: 68px;
@@ -250,7 +250,7 @@ export function PropertyMap({
           white-space: nowrap;
         }
 
-        .host-map :global(.host-map-price)::after {
+        .host-map .host-map-price::after {
           position: absolute;
           bottom: -7px;
           left: 50%;
@@ -263,42 +263,42 @@ export function PropertyMap({
           content: "";
         }
 
-        .host-map :global(.leaflet-popup-content-wrapper),
-        .host-map :global(.leaflet-popup-tip) {
+        .host-map .leaflet-popup-content-wrapper,
+        .host-map .leaflet-popup-tip {
           background: #14120e;
           color: #f2ecde;
         }
 
-        .host-map :global(.leaflet-popup-content-wrapper) {
+        .host-map .leaflet-popup-content-wrapper {
           border: 1px solid #c9974b;
           border-radius: 6px;
         }
 
-        .host-map :global(.host-map-popup) {
+        .host-map .host-map-popup {
           display: grid;
           gap: 3px;
           min-width: 130px;
           font-family: "Space Grotesk", system-ui, sans-serif;
         }
 
-        .host-map :global(.host-map-popup a),
-        .host-map :global(.host-map-popup strong) {
+        .host-map .host-map-popup a,
+        .host-map .host-map-popup strong {
           color: #f2ecde;
           font-family: "Fraunces", Georgia, serif;
           font-size: 14px;
           text-decoration: none;
         }
 
-        .host-map :global(.host-map-popup a:hover) {
+        .host-map .host-map-popup a:hover {
           color: #c9974b;
         }
 
-        .host-map :global(.host-map-popup span) {
+        .host-map .host-map-popup span {
           color: #a79e8c;
           font-size: 11px;
         }
 
-        .host-map :global(.host-map-popup b) {
+        .host-map .host-map-popup b {
           color: #c9974b;
           font-size: 12px;
           font-variant-numeric: tabular-nums;
