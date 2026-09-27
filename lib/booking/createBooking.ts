@@ -51,6 +51,7 @@ export async function createBooking(input: CreateBookingInput) {
  
 const property = await client.query(
       `SELECT p.id, p.host_id, p.currency, p.nightly_price, p.cleaning_fee,
+              p.accommodation_vat_rate, p.cleaning_vat_rate,
               p.max_guests, p.min_stay_nights, p.max_stay_nights,
               p.cancellation_policy_id, p.status, p.compliance_status,
               EXISTS (
@@ -135,7 +136,9 @@ const property = await client.query(
     // Step 3: price + insert, same transaction.
     const feeConfig = await getActiveFeeConfig(client);
     const breakdown = calculatePrice(
-      { id: p.id, nightlyPriceMinor: toMinor(p.nightly_price), cleaningFeeMinor: toMinor(p.cleaning_fee), currency: p.currency },
+      { id: p.id, nightlyPriceMinor: toMinor(p.nightly_price), cleaningFeeMinor: toMinor(p.cleaning_fee), currency: p.currency,
+        accommodationVatRate: p.accommodation_vat_rate == null ? null : Number(p.accommodation_vat_rate),
+        cleaningVatRate: p.cleaning_vat_rate == null ? null : Number(p.cleaning_vat_rate) },
       nights,
       feeConfig
     );

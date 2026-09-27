@@ -3,6 +3,9 @@ export type PropertyForPricing = {
   nightlyPriceMinor: number; // stored as major-unit numeric in Postgres; converted to minor units at the boundary — see priceEngine.ts
   cleaningFeeMinor: number;
   currency: string;
+  // Null means the property's tax position has not been confirmed.
+  accommodationVatRate?: number | null;
+  cleaningVatRate?: number | null;
 };
 
 export type FeeConfig = {

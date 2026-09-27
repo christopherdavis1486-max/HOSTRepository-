@@ -24,11 +24,23 @@ export function calculatePrice(
   const accommodationMinor = property.nightlyPriceMinor * nights;
   const cleaningMinor = property.cleaningFeeMinor;
   const guestServiceFeeMinor = Math.round(accommodationMinor * feeConfig.guestServiceFeeRate);
-  const taxesMinor = Math.round((accommodationMinor + cleaningMinor) * feeConfig.taxRate);
+  // Launch pricing is explicitly VAT-exclusive. Historic v1 bookings keep
+  // their original formula; new bookings must have property-specific rates.
+  if (feeConfig.version === "host-15-inclusive-v1" &&
+      (property.accommodationVatRate == null || property.cleaningVatRate == null)) {
+    throw new Error("Property VAT treatment is unconfigured");
+  }
+  const taxesMinor = feeConfig.version === "host-15-inclusive-v1"
+    ? Math.round(accommodationMinor * property.accommodationVatRate!) +
+      Math.round(cleaningMinor * property.cleaningVatRate!)
+    : Math.round((accommodationMinor + cleaningMinor) * feeConfig.taxRate);
   const guestTotalMinor = accommodationMinor + cleaningMinor + guestServiceFeeMinor + taxesMinor;
 
   const hostCommissionMinor = Math.round(accommodationMinor * feeConfig.hostCommissionRate);
-  const hostPayoutMinor = accommodationMinor + cleaningMinor - hostCommissionMinor;
+  // The property accounts for VAT on its accommodation and cleaning supply.
+  // Never leave the VAT amount in HOST's platform balance when paying the host.
+  const hostPayoutMinor = accommodationMinor + cleaningMinor +
+    (feeConfig.version === "host-15-inclusive-v1" ? taxesMinor : 0) - hostCommissionMinor;
   const hostRevenueMinor = hostCommissionMinor + guestServiceFeeMinor;
 
   return {
