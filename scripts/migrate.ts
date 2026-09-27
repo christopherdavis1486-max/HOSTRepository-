@@ -101,6 +101,7 @@ const MIGRATION_FILES = [
   "030_calendar_sync.sql",
   "031_listing_status_reconciliation.sql",
   "032_newsletter_subscriptions.sql",
+  "033_property_vat_rates.sql",
 ];
 
 // Postgres SQLSTATE codes for "the object this statement tries to
