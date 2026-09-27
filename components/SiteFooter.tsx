@@ -456,14 +456,14 @@ export function SiteFooter({
           </div>
 
           <div className="footer-column">
-            <h3>Host</h3>
+            <h3>Hosting</h3>
             <a href="/host-with-us">Host with us</a>
             <a href="/host/dashboard">Host workspace</a>
             <a href="/contact">Host support</a>
           </div>
 
           <div className="footer-column">
-            <h3>HOST</h3>
+            <h3>Company</h3>
             <a href="/contact">Contact</a>
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
