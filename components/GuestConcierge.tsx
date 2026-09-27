@@ -359,10 +359,12 @@ export function GuestConcierge() {
           max-height: min(690px, calc(100vh - 36px));
           overflow-x: hidden;
           overflow-y: auto;
-          border: 1px solid #3a3226;
+          border: 1px solid rgba(201, 151, 75, 0.72);
           border-radius: 10px;
           background: #14120e;
-          box-shadow: 0 18px 52px rgba(0, 0, 0, 0.58);
+          box-shadow:
+            0 22px 64px rgba(0, 0, 0, 0.72),
+            0 0 0 1px rgba(201, 151, 75, 0.14);
         }
 
         .concierge-header {
