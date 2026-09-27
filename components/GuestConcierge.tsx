@@ -580,7 +580,21 @@ export function GuestConcierge() {
         @media (max-width: 600px) {
           .guest-concierge {
             right: 14px;
-            bottom: 14px;
+            bottom: max(14px, env(safe-area-inset-bottom));
+          }
+
+          .concierge-launch {
+            width: 52px;
+            height: 52px;
+            min-height: 52px;
+            justify-content: center;
+            gap: 0;
+            padding: 0;
+            font-size: 0;
+          }
+
+          .concierge-launch span {
+            font-size: 19px;
           }
 
           .concierge-panel {
