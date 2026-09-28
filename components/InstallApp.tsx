@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -64,7 +65,8 @@ export function InstallApp() {
         .host-install .install-steps { padding: 14px 18px; border: 1px solid var(--stone); border-radius: 6px; text-align: left; }
       `}</style>
       <button type="button" onClick={install} aria-expanded={instructions} aria-controls="host-install-steps">
-        Install HOST on your phone
+        <Image src="/icon-192.png" width={38} height={38} alt="" unoptimized style={{ verticalAlign: "middle", marginRight: 10, borderRadius: 7 }} />
+        <span>Install HOST on iPhone or Android</span>
       </button>
       {instructions && (
         <p id="host-install-steps" className="install-steps" role="status">
