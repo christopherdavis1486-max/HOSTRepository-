@@ -40,6 +40,21 @@ const DESTINATIONS = [
     country: "Netherlands",
     note: "Canal houses and quiet mornings",
   },
+  {
+    city: "Milan",
+    country: "Italy",
+    note: "Grand piazzas and considered style",
+  },
+  {
+    city: "Paris",
+    country: "France",
+    note: "Boulevards, galleries and the Seine",
+  },
+  {
+    city: "London",
+    country: "United Kingdom",
+    note: "Neighbourhoods with a character of their own",
+  },
 ];
 
 type HomeSessionState = {
