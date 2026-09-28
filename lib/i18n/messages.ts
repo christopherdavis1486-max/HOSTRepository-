@@ -19,7 +19,7 @@ const en = {
   heroEmphasis: "most storied",
   heroEnd: "cities.",
   heroBody:
-    "HOST connects discerning guests with exceptional independent accommodation across Europe — from riverside Lisbon apartments to quiet Copenhagen courtyards. Every stay, carefully chosen.",
+    "Stay somewhere worth travelling for. Discover distinctive independent stays in Europe’s most captivating cities, with room to settle in and a world to explore just outside your door.",
   destination: "Destination",
   checkin: "Check-in",
   checkout: "Check-out",
@@ -106,7 +106,7 @@ export const messages: Record<
     heroEmphasis: "geschichtsträchtigsten",
     heroEnd: "Städten.",
     heroBody:
-      "HOST verbindet anspruchsvolle Gäste mit außergewöhnlichen unabhängigen Unterkünften in ganz Europa — von Apartments am Fluss in Lissabon bis zu ruhigen Innenhöfen in Kopenhagen. Jeder Aufenthalt sorgfältig ausgewählt.",
+      "Übernachten Sie an einem Ort, der die Reise wert ist. Entdecken Sie besondere, unabhängige Unterkünfte in Europas faszinierendsten Städten – mit Raum zum Ankommen und einer Welt, die direkt vor Ihrer Tür darauf wartet, entdeckt zu werden.",
     destination: "Reiseziel",
     checkin: "Anreise",
     checkout: "Abreise",
@@ -186,7 +186,7 @@ export const messages: Record<
       "les plus chargées d’histoire",
     heroEnd: "d’Europe.",
     heroBody:
-      "HOST met en relation des voyageurs exigeants avec des hébergements indépendants d’exception partout en Europe — des appartements au bord du Tage à Lisbonne aux cours paisibles de Copenhague. Chaque séjour est choisi avec soin.",
+      "Séjournez dans un lieu qui vaut le voyage. Découvrez des hébergements indépendants pleins de caractère dans les villes les plus captivantes d’Europe, avec de l’espace pour vous installer et tout un monde à explorer juste à votre porte.",
     destination: "Destination",
     checkin: "Arrivée",
     checkout: "Départ",
@@ -265,7 +265,7 @@ export const messages: Record<
     heroEmphasis: "con más historia",
     heroEnd: "de Europa.",
     heroBody:
-      "HOST conecta a huéspedes exigentes con alojamientos independientes excepcionales en toda Europa: desde apartamentos junto al río en Lisboa hasta tranquilos patios en Copenhague. Cada estancia, elegida con cuidado.",
+      "Alójate en un lugar por el que merezca la pena viajar. Descubre alojamientos independientes con personalidad en las ciudades más cautivadoras de Europa, con espacio para sentirte como en casa y todo un mundo por explorar a la puerta.",
     destination: "Destino",
     checkin: "Llegada",
     checkout: "Salida",
@@ -344,7 +344,7 @@ export const messages: Record<
     heroEmphasis: "più ricche di storia",
     heroEnd: "d’Europa.",
     heroBody:
-      "HOST mette in contatto ospiti esigenti con eccezionali alloggi indipendenti in tutta Europa: dagli appartamenti sul fiume a Lisbona ai tranquilli cortili di Copenaghen. Ogni soggiorno è scelto con cura.",
+      "Soggiorna in un luogo che vale il viaggio. Scopri alloggi indipendenti e ricchi di carattere nelle città più affascinanti d’Europa, con spazio per sentirti a casa e un mondo da esplorare appena fuori dalla porta.",
     destination: "Destinazione",
     checkin: "Check-in",
     checkout: "Check-out",
@@ -423,7 +423,7 @@ export const messages: Record<
     heroEmphasis: "meest historische",
     heroEnd: "steden.",
     heroBody:
-      "HOST brengt veeleisende gasten samen met uitzonderlijke onafhankelijke accommodaties in heel Europa — van appartementen aan de rivier in Lissabon tot rustige binnenplaatsen in Kopenhagen. Elk verblijf zorgvuldig gekozen.",
+      "Verblijf op een plek die de reis waard is. Ontdek bijzondere, onafhankelijke accommodaties in de boeiendste steden van Europa, met alle ruimte om je thuis te voelen en een wereld om te verkennen zodra je de deur uitstapt.",
     destination: "Bestemming",
     checkin: "Inchecken",
     checkout: "Uitchecken",
