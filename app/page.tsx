@@ -403,6 +403,8 @@ export default function HomePage() {
         }
 
         .city-card {
+          display: flex;
+          flex-direction: column;
           overflow: hidden;
           border: 1px solid var(--stone);
           border-radius: 6px;
@@ -416,59 +418,52 @@ export default function HomePage() {
         }
 
         .city-photo-credit {
-          padding: 0 18px 16px;
+          margin: 0 22px;
+          padding: 12px 0 16px;
+          border-top: 1px solid rgba(242, 236, 222, 0.12);
           color: var(--warm-grey);
           font-size: 11px;
-          line-height: 1.5;
+          line-height: 1.6;
         }
 
         .city-photo-credit a {
           color: inherit;
-          text-underline-offset: 2px;
+          text-decoration-color: rgba(167, 158, 140, 0.5);
+          text-underline-offset: 3px;
         }
 
-        .city-swatch {
-          position: relative;
-          height: 120px;
-          background:
-            linear-gradient(
-              135deg,
-              var(--stone) 0%,
-              var(--ink) 100%
-            );
-        }
-
-        .city-swatch::after {
-          position: absolute;
-          inset: 0;
-          background:
-            linear-gradient(
-              180deg,
-              transparent 40%,
-              rgba(201, 151, 75, 0.12) 100%
-            );
-          content: "";
+        .city-photo-credit a:hover,
+        .city-photo-credit a:focus-visible {
+          color: var(--ivory);
         }
 
         .city-body {
-          padding: 16px 18px 20px;
-        }
-
-        .city-name {
-          margin-bottom: 2px;
-          font-size: 19px;
+          flex: 1;
+          padding: 20px 22px 22px;
         }
 
         .city-country {
-          margin-bottom: 10px;
-          color: var(--warm-grey);
-          font-size: 12px;
+          margin-bottom: 7px;
+          color: var(--brass);
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+
+        .city-name {
+          margin: 0;
+          color: var(--ivory);
+          font-size: clamp(25px, 2.4vw, 30px);
+          font-weight: 400;
+          line-height: 1.15;
         }
 
         .city-note {
-          color: var(--warm-grey);
+          margin-top: 12px;
+          color: #c6bcaa;
           font-size: 13px;
-          line-height: 1.5;
+          line-height: 1.55;
         }
 
         .footer-note {
@@ -769,13 +764,13 @@ export default function HomePage() {
                 />
               </div>
               <div className="city-body">
-                <div className="city-name display">
-                  {destination.city}
-                </div>
-
                 <div className="city-country">
                   {destination.country}
                 </div>
+
+                <h3 className="city-name display">
+                  {destination.city}
+                </h3>
 
                 <div className="city-note">
                   {destination.note}
