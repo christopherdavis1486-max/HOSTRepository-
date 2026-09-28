@@ -6,6 +6,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { HomepagePropertyMap } from "@/components/HomepagePropertyMap";
 import { FeaturedStays } from "@/components/FeaturedStays";
 import { SiteFooter } from "@/components/SiteFooter";
+import { InstallApp } from "@/components/InstallApp";
 import { useI18n } from "@/components/I18nProvider";
 
 const DESTINATIONS = [
@@ -702,6 +703,7 @@ export default function HomePage() {
             </a>
           )}
         </div>
+        <InstallApp />
       </section>
 
       <FeaturedStays />
