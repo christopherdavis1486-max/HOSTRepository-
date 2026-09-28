@@ -3,10 +3,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-type SiteFooterProps = {
-  showStaging?: boolean;
-};
-
 type FormState = "idle" | "submitting" | "success" | "error";
 
 function browserLocale() {
@@ -19,9 +15,7 @@ function browserLocale() {
     : "en";
 }
 
-export function SiteFooter({
-  showStaging = false,
-}: SiteFooterProps) {
+export function SiteFooter() {
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [website, setWebsite] = useState("");
@@ -294,17 +288,6 @@ export function SiteFooter({
           flex-wrap: wrap;
         }
 
-        .staging-footer-note {
-          max-width: 1080px;
-          margin: 0 auto;
-          padding: 18px 28px;
-          border-top: 1px solid var(--stone);
-          color: var(--warm-grey);
-          font-size: 11px;
-          line-height: 1.6;
-          text-align: center;
-        }
-
         .site-footer a:focus-visible,
         .site-footer button:focus-visible,
         .site-footer input:focus-visible {
@@ -470,13 +453,6 @@ export function SiteFooter({
           </div>
         </nav>
       </div>
-
-      {showStaging && (
-        <div className="staging-footer-note">
-          Staging deployment for integration testing. Payments and
-          listings use test data and are not real transactions.
-        </div>
-      )}
 
       <div className="footer-legal">
         <span>

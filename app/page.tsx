@@ -57,9 +57,6 @@ export default function HomePage() {
   const [sessionState, setSessionState] =
     useState<HomeSessionState | null>(null);
 
-  const showStaging =
-    process.env.NEXT_PUBLIC_SHOW_STAGING_UI === "true";
-
   useEffect(() => {
     fetch("/api/auth/session", {
       credentials: "include",
@@ -222,16 +219,6 @@ export default function HomePage() {
         .btn-secondary:focus-visible {
           outline: 2px solid var(--brass);
           outline-offset: 3px;
-        }
-
-        .staging-pill {
-          padding: 6px 12px;
-          border: 1px solid var(--stone);
-          border-radius: 999px;
-          color: var(--warm-grey);
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
         }
 
         .hero {
@@ -514,9 +501,6 @@ export default function HomePage() {
             max-width: none;
           }
 
-          .staging-pill {
-            display: none;
-          }
         }
 
         @media (min-width: 721px) and (max-width: 980px) {
@@ -532,12 +516,6 @@ export default function HomePage() {
         </a>
 
         <div className="nav-actions" aria-label="Account navigation">
-          {showStaging && (
-            <div className="staging-pill">
-              Staging · Test deployment
-            </div>
-          )}
-
           <LanguageSelector compact />
 
           {sessionState && !sessionState.isHost && (
@@ -692,16 +670,6 @@ export default function HomePage() {
             {t("listProperty")}
           </a>
 
-          {showStaging && (
-            <a
-              href="https://github.com/christopherdavis1486-max/HOST"
-              className="btn-secondary"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View staging build on GitHub
-            </a>
-          )}
         </div>
         <InstallApp />
       </section>
@@ -748,7 +716,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <SiteFooter showStaging={showStaging} />
+      <SiteFooter />
     </div>
   );
 }

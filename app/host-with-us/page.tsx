@@ -45,9 +45,6 @@ export default function HostWithUsPage() {
   const [sessionState, setSessionState] =
     useState<SessionState | null>(null);
 
-  const showStaging =
-    process.env.NEXT_PUBLIC_SHOW_STAGING_UI === "true";
-
   useEffect(() => {
     fetch("/api/auth/session", {
       credentials: "include",
@@ -264,12 +261,6 @@ export default function HostWithUsPage() {
           justify-content: center;
         }
 
-        .staging-note {
-          margin-top: 20px !important;
-          color: #a79e8c !important;
-          font-size: 13px;
-        }
-
         .host-footer {
           padding: 34px 0 48px;
           border-top: 1px solid #342c20;
@@ -407,12 +398,6 @@ export default function HostWithUsPage() {
             </a>
           </div>
 
-          {showStaging && (
-            <p className="staging-note">
-              This is a staging test deployment. No live payouts will be
-              created.
-            </p>
-          )}
         </div>
       </section>
 

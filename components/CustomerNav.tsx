@@ -16,10 +16,6 @@ export function CustomerNav() {
   const [sessionState, setSessionState] =
     useState<SessionState | null>(null);
 
-  const showStaging =
-    process.env.NEXT_PUBLIC_SHOW_STAGING_UI ===
-    "true";
-
   useEffect(() => {
     fetch("/api/auth/session", {
       credentials: "include",
@@ -111,16 +107,6 @@ export function CustomerNav() {
           outline-offset: 3px;
         }
 
-        .customer-nav .staging-pill {
-          color: var(--nav-warm);
-          border: 1px solid var(--nav-stone);
-          border-radius: 999px;
-          padding: 6px 11px;
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
         @media (max-width: 1100px) {
           .customer-nav {
             padding: 16px 12px;
@@ -148,10 +134,6 @@ export function CustomerNav() {
 
           .customer-nav .customer-wordmark {
             align-self: center;
-          }
-
-          .customer-nav .staging-pill {
-            display: none;
           }
 
           .customer-nav .customer-actions {
@@ -191,12 +173,6 @@ export function CustomerNav() {
       </a>
 
       <div className="customer-actions">
-        {showStaging && (
-          <span className="staging-pill">
-            Staging · Test deployment
-          </span>
-        )}
-
         <LanguageSelector compact />
 
         {sessionState &&
