@@ -6,6 +6,8 @@ import "leaflet/dist/leaflet.css";
 export const metadata = {
   title: "HOST",
   description: "HOST booking and payments backend",
+  applicationName: "HOST City Living",
+  appleWebApp: { capable: true, title: "HOST", statusBarStyle: "default" as const },
 }
 
 export default function RootLayout({
