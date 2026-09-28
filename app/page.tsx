@@ -45,9 +45,9 @@ const DESTINATIONS = [
   },
   {
     city: "Barcelona",
-    image: "/destinations/barcelona-v2.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Park_G%C3%BCell_-_view_of_Sagrada_Familia.jpg",
-    imageCredit: "Joe Mabel",
+    image: "/destinations/barcelona-v3.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Barcelona_city_view_at_sunset.jpg",
+    imageCredit: "Walkerssk",
     country: "Spain",
     note: "Modernist façades, Mediterranean light",
   },
@@ -778,7 +778,7 @@ export default function HomePage() {
               </div>
               <div className="city-photo-credit">
                 Photo: <a href={destination.imageSource} target="_blank" rel="noopener noreferrer">{destination.imageCredit}</a>
-                {" · "}<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>
+                {" · "}<a href={destination.city === "Barcelona" ? "https://creativecommons.org/publicdomain/zero/1.0/" : "https://creativecommons.org/licenses/by-sa/4.0/"} target="_blank" rel="noopener noreferrer">{destination.city === "Barcelona" ? "CC0 1.0" : "CC BY-SA 4.0"}</a>
                 {" · display cropped"}
               </div>
             </div>
