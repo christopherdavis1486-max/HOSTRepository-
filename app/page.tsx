@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
+import Image from "next/image";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { HomepagePropertyMap } from "@/components/HomepagePropertyMap";
 import { FeaturedStays } from "@/components/FeaturedStays";
@@ -12,46 +13,73 @@ import { useI18n } from "@/components/I18nProvider";
 const DESTINATIONS = [
   {
     city: "Lisbon",
+    image: "/destinations/lisbon.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Lisbon_panorama_from_the_Bairro_Alto.jpg",
+    imageCredit: "Dudva",
     country: "Portugal",
     note: "Riverside light and tiled facades",
   },
   {
     city: "Copenhagen",
+    image: "/destinations/copenhagen.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Nyhavn_Copenhagen.jpg",
+    imageCredit: "Matteosalvador",
     country: "Denmark",
     note: "Considered design, canal-side calm",
   },
   {
     city: "Prague",
+    image: "/destinations/prague.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Charles_Bridge_Prague.jpg",
+    imageCredit: "DOWIMA",
     country: "Czechia",
     note: "Spires, courtyards, old-world scale",
   },
   {
     city: "Porto",
+    image: "/destinations/porto.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:The_Ribeira_area,_in_evening,_Porto.jpg",
+    imageCredit: "Peter K Burian",
     country: "Portugal",
     note: "Terraced hills above the Douro",
   },
   {
     city: "Barcelona",
+    image: "/destinations/barcelona.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Barcelona_Skyline.jpg",
+    imageCredit: "Sgdwn",
     country: "Spain",
     note: "Modernist façades, Mediterranean light",
   },
   {
     city: "Amsterdam",
+    image: "/destinations/amsterdam.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Canal_houses_Nieuwmarkt_Amsterdam.jpg",
+    imageCredit: "Kamanasish Debnath",
     country: "Netherlands",
     note: "Canal houses and quiet mornings",
   },
   {
     city: "Milan",
+    image: "/destinations/milan.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:Milan_Cathedral,_Italy.jpg",
+    imageCredit: "Ali Murtaza Subhani",
     country: "Italy",
     note: "Grand piazzas and considered style",
   },
   {
     city: "Paris",
+    image: "/destinations/paris.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:The_Eiffel_Tower_seen_from_the_River_Seine.jpg",
+    imageCredit: "DiscoA340",
     country: "France",
     note: "Boulevards, galleries and the Seine",
   },
   {
     city: "London",
+    image: "/destinations/london.jpg",
+    imageSource: "https://commons.wikimedia.org/wiki/File:City_of_London_skyline_from_Tower_Bridge.jpg",
+    imageCredit: "VirtuallyLondonBecky",
     country: "United Kingdom",
     note: "Neighbourhoods with a character of their own",
   },
@@ -379,6 +407,24 @@ export default function HomePage() {
           border: 1px solid var(--stone);
           border-radius: 6px;
           background: var(--graphite);
+        }
+
+        .city-photo {
+          position: relative;
+          height: 164px;
+          background: var(--stone);
+        }
+
+        .city-photo-credit {
+          padding: 0 18px 16px;
+          color: var(--warm-grey);
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .city-photo-credit a {
+          color: inherit;
+          text-underline-offset: 2px;
         }
 
         .city-swatch {
@@ -713,6 +759,15 @@ export default function HomePage() {
               className="city-card"
               key={destination.city}
             >
+              <div className="city-photo">
+                <Image
+                  src={destination.image}
+                  alt={`${destination.city} city view`}
+                  fill
+                  sizes="(max-width: 720px) 100vw, (max-width: 980px) 50vw, 33vw"
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
               <div className="city-body">
                 <div className="city-name display">
                   {destination.city}
@@ -725,6 +780,11 @@ export default function HomePage() {
                 <div className="city-note">
                   {destination.note}
                 </div>
+              </div>
+              <div className="city-photo-credit">
+                Photo: <a href={destination.imageSource} target="_blank" rel="noopener noreferrer">{destination.imageCredit}</a>
+                {" · "}<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>
+                {" · display cropped"}
               </div>
             </div>
           ))}
