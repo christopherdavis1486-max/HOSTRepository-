@@ -9,81 +9,8 @@ import { FeaturedStays } from "@/components/FeaturedStays";
 import { SiteFooter } from "@/components/SiteFooter";
 import { InstallApp } from "@/components/InstallApp";
 import { useI18n } from "@/components/I18nProvider";
+import { DESTINATIONS } from "@/lib/destinations";
 
-const DESTINATIONS = [
-  {
-    city: "Lisbon",
-    image: "/destinations/lisbon.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Lisbon_panorama_from_the_Bairro_Alto.jpg",
-    imageCredit: "Dudva",
-    country: "Portugal",
-    note: "Riverside light and tiled facades",
-  },
-  {
-    city: "Copenhagen",
-    image: "/destinations/copenhagen.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Nyhavn_Copenhagen.jpg",
-    imageCredit: "Matteosalvador",
-    country: "Denmark",
-    note: "Considered design, canal-side calm",
-  },
-  {
-    city: "Prague",
-    image: "/destinations/prague-v2.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Prague_Castle_and_Charles_Bridge_over_Vltava.jpg",
-    imageCredit: "Mattsjc",
-    country: "Czechia",
-    note: "Spires, courtyards, old-world scale",
-  },
-  {
-    city: "Porto",
-    image: "/destinations/porto.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:The_Ribeira_area,_in_evening,_Porto.jpg",
-    imageCredit: "Peter K Burian",
-    country: "Portugal",
-    note: "Terraced hills above the Douro",
-  },
-  {
-    city: "Barcelona",
-    image: "/destinations/barcelona-v3.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Barcelona_city_view_at_sunset.jpg",
-    imageCredit: "Walkerssk",
-    country: "Spain",
-    note: "Modernist façades, Mediterranean light",
-  },
-  {
-    city: "Amsterdam",
-    image: "/destinations/amsterdam.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Canal_houses_Nieuwmarkt_Amsterdam.jpg",
-    imageCredit: "Kamanasish Debnath",
-    country: "Netherlands",
-    note: "Canal houses and quiet mornings",
-  },
-  {
-    city: "Milan",
-    image: "/destinations/milan.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Milan_Cathedral,_Italy.jpg",
-    imageCredit: "Ali Murtaza Subhani",
-    country: "Italy",
-    note: "Grand piazzas and considered style",
-  },
-  {
-    city: "Paris",
-    image: "/destinations/paris-v2.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Panorama_of_the_Eiffel_Tower_in_July_2022.jpg",
-    imageCredit: "DiscoA340",
-    country: "France",
-    note: "Boulevards, galleries and the Seine",
-  },
-  {
-    city: "London",
-    image: "/destinations/london-v2.jpg",
-    imageSource: "https://commons.wikimedia.org/wiki/File:Tower_Bridge-London,_England,_United_Kingdom.jpg",
-    imageCredit: "Shawn M. Kent",
-    country: "United Kingdom",
-    note: "Neighbourhoods with a character of their own",
-  },
-];
 
 type HomeSessionState = {
   signedIn: boolean;
@@ -409,6 +336,18 @@ export default function HomePage() {
           border: 1px solid var(--stone);
           border-radius: 6px;
           background: var(--graphite);
+        }
+
+        .city-card-link {
+          display: block;
+          flex: 1;
+          color: inherit;
+          text-decoration: none;
+        }
+
+        .city-card-link:hover .city-name,
+        .city-card-link:focus-visible .city-name {
+          color: var(--brass);
         }
 
         .city-photo {
@@ -754,28 +693,30 @@ export default function HomePage() {
               className="city-card"
               key={destination.city}
             >
-              <div className="city-photo">
-                <Image
-                  src={destination.image}
-                  alt={`${destination.city} city view`}
-                  fill
-                  sizes="(max-width: 720px) 100vw, (max-width: 980px) 50vw, 33vw"
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
-              <div className="city-body">
-                <div className="city-country">
-                  {destination.country}
+              <a className="city-card-link" href={`/destinations/${destination.slug}`} aria-label={`Explore ${destination.city}`}>
+                <div className="city-photo">
+                  <Image
+                    src={destination.image}
+                    alt={`${destination.city} city view`}
+                    fill
+                    sizes="(max-width: 720px) 100vw, (max-width: 980px) 50vw, 33vw"
+                    style={{ objectFit: "cover" }}
+                  />
                 </div>
+                <div className="city-body">
+                  <div className="city-country">
+                    {destination.country}
+                  </div>
 
-                <h3 className="city-name display">
-                  {destination.city}
-                </h3>
+                  <h3 className="city-name display">
+                    {destination.city}
+                  </h3>
 
-                <div className="city-note">
-                  {destination.note}
+                  <div className="city-note">
+                    {destination.note}
+                  </div>
                 </div>
-              </div>
+              </a>
               <div className="city-photo-credit">
                 Photo: <a href={destination.imageSource} target="_blank" rel="noopener noreferrer">{destination.imageCredit}</a>
                 {" · "}<a href={destination.city === "Barcelona" ? "https://creativecommons.org/publicdomain/zero/1.0/" : "https://creativecommons.org/licenses/by-sa/4.0/"} target="_blank" rel="noopener noreferrer">{destination.city === "Barcelona" ? "CC0 1.0" : "CC BY-SA 4.0"}</a>
