@@ -50,6 +50,9 @@ type State =
 export default function SearchPage() {
   const { gt } = useGuestI18n();
 
+  const [propertyType,setPropertyType]=useState("");
+  const [filterReady,setFilterReady]=useState(false);
+  useEffect(()=>{setPropertyType(new URLSearchParams(window.location.search).get("propertyType")??"");setFilterReady(true);},[]);
   const [properties, setProperties] = useState<
     Property[]
   >([]);
@@ -66,10 +69,14 @@ export default function SearchPage() {
   }>({});
 
   useEffect(() => {
+    if(!filterReady)return;
+    setState("loading");
+    const controller=new AbortController();
     const params = new URLSearchParams(
       window.location.search
     );
 
+    if(propertyType)params.set("propertyType",propertyType);else params.delete("propertyType");
     const city = params.get("city") ?? undefined;
     const checkIn =
       params.get("checkIn") ?? undefined;
@@ -85,7 +92,7 @@ export default function SearchPage() {
       guests,
     });
 
-    fetch(`/api/properties?${params.toString()}`)
+    fetch(`/api/properties?${params.toString()}`,{signal:controller.signal,cache:"no-store"})
       .then(async (response) => {
         const data = await response.json();
 
@@ -106,8 +113,9 @@ export default function SearchPage() {
         setProperties(data.properties);
         setState("results");
       })
-      .catch(() => setState("error"));
-  }, [gt]);
+      .catch((error) => { if(error.name!=="AbortError")setState("error"); });
+    return ()=>controller.abort();
+  }, [gt,filterReady,propertyType]);
 
   const detailHref = (property: Property) => {
     const params = new URLSearchParams();
@@ -375,6 +383,7 @@ export default function SearchPage() {
         )}
       </div>
 
+      <div style={{maxWidth:1200,margin:"20px auto",padding:"0 28px"}}><label>Accommodation type <select value={propertyType} onChange={e=>setPropertyType(e.target.value)} style={{padding:10}}><option value="">All accommodation</option><option>Apartment</option><option>House</option><option>Hotel</option><option>Aparthotel</option></select></label></div>
       {state === "loading" && (
         <div className="state-block">
           {gt("searching")}

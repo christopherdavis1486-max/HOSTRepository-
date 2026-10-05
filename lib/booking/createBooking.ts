@@ -1,13 +1,16 @@
 import { db, withTransaction } from "../db";
 import { calculatePrice, nightsBetween, getActiveFeeConfig } from "./priceEngine";
 import { BookingError } from "./types";
-import crypto from "crypto";
+import { isHotelType } from "../hotels/schemas";
+import { quoteRoom } from "../hotels/quote";
 import { isDelayedChargeBookingCreationEnabled } from "../config/featureFlags";
 import { decideChargeTiming } from "../payments/scheduledCharges";
 import { hashToBigint } from "../utils/advisoryLock";
 import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 
 export type CreateBookingInput = {
+  roomTypeId?: string;
+  roomQuantity?: number;
   propertyId: string;
   guestId: string;
   checkIn: string; // ISO date
@@ -45,12 +48,21 @@ export async function createBooking(input: CreateBookingInput) {
   return withTransaction(async (client) => {
     // Idempotency check first — cheap, avoids taking locks for a request
     // we've already processed.
+    await client.query(`SELECT pg_advisory_xact_lock($1)`, [hashToBigint("booking:" + input.idempotencyKey)]);
     const existing = await client.query(`SELECT * FROM bookings WHERE idempotency_key = $1`, [input.idempotencyKey]);
-    if (existing.rows.length > 0) return mapBookingRow(existing.rows[0]);
+    if (existing.rows.length > 0) {
+      const b=existing.rows[0];
+      const date=(v: Date|string)=>new Date(v).toISOString().slice(0,10);
+      if(b.guest_id!==input.guestId || b.property_id!==input.propertyId || date(b.check_in)!==input.checkIn || date(b.check_out)!==input.checkOut ||
+         b.guests!==input.guests || (b.room_type_id??null)!==(input.roomTypeId??null) || (b.room_quantity??null)!==(input.roomQuantity??null))
+        throw new BookingError("IDEMPOTENCY_CONFLICT","This request key was already used for another booking");
+      return mapBookingRow(b);
+    }
+    await client.query(`SELECT pg_advisory_xact_lock($1)`, [hashToBigint(input.propertyId)]);
 
  
 const property = await client.query(
-      `SELECT p.id, p.host_id, p.currency, p.nightly_price, p.cleaning_fee,
+      `SELECT p.id, p.host_id, p.property_type, p.currency, p.nightly_price, p.cleaning_fee,
               p.accommodation_vat_rate, p.cleaning_vat_rate,
               p.max_guests, p.min_stay_nights, p.max_stay_nights,
               p.cancellation_policy_id, p.status, p.compliance_status,
@@ -85,7 +97,10 @@ const property = await client.query(
       );
     }
 
-     if (input.guests > p.max_guests) throw new BookingError("TOO_MANY_GUESTS", `Max ${p.max_guests} guests`);
+    const hotel=isHotelType(p.property_type);
+    if(hotel && (!input.roomTypeId || !input.roomQuantity)) throw new BookingError("ROOM_REQUIRED","Choose a room type and quantity");
+    if(!hotel && (input.roomTypeId || input.roomQuantity)) throw new BookingError("INVALID_ROOM_SELECTION","This listing books as a whole property");
+    if (!hotel && input.guests > p.max_guests) throw new BookingError("TOO_MANY_GUESTS", `Max ${p.max_guests} guests`);
     if (nights < p.min_stay_nights) throw new BookingError("BELOW_MIN_STAY", `Minimum stay is ${p.min_stay_nights} nights`);
     if (nights > p.max_stay_nights) throw new BookingError("ABOVE_MAX_STAY", `Maximum stay is ${p.max_stay_nights} nights`);
 
@@ -107,8 +122,7 @@ const property = await client.query(
     // real-transaction tests for identical ranges, overlapping-but-
     // different ranges, and a property with zero prior availability
     // rows — see lib/booking/raceCondition.test.ts.
-    const lockKey = hashToBigint(input.propertyId);
-    await client.query(`SELECT pg_advisory_xact_lock($1)`, [lockKey]);
+
 
     const blocked = await client.query(
       `SELECT date, status FROM availability_blocks
@@ -121,6 +135,7 @@ const property = await client.query(
       throw new BookingError("DATES_UNAVAILABLE", `${unavailable.date} is not available`);
     }
 
+    if (!hotel) {
     // Step 2: upsert every date in range to 'booked'. Dates with no prior
     // row are inserted directly as 'booked'.
     const dates = enumerateDates(input.checkIn, input.checkOut);
@@ -133,9 +148,12 @@ const property = await client.query(
       );
     }
 
+    }
+
     // Step 3: price + insert, same transaction.
     const feeConfig = await getActiveFeeConfig(client);
-    const breakdown = calculatePrice(
+    const roomQuote=hotel ? await quoteRoom(client,p.id,{roomTypeId:input.roomTypeId!,roomQuantity:input.roomQuantity!,checkIn:input.checkIn,checkOut:input.checkOut,guests:input.guests}) : null;
+    const breakdown = roomQuote?.breakdown ?? calculatePrice(
       { id: p.id, nightlyPriceMinor: toMinor(p.nightly_price), cleaningFeeMinor: toMinor(p.cleaning_fee), currency: p.currency,
         accommodationVatRate: p.accommodation_vat_rate == null ? null : Number(p.accommodation_vat_rate),
         cleaningVatRate: p.cleaning_vat_rate == null ? null : Number(p.cleaning_vat_rate) },
@@ -149,7 +167,7 @@ const property = await client.query(
       if (policy.rows.length > 0) policyRules = policy.rows[0].rules;
     }
 
-    const isDelayedFlow = isDelayedChargeBookingCreationEnabled();
+    const isDelayedFlow = !hotel && isDelayedChargeBookingCreationEnabled();
     // Decided ONCE, here, alongside payment_flow_version — never
     // recalculated later. Confirmed as a real correctness requirement:
     // the cron sweep must check a genuinely persisted date, not
@@ -165,8 +183,8 @@ const property = await client.query(
       `INSERT INTO bookings (
         property_id, guest_id, host_id, check_in, check_out, guests, status,
         cancellation_policy_snapshot, idempotency_key, hold_expires_at,
-        guest_name, guest_email, guest_phone, payment_flow_version, scheduled_charge_date
-      ) VALUES ($1,$2,$3,$4,$5,$6,'pending_payment',$7,$8, NOW() + INTERVAL '15 minutes', $9,$10,$11,$12,$13)
+        guest_name, guest_email, guest_phone, payment_flow_version, scheduled_charge_date, room_type_id, room_quantity, room_name_snapshot
+      ) VALUES ($1,$2,$3,$4,$5,$6,'pending_payment',$7,$8, clock_timestamp() + INTERVAL '15 minutes', $9,$10,$11,$12,$13,$14,$15,$16)
       RETURNING *`,
       [input.propertyId, input.guestId, p.host_id, input.checkIn, input.checkOut, input.guests,
        JSON.stringify(policyRules), input.idempotencyKey, input.guestName, input.guestEmail, input.guestPhone ?? null,
@@ -177,7 +195,7 @@ const property = await client.query(
        // same value it always has — this line changes nothing about
        // current behaviour until that flag is explicitly turned on.
        isDelayedFlow ? "separate_charges_delayed_v1" : "destination_charge_legacy",
-       scheduledChargeDate]
+       scheduledChargeDate,input.roomTypeId??null,input.roomQuantity??null,roomQuote?.room.name??null]
     );
     const booking = bookingResult.rows[0];
 
@@ -231,6 +249,7 @@ export async function releaseExpiredHold(bookingId: string) {
       [hashToBigint(b.property_id)]
     );
 
+    if (!b.room_type_id) {
     await client.query(
       `DELETE FROM availability_blocks
        WHERE property_id = $1
@@ -245,6 +264,7 @@ export async function releaseExpiredHold(bookingId: string) {
       client,
       b.property_id,
     );
+    }
     await client.query(`UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [bookingId]);
     return mapBookingRow({ ...b, status: "cancelled" });
   });
@@ -281,5 +301,8 @@ function mapBookingRow(row: any) {
     guestName: row.guest_name,
     guestEmail: row.guest_email,
     paymentFlowVersion: row.payment_flow_version,
+    roomTypeId: row.room_type_id ?? null,
+    roomQuantity: row.room_quantity ?? null,
+    roomName: row.room_name_snapshot ?? null,
   };
 }

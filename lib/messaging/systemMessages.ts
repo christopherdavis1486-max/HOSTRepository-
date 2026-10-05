@@ -3,7 +3,7 @@ import { sendMessage } from "./conversations";
 import { notifyUser } from "../notifications/sendNotification";
 import { renderNotification, NotificationType, TemplateContext } from "../notifications/templates";
 
-/** pg returns DATE columns as JS Date objects; this normalizes any of
+/** Database DATE columns are calendar strings; this normalizes any of
  *  Date | string | null into a plain "12 Sep 2026"-style string safe to
  *  interpolate directly into a notification template. */
 export function formatDateForNotification(value: unknown): string | undefined {

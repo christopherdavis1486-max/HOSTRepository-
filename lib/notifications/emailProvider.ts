@@ -25,11 +25,16 @@ export async function sendEmail(
   options?: { replyTo?: string },
 ) {
   const client = getResendClient(); // throws here, at send time — not at import time
-  return client.emails.send({
+  const result = await client.emails.send({
     from: process.env.EMAIL_FROM_ADDRESS ?? "HOST <notifications@example.com>",
     to,
     subject,
     text: body,
     replyTo: options?.replyTo,
   });
+  // Resend can resolve with an error object rather than rejecting the promise.
+  // Callers must not record a rejected email as sent.
+  if (result.error) throw new Error(`Email provider rejected the message: ${result.error.message}`);
+  if (!result.data?.id) throw new Error("Email provider did not confirm acceptance of the message");
+  return result;
 }

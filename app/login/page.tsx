@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { isSafeReturnPath } from "./returnPath";
+import { signInFeedback } from "./signInFeedback";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { useInterfaceI18n } from "@/lib/i18n/useInterfaceI18n";
 
@@ -29,7 +30,7 @@ import { useInterfaceI18n } from "@/lib/i18n/useInterfaceI18n";
  * protocol-relative and would otherwise redirect off-site) before ever
  * being used, so this can't become an open-redirect vector regardless of
  * what a crafted URL puts in the query string. Auth logic itself
- * (signIn, register) is completely untouched.
+ * still uses NextAuth; sign-in result feedback is handled separately.
  */
 function safeReturnTo(): string {
   if (typeof window === "undefined") return "/";
@@ -111,15 +112,16 @@ export default function LoginPage() {
           return;
         }
         setMode("signin");
-        setInfo("Account created — sign in below.");
+        setInfo(signInFeedback(signInResult, "Account created — sign in below.") ?? "Account created — sign in below.");
         setPassword("");
         setSubmitting(false);
         return;
       }
 
       const result = await signIn("credentials", { email, password, redirect: false });
-      if (result?.error) {
-        setError("Incorrect email or password.");
+      const feedback = signInFeedback(result);
+      if (feedback) {
+        setError(feedback);
         setSubmitting(false);
         return;
       }
@@ -157,7 +159,8 @@ export default function LoginPage() {
       const verified = await verifyRes.json();
       if (!verified.success) throw new Error(verified.error?.message);
       const result = await signIn("credentials", { passkeyToken: verified.loginToken, redirect: false });
-      if (!result?.ok) throw new Error("Passkey sign-in could not create a session.");
+      const feedback = signInFeedback(result, "Passkey sign-in could not create a session.");
+      if (feedback) throw new Error(feedback);
       window.location.href = safeReturnTo();
     } catch (error) {
       setError(error instanceof Error && error.message ? error.message : "Passkey sign-in was cancelled or failed.");
@@ -172,7 +175,8 @@ export default function LoginPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.error?.message);
       const result = await signIn("credentials", { passkeyToken: data.loginToken, redirect: false });
-      if (!result?.ok) throw new Error("Recovery sign-in could not create a session.");
+      const feedback = signInFeedback(result, "Recovery sign-in could not create a session.");
+      if (feedback) throw new Error(feedback);
       window.location.href = safeReturnTo();
     } catch (error) { setError(error instanceof Error && error.message ? error.message : "Recovery sign-in failed."); setSubmitting(false); }
   };

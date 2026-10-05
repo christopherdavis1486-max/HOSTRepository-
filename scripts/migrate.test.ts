@@ -94,6 +94,9 @@ test("BOOTSTRAPPING AN EXISTING, PRE-LEDGER DATABASE: reproduces the exact repor
     const results = await runMigrations(pool, REAL_MIGRATIONS_DIR, REAL_MIGRATION_FILES);
     assert.ok(results.every((r) => r.outcome === "bootstrapped" || r.outcome === "applied" || r.outcome === "completed"), "every migration must resolve safely — either genuinely re-applying harmlessly (idempotent ones), being correctly recognised as fully already-applied, or safely completing a statement that happened to still be missing/re-runnable");
 
+    const hotelGuard = await pool.query("SELECT pg_get_functiondef('protect_cancelled_hotel_booking()'::regprocedure) AS definition");
+    assert.match(hotelGuard.rows[0].definition, /clock_timestamp\(\)/, "bootstrap must preserve the newer expired-hold protection");
+
     const migration002 = results.find((r) => r.filename === "002_availability_policies_fees.sql");
     assert.ok(migration002?.outcome === "bootstrapped" || migration002?.outcome === "completed", "migration 002 specifically must be recognised via genuine, per-statement verification — never by inferring completeness from its one non-idempotent statement's failure alone");
 

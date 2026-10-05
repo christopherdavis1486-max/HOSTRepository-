@@ -36,3 +36,13 @@
 .stayText span { color: #c9974b; font-size: 13px; }
 @media (max-width: 900px) { .destinations, .listings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .destinations, .listings { grid-template-columns: 1fr; } .hero { min-height: 370px; } .content { padding: 50px 20px 70px; } .empty { padding: 45px 22px; } }
+
+.browseForm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+.browseField { display: flex; flex-direction: column; gap: 8px; flex: 1 1 220px; color: #bfb5a4; font-size: 13px; }
+.browseField input, .browseField select { width: 100%; min-height: 46px; padding: 11px 12px; border: 1px solid #675b48; border-radius: 4px; background: #1f1b15; color: #f2ecde; font: inherit; }
+.searchButton, .browseButton { min-height: 46px; padding: 11px 18px; border: 1px solid #c9974b; border-radius: 4px; font: inherit; font-size: 13px; cursor: pointer; }
+.searchButton { background: #c9974b; color: #14120e; }
+.browseButton { background: transparent; color: #f2ecde; }
+.browseField input:focus-visible, .browseField select:focus-visible, .searchButton:focus-visible, .browseButton:focus-visible { outline: 2px solid #f2ecde; outline-offset: 3px; }
+.searchHint { margin: 14px 0 28px; color: #bfb5a4; font-size: 13px; line-height: 1.6; }
+@media (max-width: 600px) { .browseField { flex-basis: 100%; } .searchButton, .browseButton { width: 100%; } }

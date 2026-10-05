@@ -50,6 +50,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const property = await getHostPropertyDetail(id);
     return NextResponse.json({ success: true, property });
   } catch (error) {
+    if ((error as {code?:string})?.code === "23514") return NextResponse.json({success:false,error:{code:"INVENTORY_MODEL_CONFLICT",message:"Pause room types and resolve reservations before changing accommodation type."}},{status:409});
     if (error instanceof CompliancePublishError) {
       return NextResponse.json({ success: false, error: { code: "LISTING_NOT_READY", message: error.message } }, { status: 409 });
     }

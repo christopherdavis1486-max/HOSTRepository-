@@ -40,7 +40,8 @@ export async function createPaymentIntentForBooking(bookingId: string) {
      FROM bookings b
      JOIN booking_price_components bpc ON bpc.booking_id = b.id
      JOIN host_profiles hp ON hp.id = b.host_id
-     WHERE b.id = $1 AND b.status = 'pending_payment'`,
+     WHERE b.id = $1 AND b.status = 'pending_payment'
+       AND (b.room_type_id IS NULL OR b.hold_expires_at IS NULL OR b.hold_expires_at>NOW())`,
     [bookingId]
   );
   if (result.rows.length === 0) {

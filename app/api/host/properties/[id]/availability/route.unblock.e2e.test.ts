@@ -87,8 +87,8 @@ test("HTTP END-TO-END: the exact reported lifecycle — block 2026-12-04→2026-
   // STEP 2: confirm DB state directly — both rows genuinely exist.
   const rowsAfterBlock = await db.query(`SELECT date, status, source FROM availability_blocks WHERE property_id = $1 ORDER BY date`, [propertyId]);
   assert.equal(rowsAfterBlock.rows.length, 2);
-  assert.equal(rowsAfterBlock.rows[0].date.toISOString().slice(0, 10), "2026-12-04");
-  assert.equal(rowsAfterBlock.rows[1].date.toISOString().slice(0, 10), "2026-12-05");
+  assert.equal(rowsAfterBlock.rows[0].date, "2026-12-04");
+  assert.equal(rowsAfterBlock.rows[1].date, "2026-12-05");
 
   // STEP 3: confirm via the real GET route too — the same read a page
   // reload would trigger.

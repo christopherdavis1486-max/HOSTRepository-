@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PropertyTypeSelect } from "@/components/PropertyTypeSelect";
+import { isHotelType } from "@/lib/hotels/schemas";
 import { HostNav } from "@/components/HostNav";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { CalendarSyncPanel } from "@/components/CalendarSyncPanel";
@@ -892,6 +894,18 @@ export default function HostPropertyDetailPage({
 
             <HostNav active="properties" />
 
+            {propertyId && isHotelType(form.propertyType) && (
+              <div className="wrap" style={{ paddingBottom: 0 }}>
+                <div className="card">
+                  <h2>{ht("Rooms and nightly inventory")}</h2>
+                  <p>{ht("Manage room descriptions, photos, capacity and prices, and check availability for each night.")}</p>
+                  <a href={`/host/properties/${propertyId}/rooms`} className="btn-secondary">
+                    {ht("Manage room types and nightly inventory")} →
+                  </a>
+                </div>
+              </div>
+            )}
+
             <div
               className="wrap"
               style={{
@@ -1037,19 +1051,11 @@ export default function HostPropertyDetailPage({
                       )}
                     </label>
 
-                    <input
+                    <PropertyTypeSelect
                       id="propertyType"
-                      value={
-                        form.propertyType
-                      }
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          propertyType:
-                            event.target
-                              .value,
-                        })
-                      }
+                      value={form.propertyType}
+                      onChange={(value) => setForm({ ...form, propertyType: value })}
+                      translate={ht}
                     />
                   </div>
 
@@ -1903,7 +1909,7 @@ export default function HostPropertyDetailPage({
                   </>
                 )}
 
-                {propertyId && (
+                {propertyId && !isHotelType(form.propertyType) && (
                   <CalendarSyncPanel
                     propertyId={propertyId}
                     onAvailabilityChanged={

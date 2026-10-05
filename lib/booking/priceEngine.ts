@@ -17,11 +17,13 @@ export function nightsBetween(checkIn: string, checkOut: string): number {
 export function calculatePrice(
   property: PropertyForPricing,
   nights: number,
-  feeConfig: FeeConfig
+  feeConfig: FeeConfig,
+  accommodationOverrideMinor?: number
 ): PriceBreakdown {
   if (nights <= 0) throw new Error("nights must be positive");
 
-  const accommodationMinor = property.nightlyPriceMinor * nights;
+  const accommodationMinor = accommodationOverrideMinor ?? property.nightlyPriceMinor * nights;
+  if (!Number.isSafeInteger(accommodationMinor) || accommodationMinor < 0) throw new Error("Invalid accommodation amount");
   const cleaningMinor = property.cleaningFeeMinor;
   const guestServiceFeeMinor = Math.round(accommodationMinor * feeConfig.guestServiceFeeRate);
   // Launch pricing is explicitly VAT-exclusive. Historic v1 bookings keep

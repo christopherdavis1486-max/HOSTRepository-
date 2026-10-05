@@ -12,6 +12,7 @@ const redis = redisUrl && redisToken
   : null;
 const authLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "host:auth" }) : null;
 const financialLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "15 m"), prefix: "host:financial" }) : null;
+const bookingActivityLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, "15 m"), prefix: "host:booking-activity" }) : null;
 const aiLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(12, "15 m"), prefix: "host:ai" }) : null;
 const contactLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "host:contact" }) : null;
 const newsletterLimiter = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "1 h"), prefix: "host:newsletter" }) : null;
@@ -25,6 +26,9 @@ function clientIp(request: NextRequest) { return request.headers.get("x-forwarde
 
 const AUTH_PATHS = ["/api/auth/register", "/api/auth/password-reset/request", "/api/auth/password-reset/confirm", "/api/auth/email-verification/confirm", "/api/auth/recovery-code", "/api/auth/callback/credentials", "/api/account/recovery-codes", "/api/account/password", "/api/account/privacy"];
 const FINANCIAL_PATHS = ["/api/payments/", "/api/bookings", "/api/admin/refunds", "/api/admin/security/actions"];
+// These non-financial booking actions must not consume the payment/cancellation allowance.
+// Other booking mutations retain financial protection, including unknown future actions.
+const BOOKING_ACTIVITY_PATH = /^\/api\/bookings\/[^/]+\/(?:messages(?:\/read)?|archive|review)\/?$/;
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 // Vercel Blob completion callbacks have no browser Origin. This exact route
 // still verifies browser sessions/ownership or Vercel's signed callback in handleUpload().
@@ -62,7 +66,8 @@ export async function middleware(request: NextRequest) {
     return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "INVALID_ORIGIN", message: "Request origin was not accepted." } }, { status: 403 }));
   }
   const authPath = MUTATING.has(request.method) && AUTH_PATHS.some((path) => pathname.startsWith(path));
-  const financialPath = FINANCIAL_PATHS.some((path) => pathname.startsWith(path)) && MUTATING.has(request.method);
+  const bookingActivityPath = BOOKING_ACTIVITY_PATH.test(pathname) && MUTATING.has(request.method);
+  const financialPath = !bookingActivityPath && FINANCIAL_PATHS.some((path) => pathname.startsWith(path)) && MUTATING.has(request.method);
   const aiPath = pathname === "/api/ai/concierge" && request.method === "POST";
   const contactPath = pathname === "/api/contact" && request.method === "POST";
   const newsletterPath =
@@ -204,13 +209,22 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (bookingActivityPath) {
+    let allowed: boolean;
+    if (bookingActivityLimiter) allowed = (await bookingActivityLimiter.limit(ip)).success;
+    else if (process.env.NODE_ENV === "production" || process.env.SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT === "true") {
+      return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "SECURITY_NOT_CONFIGURED", message: "Security service is temporarily unavailable." } }, { status: 503 }));
+    } else allowed = localLimit(`booking-activity:${ip}`, 120, 15 * 60_000);
+    if (!allowed) return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "RATE_LIMITED", message: "Too many booking activity requests. Try again later." } }, { status: 429 }));
+  }
+
   if (authPath || financialPath) {
     const distributed = authPath ? authLimiter : financialLimiter; let allowed: boolean;
     if (distributed) allowed = (await distributed.limit(ip)).success;
     else if (process.env.NODE_ENV === "production" || process.env.SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT === "true") {
-      return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "SECURITY_NOT_CONFIGURED", message: "Security service is temporarily unavailable." } }, { status: 503 }));
+      return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "SECURITY_NOT_CONFIGURED", message: "Security service is temporarily unavailable." }, ...(pathname === "/api/auth/callback/credentials" ? { url: new URL("/login?error=SecurityUnavailable", request.nextUrl.origin).href } : {}) }, { status: 503 }));
     } else allowed = localLimit(`${authPath ? "auth" : "financial"}:${ip}`, authPath ? 5 : 20, 15 * 60_000);
-    if (!allowed) return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "RATE_LIMITED", message: "Too many attempts. Try again later." } }, { status: 429 }));
+    if (!allowed) return addSecurityHeaders(NextResponse.json({ success: false, error: { code: "RATE_LIMITED", message: "Too many attempts. Try again later." }, ...(pathname === "/api/auth/callback/credentials" ? { url: new URL("/login?error=RateLimited", request.nextUrl.origin).href } : {}) }, { status: 429 }));
   }
   const response = NextResponse.next(); if (pathname.startsWith("/api/admin")) response.headers.set("X-Robots-Tag", "noindex, nofollow");
   return addSecurityHeaders(response);

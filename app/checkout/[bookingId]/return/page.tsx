@@ -155,7 +155,7 @@ export default function CheckoutReturnPage({ params }: { params: Promise<{ booki
             <div className="eyebrow">{gt("longerExpected")}</div>
             <h1 className="display">{gt("waitingConfirmation")}</h1>
             <p className="policy-note" style={{ textAlign: "center" }}>
-              Your payment method was saved successfully, but we haven't received confirmation that your card was charged yet. This can happen if payment processing is still in progress, or — in a local Stripe CLI test — if automated charging isn't enabled for this test run. Please check your trip in a few minutes, or contact support if this persists.
+              We haven't received confirmation of payment for this booking yet. Check your trip status before trying to pay again. If your card shows a charge but the booking remains pending, contact HOST so we can check the payment.
             </p>
             <div className="actions">
               <a href={`/trips/${bookingId}`} className="btn-primary">{gt("checkTripStatus")}</a>
@@ -176,6 +176,7 @@ export default function CheckoutReturnPage({ params }: { params: Promise<{ booki
               <div className="row"><span className="label">{gt("checkOut")}</span><span>{formatDate(booking.checkOut)}</span></div>
               {nights != null && <div className="row"><span className="label">{gt("nights")}</span><span>{nights}</span></div>}
               <div className="row"><span className="label">{gt("guests")}</span><span>{booking.guests}</span></div>
+              {booking.roomName && <div className="row"><span className="label">Rooms</span><span>{booking.roomQuantity} × {booking.roomName}</span></div>}
               <div className="row"><span className="label">{gt("bookingStatus")}</span><span>{formatStatus(booking.status)}</span></div>
               <div className="row"><span className="label">{gt("paymentStatus")}</span><span>{formatStatus(booking.paymentFlowVersion === "separate_charges_delayed_v1" ? booking.guestPaymentStatus : booking.paymentStatus)}</span></div>
               <div className="row total"><span className="label">{gt("amountPaid")}</span><span>{formatCurrency(booking.breakdown?.guestTotalMinor, booking.breakdown?.currency)}</span></div>

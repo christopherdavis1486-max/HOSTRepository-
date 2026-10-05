@@ -1,7 +1,14 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 import { assertSafeTestDatabase } from "./testDatabaseGuard";
 
 assertSafeTestDatabase();
+
+// A PostgreSQL DATE is a calendar day, not a timestamp. The default pg
+// parser creates local midnight; serializing that during BST changes the
+// day to the previous UTC date. Preserve the database's literal date for
+// bookings, availability and compliance, including repeated form saves.
+// Timestamp parsers stay unchanged for holds, audit events and payments.
+types.setTypeParser(types.builtins.DATE, (value: string) => value);
 
 const globalForDb = globalThis as unknown as { pool?: Pool };
 

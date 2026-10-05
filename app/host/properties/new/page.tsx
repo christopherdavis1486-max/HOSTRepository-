@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PropertyTypeSelect } from "@/components/PropertyTypeSelect";
 import { HostNav } from "@/components/HostNav";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
 
@@ -593,17 +594,11 @@ export default function NewPropertyPage() {
                     {ht("Property type")}
                   </label>
 
-                  <input
+                  <PropertyTypeSelect
                     id="propertyType"
                     value={propertyType}
-                    onChange={(event) =>
-                      setPropertyType(
-                        event.target.value
-                      )
-                    }
-                    placeholder={ht(
-                      "Apartment, House…"
-                    )}
+                    onChange={setPropertyType}
+                    translate={ht}
                   />
                 </div>
 

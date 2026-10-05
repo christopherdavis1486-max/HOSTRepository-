@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { stripe } from "./stripeClient";
+import { refundLateHotelPayment } from "../hotels/latePayment";
 import { db, withTransaction } from "../db";
 import { sendBookingConfirmedMessage } from "../messaging/systemMessages";
 import { notifyUser } from "../notifications/sendNotification";
@@ -129,8 +130,13 @@ const payment = await client.query(`SELECT status FROM payments WHERE provider_p
        WHERE id = $1 AND status = 'pending_payment' RETURNING *`,
       [bookingId]
     );
-if (bookingResult.rows.length === 0) return false; // already confirmed, or in an unexpected state — don't overwrite
-    const booking = bookingResult.rows[0];
+    let booking = bookingResult.rows[0];
+    if (!booking) {
+      const cancelledHotel=await client.query(`UPDATE bookings SET hotel_late_payment=TRUE,updated_at=NOW()
+        WHERE id=$1 AND room_type_id IS NOT NULL AND status='cancelled' RETURNING *`,[bookingId]);
+      booking=cancelledHotel.rows[0];
+      if(!booking)return false;
+    }
 
     const priceComponents = await client.query(`SELECT * FROM booking_price_components WHERE booking_id = $1`, [bookingId]);
     const pc = priceComponents.rows[0];
@@ -151,6 +157,12 @@ if (bookingResult.rows.length === 0) return false; // already confirmed, or in a
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [bookingId, booking.property_id, booking.host_id, type, amount, pc.currency, status, intent.id, now]
       );
+    }
+
+    if(booking.status !== "confirmed") {
+      await client.query(`INSERT INTO ledger_entries(booking_id,property_id,host_id,type,amount_minor,currency,status,external_reference,occurred_at)
+        VALUES($1,$2,$3,'host_payout',$4,$5,'pending',$6,NOW())`,[bookingId,booking.property_id,booking.host_id,pc.host_payout_minor,pc.currency,intent.id]);
+      return false;
     }
 
     // Payout scheduling — held until check-in + the free-cancellation
@@ -178,6 +190,7 @@ if (bookingResult.rows.length === 0) return false; // already confirmed, or in a
   // failure here (e.g. the email provider is briefly down) must not roll
   // back a payment that genuinely succeeded — notifyUser already catches
   // and records email failures internally rather than throwing.
+  await refundLateHotelPayment(bookingId,intent.id);
   if (shouldNotify) {
     await sendBookingConfirmedMessage(bookingId);
   }
@@ -285,7 +298,7 @@ async function onRefundEvent(refund: Stripe.Refund) {
       [paymentId, fullyRefunded ? "refunded" : "partially_refunded"]
     );
     await client.query(
-      `UPDATE bookings SET status = $2, updated_at = NOW() WHERE id = $1`,
+      `UPDATE bookings SET status = CASE WHEN $2 = 'refunded' THEN 'refunded' WHEN status IN ('cancelled','refunded') THEN status ELSE $2 END, updated_at = NOW() WHERE id = $1`,
       [bookingId, fullyRefunded ? "refunded" : "confirmed"]
     );
 
@@ -428,7 +441,7 @@ async function onDisputeCreated(dispute: Stripe.Dispute) {
      ON CONFLICT DO NOTHING`,
     [bookingId, paymentId, dispute.id, dispute.reason, dispute.status, dispute.amount, dispute.evidence_details?.due_by ? new Date(dispute.evidence_details.due_by * 1000) : null]
   );
-  await db.query(`UPDATE bookings SET status = 'disputed', updated_at = NOW() WHERE id = $1`, [bookingId]);
+  await db.query(`UPDATE bookings SET status = 'disputed', updated_at = NOW() WHERE id = $1 AND status NOT IN ('cancelled','refunded')`, [bookingId]);
   // Also cancel any scheduled-but-unreleased payout for this booking —
   // don't pay out a host while the charge is under dispute.
   await db.query(`UPDATE payouts SET status = 'cancelled', updated_at = NOW() WHERE booking_id = $1 AND status = 'scheduled'`, [bookingId]);

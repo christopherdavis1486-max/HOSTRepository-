@@ -4,6 +4,7 @@ import {
   emptySnapshot,
   normalizeDefinition,
   schemaSatisfies,
+  schemaSatisfiesWithSuccessors,
 } from "./schemaSnapshot";
 
 const wrapped =
@@ -43,4 +44,37 @@ test("normalization still detects a genuinely different ROW comparison", () => {
     normalizeDefinition(distinct),
     normalizeDefinition(notDistinct)
   );
+});
+
+function successorScenario() {
+  const required = emptySnapshot();
+  required.functions.set("hotel_guard", "old definition");
+  const successor = emptySnapshot();
+  successor.functions.set("hotel_guard", "new definition");
+  successor.triggers.set("inventory_guard@properties", "required trigger");
+  const actual = emptySnapshot();
+  actual.functions.set("hotel_guard", "new definition");
+  actual.triggers.set("inventory_guard@properties", "required trigger");
+  return { actual, required, successor };
+}
+
+test("a fully verified successor may supersede a historical function", () => {
+  const { actual, required, successor } = successorScenario();
+  assert.equal(schemaSatisfiesWithSuccessors(actual, required, [successor]).complete, true);
+  assert.equal(required.functions.get("hotel_guard"), "old definition", "the manifest must remain immutable");
+});
+
+test("a partial successor cannot excuse a historical definition mismatch", () => {
+  const { actual, required, successor } = successorScenario();
+  actual.triggers.clear();
+  assert.equal(schemaSatisfiesWithSuccessors(actual, required, [successor]).complete, false);
+});
+
+test("a successor cannot excuse a missing historical object or an unknown function", () => {
+  const { actual, required, successor } = successorScenario();
+  required.indexes.set("historical_index", "required index");
+  assert.equal(schemaSatisfiesWithSuccessors(actual, required, [successor]).complete, false);
+  required.indexes.clear();
+  actual.functions.set("hotel_guard", "unrecognized definition");
+  assert.equal(schemaSatisfiesWithSuccessors(actual, required, [successor]).complete, false);
 });

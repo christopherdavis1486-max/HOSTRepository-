@@ -18,7 +18,8 @@ export type ListingReadinessKey =
   | "hostAgreement"
   | "payoutAccount"
   | "compliance"
-  | "pilotReview";
+  | "pilotReview"
+  | "hotelRooms";
 
 export type ListingReadinessCheck = {
   key: ListingReadinessKey;
@@ -65,6 +66,10 @@ type ReadinessRow = {
   host_agreement_accepted_at: string | Date | null;
   default_policies_accepted_at: string | Date | null;
   payout_account_status: string | null;
+  accommodation_vat_rate: number | string | null;
+  cleaning_vat_rate: number | string | null;
+  active_room_count: number | string;
+  incomplete_room_count: number | string;
   image_count: number | string;
   cover_count: number | string;
 };
@@ -208,6 +213,12 @@ export async function getListingReadiness(
 ): Promise<ListingReadinessReport | null> {
   const result = await queryable.query<ReadinessRow>(
     `SELECT
+       (SELECT COUNT(*) FROM hotel_room_types r WHERE r.property_id=p.id AND r.active) AS active_room_count,
+       (SELECT COUNT(*) FROM hotel_room_types r WHERE r.property_id=p.id AND r.active AND (
+         length(trim(r.description))=0 OR NOT EXISTS(SELECT 1 FROM hotel_room_images ri JOIN property_images pi ON pi.id=ri.image_id WHERE ri.room_type_id=r.id AND pi.property_id=p.id)
+       )) AS incomplete_room_count,
+       p.accommodation_vat_rate,
+       p.cleaning_vat_rate,
        p.id,
        p.name,
        p.property_type,
@@ -301,6 +312,10 @@ export async function getListingReadiness(
   }
 
   const checks = buildChecks(row);
+  if(["hotel","aparthotel"].includes(row.property_type?.trim().toLowerCase()??"")) checks.push({
+    key:"hotelRooms",label:"Hotel rooms",ready:Number(row.active_room_count)>0&&Number(row.incomplete_room_count)===0&&row.accommodation_vat_rate!=null&&row.cleaning_vat_rate!=null,
+    guidance:"Add at least one active room type with a description, capacity, price, room count and photo, and ask HOST to confirm the property’s tax treatment."
+  });
   const missing = checks.filter(
     (check) => !check.ready
   );

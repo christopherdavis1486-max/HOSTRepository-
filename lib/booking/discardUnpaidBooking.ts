@@ -45,6 +45,7 @@ export async function discardUnpaidBooking(bookingId: string, guestId: string) {
       [hashToBigint(booking.property_id)]
     );
 
+    if (!booking.room_type_id) {
     await client.query(
       `DELETE FROM availability_blocks
        WHERE property_id = $1
@@ -63,6 +64,7 @@ export async function discardUnpaidBooking(bookingId: string, guestId: string) {
       client,
       booking.property_id,
     );
+    }
     await client.query(
       `UPDATE bookings SET status = 'cancelled', archived_at = NOW(), next_retry_at = NULL, updated_at = NOW()
        WHERE id = $1`,

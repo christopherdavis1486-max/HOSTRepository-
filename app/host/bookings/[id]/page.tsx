@@ -17,6 +17,7 @@ import { useHostI18n } from "@/lib/i18n/useHostI18n";
  */
 
 type BookingDetail = {
+  roomName: string | null; roomQuantity: number | null;
   id: string; propertyId: string; propertyName: string; city: string; district: string | null;
   checkIn: string; checkOut: string; guests: number; status: string;
   guestName: string; guestEmail: string; paymentFlowVersion: string;
@@ -158,6 +159,7 @@ export default function HostBookingDetailPage({ params }: { params: Promise<{ id
               <div className="row"><span className="label">{ht("Check-out")}</span><span>{hDate(booking.checkOut)}</span></div>
               {nights != null && <div className="row"><span className="label">{ht("Nights")}</span><span>{nights}</span></div>}
               <div className="row"><span className="label">{ht("Guests")}</span><span>{booking.guests}</span></div>
+              {booking.roomName && <div className="row"><span className="label">Rooms</span><span>{booking.roomQuantity} × {booking.roomName}</span></div>}
               <div className="row"><span className="label">{ht("Booking status")}</span><span>{hStatus(booking.status)}</span></div>
               <div className="row"><span className="label">{ht("Payment status")}</span><span>{hStatus(isNewFlow ? booking.guestPaymentStatus : booking.paymentStatus)}</span></div>
             </div>

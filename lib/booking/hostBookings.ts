@@ -14,7 +14,7 @@ import { computeGuestPaymentStatus } from "../payments/scheduledCharges";
 export async function listBookingsForHost(hostProfileId: string) {
   const result = await db.query(
     `SELECT
-       b.id, b.property_id, b.check_in, b.check_out, b.guests, b.status, b.guest_name, b.created_at,
+       b.id, b.room_type_id, b.room_quantity, b.room_name_snapshot, b.property_id, b.check_in, b.check_out, b.guests, b.status, b.guest_name, b.created_at,
        b.payment_flow_version, b.grace_period_started_at, b.scheduled_charge_date,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.name AS property_name, p.city, p.district,
@@ -50,6 +50,7 @@ export async function listBookingsForHost(hostProfileId: string) {
       checkIn: row.check_in,
       checkOut: row.check_out,
       guests: row.guests,
+      roomTypeId: row.room_type_id ?? null, roomQuantity: row.room_quantity ?? null, roomName: row.room_name_snapshot ?? null,
       guestName: row.guest_name, // already legitimately collected for this booking — not a new data exposure
       status: row.status,
       paymentFlowVersion: row.payment_flow_version,
@@ -82,7 +83,7 @@ export async function listBookingsForHost(hostProfileId: string) {
 export async function getHostBookingDetail(bookingId: string) {
   const result = await db.query(
     `SELECT
-       b.id, b.check_in, b.check_out, b.guests, b.status, b.guest_name, b.guest_email,
+       b.id, b.room_type_id, b.room_quantity, b.room_name_snapshot, b.check_in, b.check_out, b.guests, b.status, b.guest_name, b.guest_email,
        b.payment_flow_version, b.grace_period_started_at, b.scheduled_charge_date,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.id AS property_id, p.name AS property_name, p.city, p.district,
@@ -120,6 +121,7 @@ export async function getHostBookingDetail(bookingId: string) {
     checkIn: row.check_in,
     checkOut: row.check_out,
     guests: row.guests,
+    roomTypeId: row.room_type_id ?? null, roomQuantity: row.room_quantity ?? null, roomName: row.room_name_snapshot ?? null,
     guestName: row.guest_name,
     guestEmail: row.guest_email,
     status: row.status,

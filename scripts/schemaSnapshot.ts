@@ -190,3 +190,20 @@ export function schemaSatisfies(actual: SchemaSnapshot, required: SchemaSnapshot
 
   return { complete: missing.length === 0, missing };
 }
+
+/** Accept a superseding function only when its entire later migration
+ * manifest is present. Other historical requirements remain mandatory. */
+export function schemaSatisfiesWithSuccessors(
+  actual: SchemaSnapshot,
+  required: SchemaSnapshot,
+  successors: SchemaSnapshot[]
+) {
+  const functions = new Map(required.functions);
+  for (const successor of successors) {
+    if (!schemaSatisfies(actual, successor).complete) continue;
+    for (const [name, definition] of successor.functions) {
+      if (functions.has(name)) functions.set(name, definition);
+    }
+  }
+  return schemaSatisfies(actual, { ...required, functions });
+}

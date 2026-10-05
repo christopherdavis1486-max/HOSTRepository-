@@ -78,11 +78,13 @@ test("returns a published property with exactly the documented public-safe field
   assert.equal(data.property.cancellationPolicy.name, "Test Moderate");
   assert.ok(Array.isArray(data.property.cancellationPolicy.rules));
 
+  assert.deepEqual(data.property.roomTypes, [], "whole-property listings expose no hotel room types");
+
   const allowedKeys = new Set([
     "id", "name", "slug", "description", "city", "district", "countryCode", "propertyType",
     "currency", "nightlyPrice", "cleaningFee", "maxGuests", "bedrooms", "bathrooms",
     "minStayNights", "maxStayNights", "checkInTime", "checkOutTime", "houseRules",
-    "rating", "reviewCount", "compliance", "publicLocation", "images", "cancellationPolicy",
+    "rating", "reviewCount", "compliance", "publicLocation", "images", "cancellationPolicy", "roomTypes",
   ]);
   for (const key of Object.keys(data.property)) {
     assert.ok(allowedKeys.has(key), `unexpected field "${key}" — must be an explicit public-safe field`);

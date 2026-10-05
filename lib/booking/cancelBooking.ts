@@ -50,6 +50,7 @@ export async function cancelBooking(input: CancelBookingInput) {
     // webhook, because the dates should stop blocking other guests as soon
     // as the cancellation is accepted, not only once Stripe confirms money
     // has moved.
+    if (!b.room_type_id) {
     await client.query(
       `DELETE FROM availability_blocks
        WHERE property_id = $1
@@ -64,6 +65,7 @@ export async function cancelBooking(input: CancelBookingInput) {
       b.property_id,
     );
 
+    }
     await client.query(
       `UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
       [input.bookingId]

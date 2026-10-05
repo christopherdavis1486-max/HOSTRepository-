@@ -23,6 +23,7 @@ import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
 type Trip = {
   id: string; propertyName: string; propertySlug: string | null;
   city: string; district: string | null; checkIn: string; checkOut: string;
+  roomName: string | null; roomQuantity: number | null;
   guests: number; status: string; paymentStatus: string | null;
   paymentFlowVersion: string; guestPaymentStatus: string | null;
   totalMinor: number | null; currency: string | null;
@@ -63,6 +64,7 @@ export default function TripsPage() {
               <div>
                 <div className="trip-property display">{t.propertyName}</div>
                 <div className="trip-location">{[t.district, t.city].filter(Boolean).join(", ")}</div>
+                {t.roomName && <p>{t.roomQuantity} × {t.roomName}</p>}
                 <div className="trip-dates">{formatDate(t.checkIn)} → {formatDate(t.checkOut)} · {t.guests} {t.guests === 1 ? gt("guest") : gt("guests")}</div>
               </div>
               <div className="trip-meta">

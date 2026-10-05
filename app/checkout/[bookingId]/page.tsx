@@ -6,9 +6,26 @@ import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "@/components/CheckoutForm";
 import SetupIntentForm from "@/components/SetupIntentForm";
 import { CustomerNav } from "@/components/CustomerNav";
-import { formatDate } from "@/lib/presentation/formatters";
+import { formatDate, formatCurrency } from "@/lib/presentation/formatters";
 import { isChargeDeferred } from "@/lib/presentation/checkoutTiming";
 import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
+
+type CheckoutSummary = {
+  propertyName: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  roomName: string | null;
+  roomQuantity: number | null;
+  breakdown: {
+    currency: string;
+    accommodationMinor: number | string;
+    cleaningMinor: number | string;
+    guestServiceFeeMinor: number | string;
+    taxesMinor: number | string;
+    guestTotalMinor: number | string;
+  };
+};
 
 let stripePromise: Promise<Stripe | null> | null = null;
 function getStripe() {
@@ -24,6 +41,7 @@ function getStripe() {
 
 export default function CheckoutPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { gt } = useGuestI18n();
+  const [bookingSummary, setBookingSummary] = useState<CheckoutSummary | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [paymentFlowVersion, setPaymentFlowVersion] = useState<string | null>(null);
   const [scheduledChargeDate, setScheduledChargeDate] = useState<string | null>(null);
@@ -45,6 +63,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
       .then((r) => r.json())
       .then((data) => {
         if (!data.success) { setError(data.error?.message ?? gt("bookingLoadError")); return; }
+        setBookingSummary(data.booking);
         setPaymentFlowVersion(data.booking.paymentFlowVersion);
         setScheduledChargeDate(data.booking.scheduledChargeDate ?? null);
       })
@@ -72,7 +91,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
   const stateContentStyle = { maxWidth: 560, margin: "0 auto", padding: "80px 28px" };
 
   if (error) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state error" role="alert" style={{ ...stateContentStyle, color: "#E0796B" }}>{error}</div></div>;
-  if (!clientSecret || !bookingId || !paymentFlowVersion) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state" role="status" aria-live="polite" style={{ ...stateContentStyle, color: "#A79E8C" }}>{gt("loadingCheckout")}</div></div>;
+  if (!clientSecret || !bookingId || !paymentFlowVersion || !bookingSummary) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state" role="status" aria-live="polite" style={{ ...stateContentStyle, color: "#A79E8C" }}>{gt("loadingCheckout")}</div></div>;
 
   const isDelayedCharge = paymentFlowVersion === "separate_charges_delayed_v1";
   const chargeIsDeferred = isChargeDeferred(scheduledChargeDate);
@@ -84,6 +103,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
       <style>{`
         .checkout-root { --ink:#14120E;--graphite:#1F1B15;--stone:#2A251C;--ivory:#F2ECDE;--warm:#A79E8C;--brass:#C9974B;--error:#E0796B; min-height:100vh;background:var(--ink);color:var(--ivory);font-family:'Space Grotesk',system-ui,sans-serif; }
         .checkout-root *{box-sizing:border-box}.checkout-wrap{max-width:560px;margin:0 auto;padding:52px 28px 80px}.checkout-eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);margin-bottom:8px}.checkout-wrap h1{font-family:'Fraunces',Georgia,serif;font-size:30px;font-weight:400;margin:0 0 10px}.checkout-summary{color:var(--warm);font-size:14px;line-height:1.6;margin:0 0 24px}.checkout-card{background:var(--graphite);border:1px solid var(--stone);border-radius:8px;padding:24px}.checkout-state{max-width:560px;margin:0 auto;padding:80px 28px;color:var(--warm)}.checkout-state.error{color:var(--error)}
+        .checkout-details{margin-bottom:20px}.checkout-details h2{font-family:'Fraunces',Georgia,serif;font-size:22px;font-weight:400;margin:0 0 16px}.checkout-details dl{margin:0}.checkout-detail-row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid var(--stone);font-size:14px}.checkout-detail-row dt{color:var(--warm)}.checkout-detail-row dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.checkout-detail-row.total{font-size:18px}.checkout-detail-row.total dt{color:var(--ivory)}
         @media(max-width:600px){.checkout-wrap{padding:36px 18px 60px}.checkout-card{padding:18px}.checkout-wrap h1{font-size:26px}}
       `}</style>
       <main className="checkout-wrap">
@@ -98,6 +118,20 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
             : gt("immediateSavedCharge")
           : gt("reviewPaymentDetails")}
       </p>
+      <section className="checkout-card checkout-details" aria-label={gt("priceBreakdown")}>
+        <h2>{bookingSummary.propertyName}</h2>
+        <dl>
+          <div className="checkout-detail-row"><dt>{gt("checkIn")}</dt><dd>{formatDate(bookingSummary.checkIn)}</dd></div>
+          <div className="checkout-detail-row"><dt>{gt("checkOut")}</dt><dd>{formatDate(bookingSummary.checkOut)}</dd></div>
+          <div className="checkout-detail-row"><dt>{gt("guests")}</dt><dd>{bookingSummary.guests}</dd></div>
+          {bookingSummary.roomName && <div className="checkout-detail-row"><dt>Rooms</dt><dd>{bookingSummary.roomQuantity} × {bookingSummary.roomName}</dd></div>}
+          <div className="checkout-detail-row"><dt>{gt("accommodation")}</dt><dd>{formatCurrency(bookingSummary.breakdown.accommodationMinor, bookingSummary.breakdown.currency)}</dd></div>
+          <div className="checkout-detail-row"><dt>{gt("cleaningFee")}</dt><dd>{formatCurrency(bookingSummary.breakdown.cleaningMinor, bookingSummary.breakdown.currency)}</dd></div>
+          <div className="checkout-detail-row"><dt>{gt("serviceFee")}</dt><dd>{formatCurrency(bookingSummary.breakdown.guestServiceFeeMinor, bookingSummary.breakdown.currency)}</dd></div>
+          <div className="checkout-detail-row"><dt>{gt("taxes")}</dt><dd>{formatCurrency(bookingSummary.breakdown.taxesMinor, bookingSummary.breakdown.currency)}</dd></div>
+          <div className="checkout-detail-row total"><dt>{gt("bookingTotal")}</dt><dd>{formatCurrency(bookingSummary.breakdown.guestTotalMinor, bookingSummary.breakdown.currency)}</dd></div>
+        </dl>
+      </section>
       <div className="checkout-card">
       <Elements stripe={getStripe()} options={{ clientSecret, appearance: { theme: "night", variables: { colorPrimary: "#C9974B", colorBackground: "#14120E", colorText: "#F2ECDE", colorDanger: "#E0796B", borderRadius: "4px" } } }}>
         {isDelayedCharge ? (

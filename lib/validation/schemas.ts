@@ -40,6 +40,8 @@ export const changePasswordSchema = z.object({
   );
 
 export const createBookingSchema = z.object({
+  roomTypeId: z.string().uuid().optional(),
+  roomQuantity: z.number().int().min(1).max(50).optional(),
   propertyId: z.string().uuid(
     "propertyId must be a valid property ID"
   ),
@@ -191,6 +193,8 @@ export const reviewReplySchema = z.object({
 });
 
 export const propertySearchQuerySchema = z.object({
+  propertyType: z.enum(["Apartment","House","Hotel","Aparthotel"]).optional(),
+  roomQuantity: z.coerce.number().int().min(1).max(50).optional(),
   city: z.string().trim().min(1).max(100).optional(),
   district: z.string().trim().min(1).max(100).optional(),
   guests: z.coerce.number().int().min(1).max(50).optional(),
@@ -224,7 +228,12 @@ export const propertySearchQuerySchema = z.object({
       message: "checkOut must be after checkIn",
       path: ["checkOut"],
     }
-  );
+  )
+  .refine((data) => !data.checkIn || !data.checkOut || (
+    !Number.isNaN(Date.parse(data.checkIn)) && new Date(data.checkIn).toISOString().slice(0,10) === data.checkIn &&
+    !Number.isNaN(Date.parse(data.checkOut)) && new Date(data.checkOut).toISOString().slice(0,10) === data.checkOut &&
+    (Date.parse(data.checkOut)-Date.parse(data.checkIn))/86400000 <= 365
+  ), { message: "Choose valid dates for a stay of up to 365 nights" });
 
 const VALID_PROPERTY_STATUSES = [
   "draft",

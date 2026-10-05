@@ -59,6 +59,9 @@ const MIGRATION_FILES = [
   "030_calendar_sync.sql",
   "031_listing_status_reconciliation.sql",
   "032_newsletter_subscriptions.sql",
+  "033_property_vat_rates.sql",
+  "034_hotel_rooms.sql",
+  "035_hotel_lifecycle.sql",
 ];
 
 function serializeSnapshot(snapshot: SchemaSnapshot) {

@@ -30,7 +30,7 @@ const ARCHIVABLE_STATUSES = ["cancelled", "completed", "refunded"];
 export async function listBookingsForGuest(guestId: string, includeArchived = false) {
   const result = await db.query(
     `SELECT
-       b.id, b.property_id, b.check_in, b.check_out, b.guests, b.status, b.archived_at, b.created_at,
+       b.id, b.room_type_id, b.room_quantity, b.room_name_snapshot, b.property_id, b.check_in, b.check_out, b.guests, b.status, b.archived_at, b.created_at,
        b.payment_flow_version, b.scheduled_charge_date, b.grace_period_started_at,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.name AS property_name, p.city, p.district, p.slug,
@@ -157,6 +157,7 @@ function mapTripRow(row: any) {
     checkIn: row.check_in,
     checkOut: row.check_out,
     guests: row.guests,
+    roomTypeId: row.room_type_id ?? null, roomQuantity: row.room_quantity ?? null, roomName: row.room_name_snapshot ?? null,
     status: row.status,
     paymentStatus: row.payment_status,
     paymentFlowVersion: row.payment_flow_version,
@@ -226,6 +227,7 @@ function mapDetailRow(row: any, latestAttempt: { status: string; failure_code: s
     checkOutTime: row.check_out_time,
     houseRules: row.house_rules,
     guests: row.guests,
+    roomTypeId: row.room_type_id ?? null, roomQuantity: row.room_quantity ?? null, roomName: row.room_name_snapshot ?? null,
     status: row.status,
     paymentStatus: row.payment_status,
     breakdown: {

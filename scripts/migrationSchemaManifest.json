@@ -2935,5 +2935,224 @@
     "functions": {},
     "triggers": {},
     "extensions": []
+  },
+  "033_property_vat_rates.sql": {
+    "tables": {
+      "properties": [
+        {
+          "name": "accommodation_vat_rate",
+          "dataType": "numeric",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "cleaning_vat_rate",
+          "dataType": "numeric",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "property_accommodation_vat_rate_valid": "CHECK (((accommodation_vat_rate IS NULL) OR ((accommodation_vat_rate >= (0)::numeric) AND (accommodation_vat_rate <= (1)::numeric))))",
+      "property_cleaning_vat_rate_valid": "CHECK (((cleaning_vat_rate IS NULL) OR ((cleaning_vat_rate >= (0)::numeric) AND (cleaning_vat_rate <= (1)::numeric))))"
+    },
+    "indexes": {},
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "034_hotel_rooms.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "room_type_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "room_quantity",
+          "dataType": "integer",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "room_name_snapshot",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "hotel_room_images": [
+        {
+          "name": "room_type_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "image_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "sort_order",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        }
+      ],
+      "hotel_room_inventory": [
+        {
+          "name": "room_type_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "date",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "total_rooms",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "nightly_price",
+          "dataType": "numeric",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "hotel_room_types": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "name",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "description",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "''::text"
+        },
+        {
+          "name": "max_guests",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "total_rooms",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "nightly_price",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "cleaning_fee",
+          "dataType": "numeric",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "active",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "true"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "hotel_room_types_name_check": "CHECK (((length(TRIM(BOTH FROM name)) >= 1) AND (length(TRIM(BOTH FROM name)) <= 150)))",
+      "hotel_room_types_max_guests_check": "CHECK (((max_guests >= 1) AND (max_guests <= 50)))",
+      "hotel_room_images_pkey": "PRIMARY KEY (room_type_id, image_id)",
+      "hotel_room_types_total_rooms_check": "CHECK (((total_rooms >= 1) AND (total_rooms <= 10000)))",
+      "hotel_room_types_nightly_price_check": "CHECK ((nightly_price > (0)::numeric))",
+      "hotel_room_types_cleaning_fee_check": "CHECK ((cleaning_fee >= (0)::numeric))",
+      "hotel_room_types_pkey": "PRIMARY KEY (id)",
+      "hotel_room_types_property_id_id_key": "UNIQUE (property_id, id)",
+      "hotel_room_types_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
+      "hotel_room_inventory_total_rooms_check": "CHECK (((total_rooms >= 0) AND (total_rooms <= 10000)))",
+      "hotel_room_inventory_nightly_price_check": "CHECK ((nightly_price > (0)::numeric))",
+      "hotel_room_inventory_pkey": "PRIMARY KEY (room_type_id, date)",
+      "hotel_room_inventory_room_type_id_fkey": "FOREIGN KEY (room_type_id) REFERENCES hotel_room_types(id)",
+      "hotel_room_images_room_type_id_fkey": "FOREIGN KEY (room_type_id) REFERENCES hotel_room_types(id) ON DELETE CASCADE",
+      "hotel_room_images_image_id_fkey": "FOREIGN KEY (image_id) REFERENCES property_images(id) ON DELETE CASCADE",
+      "bookings_room_property_fk": "FOREIGN KEY (property_id, room_type_id) REFERENCES hotel_room_types(property_id, id)",
+      "bookings_room_quantity_check": "CHECK ((((room_type_id IS NULL) AND (room_quantity IS NULL) AND (room_name_snapshot IS NULL)) OR ((room_type_id IS NOT NULL) AND (room_quantity IS NOT NULL) AND ((room_quantity >= 1) AND (room_quantity <= 50)) AND (room_name_snapshot IS NOT NULL))))"
+    },
+    "indexes": {
+      "hotel_room_types_pkey": "CREATE UNIQUE INDEX hotel_room_types_pkey ON hotel_room_types USING btree (id)",
+      "hotel_room_types_property_id_id_key": "CREATE UNIQUE INDEX hotel_room_types_property_id_id_key ON hotel_room_types USING btree (property_id, id)",
+      "hotel_room_inventory_pkey": "CREATE UNIQUE INDEX hotel_room_inventory_pkey ON hotel_room_inventory USING btree (room_type_id, date)",
+      "hotel_room_images_pkey": "CREATE UNIQUE INDEX hotel_room_images_pkey ON hotel_room_images USING btree (room_type_id, image_id)",
+      "bookings_room_inventory_idx": "CREATE INDEX bookings_room_inventory_idx ON bookings USING btree (room_type_id, check_in, check_out) WHERE ((room_type_id IS NOT NULL) AND (status = ANY (ARRAY['pending_payment'::text, 'confirmed'::text, 'completed'::text, 'disputed'::text])))"
+    },
+    "functions": {
+      "protect_cancelled_hotel_booking": "CREATE OR REPLACE FUNCTION protect_cancelled_hotel_booking() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.room_type_id IS NOT NULL AND OLD.status IN ('cancelled','refunded') AND NEW.status IN ('pending_payment','confirmed','completed','disputed') THEN NEW.status := OLD.status; END IF; IF OLD.room_type_id IS DISTINCT FROM NEW.room_type_id OR OLD.room_quantity IS DISTINCT FROM NEW.room_quantity OR OLD.room_name_snapshot IS DISTINCT FROM NEW.room_name_snapshot THEN RAISE EXCEPTION 'Room reservation snapshot is immutable'; END IF; RETURN NEW; END $function$"
+    },
+    "triggers": {
+      "protect_cancelled_hotel_booking@bookings": "CREATE TRIGGER protect_cancelled_hotel_booking BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION protect_cancelled_hotel_booking()"
+    },
+    "extensions": []
+  },
+  "035_hotel_lifecycle.sql": {
+    "tables": {
+      "bookings": [
+        {
+          "name": "hotel_late_payment",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {},
+    "functions": {
+      "protect_cancelled_hotel_booking": "CREATE OR REPLACE FUNCTION protect_cancelled_hotel_booking() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.room_type_id IS NOT NULL AND OLD.status IN ('cancelled','refunded') AND NEW.status IN ('pending_payment','confirmed','completed','disputed') THEN NEW.status := OLD.status; END IF; IF OLD.room_type_id IS NOT NULL AND OLD.status='pending_payment' AND NEW.status='confirmed' AND OLD.hold_expires_at IS NOT NULL AND OLD.hold_expires_at<=clock_timestamp() THEN NEW.status := 'cancelled'; NEW.hotel_late_payment := TRUE; END IF; IF OLD.room_type_id IS DISTINCT FROM NEW.room_type_id OR OLD.room_quantity IS DISTINCT FROM NEW.room_quantity OR OLD.room_name_snapshot IS DISTINCT FROM NEW.room_name_snapshot THEN RAISE EXCEPTION 'Room reservation snapshot is immutable'; END IF; RETURN NEW; END $function$",
+      "protect_property_inventory_model": "CREATE OR REPLACE FUNCTION protect_property_inventory_model() RETURNS trigger LANGUAGE plpgsql AS $function$ DECLARE old_hotel BOOLEAN; new_hotel BOOLEAN; BEGIN old_hotel := lower(trim(COALESCE(OLD.property_type,''))) IN ('hotel','aparthotel'); new_hotel := lower(trim(COALESCE(NEW.property_type,''))) IN ('hotel','aparthotel'); IF old_hotel IS DISTINCT FROM new_hotel AND ( EXISTS(SELECT 1 FROM bookings WHERE property_id=OLD.id AND check_out>CURRENT_DATE AND status IN ('pending_payment','confirmed','completed','disputed')) OR (old_hotel AND EXISTS(SELECT 1 FROM hotel_room_types WHERE property_id=OLD.id AND active)) THEN RAISE EXCEPTION 'Pause room types and resolve existing reservations before changing between hotel and whole-property accommodation' USING ERRCODE='23514'; END IF; RETURN NEW; END $function$"
+    },
+    "triggers": {
+      "protect_property_inventory_model@properties": "CREATE TRIGGER protect_property_inventory_model BEFORE UPDATE OF property_type ON properties FOR EACH ROW EXECUTE FUNCTION protect_property_inventory_model()"
+    },
+    "extensions": []
   }
 }

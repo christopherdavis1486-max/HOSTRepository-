@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/authOptions";
+import { listRoomTypes } from "@/lib/hotels/rooms";
+import { isHotelType } from "@/lib/hotels/schemas";
 import { db } from "@/lib/db";
 
 const UUID_PATTERN =
@@ -242,6 +244,7 @@ export async function GET(
           district: row.district,
           countryCode: row.country_code,
           propertyType: row.property_type,
+          roomTypes: isHotelType(row.property_type) ? await listRoomTypes(row.id,true) : [],
           currency: row.currency,
           nightlyPrice: row.nightly_price,
           cleaningFee: row.cleaning_fee,

@@ -41,7 +41,7 @@ import "dotenv/config";
 import { Pool } from "pg";
 import fs from "fs";
 import path from "path";
-import { captureSchemaSnapshot, schemaSatisfies, TableInfo } from "./schemaSnapshot";
+import { captureSchemaSnapshot, schemaSatisfiesWithSuccessors, TableInfo } from "./schemaSnapshot";
 
 const MIGRATIONS_DIR = path.join(__dirname, "..", "migrations");
 const MANIFEST_PATH = path.join(__dirname, "migrationSchemaManifest.json");
@@ -65,6 +65,12 @@ function manifestEntryToSnapshot(entry: RawManifestEntry) {
     triggers: new Map(Object.entries(entry.triggers)),
     extensions: new Set(entry.extensions ?? []),
   };
+}
+
+function successorSnapshots(manifest: Record<string, RawManifestEntry>, filename: string, migrationFiles: string[]) {
+  return migrationFiles.slice(migrationFiles.indexOf(filename) + 1)
+    .filter((name) => manifest[name])
+    .map((name) => manifestEntryToSnapshot(manifest[name]));
 }
 
 const MIGRATION_FILES = [
@@ -102,6 +108,8 @@ const MIGRATION_FILES = [
   "031_listing_status_reconciliation.sql",
   "032_newsletter_subscriptions.sql",
   "033_property_vat_rates.sql",
+  "034_hotel_rooms.sql",
+  "035_hotel_lifecycle.sql",
 ];
 
 // Postgres SQLSTATE codes for "the object this statement tries to
@@ -247,7 +255,7 @@ export function splitSqlStatements(sql: string): string[] {
  * recorded as applied, matching the explicit requirement that a
  * partially-verified migration is never marked complete.
  */
-async function verifyOrCompleteStatementByStatement(pool: Pool, filename: string, sql: string, manifestPath?: string): Promise<"bootstrapped" | "completed" | "aborted"> {
+async function verifyOrCompleteStatementByStatement(pool: Pool, filename: string, sql: string, migrationFiles: string[], manifestPath?: string): Promise<"bootstrapped" | "completed" | "aborted"> {
   const statements = splitSqlStatements(sql);
   const client = await pool.connect();
   let anyGenuinelyApplied = false;
@@ -309,7 +317,7 @@ async function verifyOrCompleteStatementByStatement(pool: Pool, filename: string
       // just genuinely applied above) must be visible to this check.
       const actual = await captureSchemaSnapshot(client);
       const required = manifestEntryToSnapshot(requiredEntry);
-      const { complete, missing } = schemaSatisfies(actual, required);
+      const { complete, missing } = schemaSatisfiesWithSuccessors(actual, required, successorSnapshots(manifest, filename, migrationFiles));
       if (!complete) {
         await client.query("ROLLBACK");
         console.error(`${filename}: schema verification found genuinely missing objects after the statement-by-statement pass: ${missing.join(", ")}`);
@@ -343,10 +351,11 @@ export async function runMigrations(pool: Pool, migrationsDir: string, migration
       await client.query("BEGIN");
       try {
         await client.query(sql);
-        const manifestEntry = loadManifest(manifestPath)[filename];
+        const manifest = loadManifest(manifestPath);
+        const manifestEntry = manifest[filename];
         if (manifestEntry) {
           const actual = await captureSchemaSnapshot(client);
-          const { complete, missing } = schemaSatisfies(actual, manifestEntryToSnapshot(manifestEntry));
+          const { complete, missing } = schemaSatisfiesWithSuccessors(actual, manifestEntryToSnapshot(manifestEntry), successorSnapshots(manifest, filename, migrationFiles));
           if (!complete) {
             throw new Error(`${filename}: whole-file run succeeded with no error, but schema verification found genuinely missing objects: ${missing.join(", ")}`);
           }
@@ -366,7 +375,7 @@ export async function runMigrations(pool: Pool, migrationsDir: string, migration
           // never actually executed. Falling back to genuine,
           // per-statement verification below, rather than inferring
           // completeness from this single failure.
-          const outcome = await verifyOrCompleteStatementByStatement(pool, filename, sql, manifestPath);
+          const outcome = await verifyOrCompleteStatementByStatement(pool, filename, sql, migrationFiles, manifestPath);
           if (outcome === "aborted") {
             throw new Error(`${filename}: could not be safely completed or verified statement-by-statement — a genuine, non-duplicate error occurred partway through. Not recorded as applied.`);
           }

@@ -85,7 +85,7 @@ test("COMPLETE REQUIRED LIFECYCLE: search -> booking -> payment -> confirmation 
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, stripe_connect_account_id, payout_account_status) VALUES ($1, 'acct_test_fake', 'active') RETURNING id`, [hostUser.rows[0].id]);
   const testCity = `LifecycleTestCity-${suffix}`;
   const property = await db.query(
-    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status) VALUES ($1, 'Full Lifecycle Test Property', $2, 'GBP', 150, 2, 'published', 'approved') RETURNING id`,
+    `INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status, compliance_status, accommodation_vat_rate, cleaning_vat_rate) VALUES ($1, 'Full Lifecycle Test Property', $2, 'GBP', 150, 2, 'published', 'approved', 0, 0) RETURNING id`,
     [hostProfile.rows[0].id, testCity]
   );
   const propertyId = property.rows[0].id;

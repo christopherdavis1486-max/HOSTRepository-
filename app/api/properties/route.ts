@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
 
   const {
     city,
+    propertyType,
+    roomQuantity,
     district,
     guests,
     checkIn,
@@ -58,6 +60,9 @@ export async function GET(request: NextRequest) {
   ];
 
   const values: unknown[] = [];
+  const hotelSQL="LOWER(TRIM(COALESCE(p.property_type,''))) IN ('hotel','aparthotel')";
+  conditions.push(`(NOT (${hotelSQL}) OR EXISTS(SELECT 1 FROM hotel_room_types r WHERE r.property_id=p.id AND r.active))`);
+  if(propertyType){values.push(propertyType);conditions.push(`LOWER(TRIM(p.property_type))=LOWER($${values.length})`);}
 
   if (city) {
     values.push(city);
@@ -76,7 +81,7 @@ export async function GET(request: NextRequest) {
   if (guests) {
     values.push(guests);
     conditions.push(
-      `p.max_guests >= $${values.length}`
+      `((${hotelSQL} AND EXISTS(SELECT 1 FROM hotel_room_types r WHERE r.property_id=p.id AND r.active AND r.max_guests * ${roomQuantity??1} >= $${values.length})) OR (NOT (${hotelSQL}) AND p.max_guests >= $${values.length}))`
     );
   }
 
@@ -103,6 +108,18 @@ export async function GET(request: NextRequest) {
       )`
     );
 
+    conditions.push(`(NOT (${hotelSQL}) OR EXISTS (
+      SELECT 1 FROM hotel_room_types r WHERE r.property_id=p.id AND r.active
+        AND r.max_guests * ${roomQuantity??1} >= ${guests??1}
+        AND NOT EXISTS (
+          SELECT 1 FROM generate_series($${checkInIndex}::date,$${checkOutIndex}::date-1,interval '1 day') d(date)
+          LEFT JOIN hotel_room_inventory i ON i.room_type_id=r.id AND i.date=d.date
+          WHERE COALESCE(i.total_rooms,r.total_rooms) - COALESCE((SELECT SUM(b.room_quantity) FROM bookings b
+            WHERE b.room_type_id=r.id AND b.status IN ('pending_payment','confirmed','completed','disputed')
+              AND (b.status<>'pending_payment' OR b.hold_expires_at IS NULL OR b.hold_expires_at>NOW())
+              AND b.check_in<=d.date AND b.check_out>d.date),0) < ${roomQuantity??1}
+        )
+    ))`);
     /**
      * Search must enforce the same stay limits as booking creation so
      * guests are not shown a listing that later rejects their dates.
@@ -134,7 +151,9 @@ export async function GET(request: NextRequest) {
          p.country_code,
          p.property_type,
          p.currency,
-         p.nightly_price,
+         CASE WHEN LOWER(TRIM(COALESCE(p.property_type,''))) IN ('hotel','aparthotel') THEN
+           (SELECT MIN(r.nightly_price) FROM hotel_room_types r WHERE r.property_id=p.id AND r.active)
+           ELSE p.nightly_price END AS nightly_price,
          p.max_guests,
          p.bedrooms,
          p.bathrooms,

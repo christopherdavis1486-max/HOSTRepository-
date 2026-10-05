@@ -18,7 +18,8 @@ type ReadinessCheck = {
     | "hostAgreement"
     | "payoutAccount"
     | "compliance"
-    | "pilotReview";
+    | "pilotReview"
+    | "hotelRooms";
   label: string;
   ready: boolean;
   guidance: string;

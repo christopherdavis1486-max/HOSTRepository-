@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { HotelBookingPanel, HotelRoomGallery, type PublicRoomType } from "@/components/HotelBookingPanel";
+import { isHotelType } from "@/lib/hotels/schemas";
 import { CustomerNav } from "@/components/CustomerNav";
 import { PropertyGallery, type PublicPropertyImage } from "@/components/PropertyGallery";
 import { validateBookingForm } from "@/lib/booking/bookingFormValidation";
@@ -44,6 +46,7 @@ type Property = {
   rating: string | number | null; reviewCount: number | null;
   publicLocation: { type: "Point"; coordinates: [number, number] } | null;
   images: PublicPropertyImage[];
+  roomTypes: PublicRoomType[];
   cancellationPolicy: { name: string; description: string | null; rules: unknown } | null;
   compliance: { reviewStatus: string; reviewedAt: string | null; reviewedCheckCount: number; statement: string };
 };
@@ -417,11 +420,13 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
                 <div className="rating-line">★ {Number(property.rating).toFixed(1)} ({property.reviewCount} {Number(property.reviewCount) === 1 ? gt("oneReview") : gt("manyReviews")})</div>
               )}
 
+              {isHotelType(property.propertyType) ? <div className="meta-row"><span>{property.propertyType}</span><span>Choose room capacity below</span></div> : (
               <div className="meta-row">
                 <span>{property.maxGuests} {Number(property.maxGuests) === 1 ? gt("guest") : gt("guests")}</span>
                 {property.bedrooms != null && <span>{property.bedrooms} {Number(property.bedrooms) === 1 ? gt("bedroom") : gt("bedrooms")}</span>}
                 {property.bathrooms != null && <span>{property.bathrooms} {Number(property.bathrooms) === 1 ? gt("bathroom") : gt("bathrooms")}</span>}
               </div>
+              )}
 
               {property.description && (
                 <section className="detail-section">
@@ -478,6 +483,7 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
                 />
               )}
 
+              {isHotelType(property.propertyType) && <HotelRoomGallery rooms={property.roomTypes??[]} currency={property.currency}/>}
               <PropertyReviews
                 propertyId={property.id}
                 rating={property.rating != null ? Number(property.rating) : null}
@@ -485,6 +491,7 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
               />
             </div>
 
+            {isHotelType(property.propertyType) ? <HotelBookingPanel propertyId={property.id} currency={property.currency} rooms={property.roomTypes??[]}/> : (
             <div className="booking-panel">
               <div className="booking-price">
                 {property.currency} {Number(property.nightlyPrice).toFixed(0)} <span className="unit">/ {gt("night")}</span>
@@ -544,6 +551,7 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
                 {gt("notChargedYet")}
               </div>
             </div>
+            )}
           </div>
         </>
       )}

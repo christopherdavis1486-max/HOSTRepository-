@@ -62,7 +62,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       success: true,
-      unavailableDates: blocks.rows.map((r) => r.date.toISOString().slice(0, 10)),
+      unavailableDates: blocks.rows.map((r) => r.date),
     }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error("[HOST properties/availability]", error);

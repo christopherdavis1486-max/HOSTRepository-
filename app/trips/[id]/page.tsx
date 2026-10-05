@@ -25,6 +25,7 @@ import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
  */
 
 type BookingDetail = {
+  roomName: string | null; roomQuantity: number | null;
   id: string; propertyName: string; city: string; district: string | null;
   checkIn: string; checkOut: string; guests: number; status: string; archived: boolean; paymentStatus: string | null;
   paymentFlowVersion: string; guestPaymentStatus: string | null;
@@ -257,6 +258,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
             <div className="row"><span className="label">{gt("checkIn")}</span><span>{formatDate(booking.checkIn)}</span></div>
             <div className="row"><span className="label">{gt("checkOut")}</span><span>{formatDate(booking.checkOut)}</span></div>
             <div className="row"><span className="label">{gt("guests")}</span><span>{booking.guests}</span></div>
+              {booking.roomName && <div className="row"><span className="label">Rooms</span><span>{booking.roomQuantity} × {booking.roomName}</span></div>}
             <div className="row"><span className="label">{gt("bookingStatus")}</span><span>{formatStatus(booking.status === "refunded" ? "cancelled" : booking.status)}</span></div>
             <div className="row"><span className="label">{gt("paymentStatus")}</span><span>{formatStatus(booking.paymentFlowVersion === "separate_charges_delayed_v1" ? booking.guestPaymentStatus : booking.paymentStatus)}</span></div>
           </div>

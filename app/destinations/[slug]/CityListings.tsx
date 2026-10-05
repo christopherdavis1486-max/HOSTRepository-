@@ -9,6 +9,7 @@ type Property = {
   name: string;
   city: string;
   district: string | null;
+  property_type: string | null;
   nightly_price: string | number;
   currency: string;
   coverImage: { url: string; altText: string | null } | null;
@@ -17,13 +18,15 @@ type Property = {
 type ListingState = "loading" | "ready" | "error";
 
 export function CityListings({ city }: { city: string }) {
+  const [propertyType,setPropertyType]=useState("");
+  useEffect(()=>{setPropertyType(new URLSearchParams(window.location.search).get("propertyType")??"");},[]);
   const [state, setState] = useState<ListingState>("loading");
   const [properties, setProperties] = useState<Property[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
     setState("loading");
-    fetch(`/api/properties?city=${encodeURIComponent(city)}`, { signal: controller.signal, cache: "no-store" })
+    fetch(`/api/properties?city=${encodeURIComponent(city)}${propertyType?`&propertyType=${encodeURIComponent(propertyType)}`:""}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load stays");
         const data = await response.json();
@@ -33,10 +36,11 @@ export function CityListings({ city }: { city: string }) {
       })
       .catch((error) => { if (error.name !== "AbortError") setState("error"); });
     return () => controller.abort();
-  }, [city]);
+  }, [city,propertyType]);
 
   return (
     <section className={styles.content} aria-live="polite">
+      <label>Accommodation type <select value={propertyType} onChange={e=>setPropertyType(e.target.value)} style={{padding:10,marginBottom:20}}><option value="">All accommodation</option><option>Apartment</option><option>House</option><option>Hotel</option><option>Aparthotel</option></select></label>
       {state === "loading" && <p className={styles.muted}>Finding stays in {city}…</p>}
       {state === "error" && <p className={styles.muted}>We couldn’t load stays right now. Please try again shortly.</p>}
       {state === "ready" && properties.length === 0 && (
@@ -56,7 +60,7 @@ export function CityListings({ city }: { city: string }) {
                 <div className={styles.stayImage}>
                   {property.coverImage ? <img src={property.coverImage.url} alt={property.coverImage.altText || property.name} loading="lazy" /> : <span>{property.city}</span>}
                 </div>
-                <div className={styles.stayText}><h3>{property.name}</h3><p>{property.district ? `${property.district}, ` : ""}{property.city}</p><span>From {property.currency} {Number(property.nightly_price).toFixed(0)} / night</span></div>
+                <div className={styles.stayText}><h3>{property.name}</h3><p>{property.district ? `${property.district}, ` : ""}{property.city}</p><p>{property.property_type}</p><span>From {property.currency} {Number(property.nightly_price).toFixed(0)} / night</span></div>
               </a>
             ))}
           </div>
