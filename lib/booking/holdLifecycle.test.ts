@@ -69,7 +69,18 @@ test("ABANDONED CHECKOUT: a new-flow booking whose SetupIntent is never complete
 
   const booking = await createBooking({ propertyId, guestId, checkIn, checkOut, guests: 1, guestName: "HL Guest", guestEmail: "hl@test.host", idempotencyKey: crypto.randomUUID() });
   // Simulate genuine abandonment — the 15-minute window has passed with no setup_intent.succeeded ever received.
-  await db.query(`UPDATE bookings SET hold_expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [booking.id]);
+  // Keep this fixture in the real sweep's first 200-row batch even when
+  // earlier test runs have left more than 200 expired bookings behind.
+  await db.query(`
+    UPDATE bookings
+    SET hold_expires_at = LEAST(
+      NOW() - INTERVAL '1 minute',
+      COALESCE((SELECT MIN(hold_expires_at) - INTERVAL '1 minute'
+                FROM bookings
+                WHERE status = 'pending_payment' AND hold_expires_at <= NOW()), NOW())
+    )
+    WHERE id = $1
+  `, [booking.id]);
 
   const due = await findExpiredHoldBookingIds();
   assert.ok(due.includes(booking.id), "a genuinely abandoned checkout must still be found as expired");
@@ -226,10 +237,20 @@ test("FAILED CHARGE DOES NOT IMMEDIATELY RELEASE INVENTORY: a decline extends th
   const result = await attemptScheduledCharge(booking.id, bookingRow.rows[0].guest_total_minor, bookingRow.rows[0].currency);
   assert.equal(result.outcome, "failed");
 
-  const afterRow = await db.query(`SELECT hold_expires_at, status FROM bookings WHERE id = $1`, [booking.id]);
+  // The deadline is created with PostgreSQL NOW(); verify it using the
+  // same clock rather than assuming the Node and database clocks agree.
+  const afterRow = await db.query(`
+    SELECT hold_expires_at, status,
+           EXTRACT(EPOCH FROM (hold_expires_at - grace_period_started_at)) AS grace_seconds,
+           EXTRACT(EPOCH FROM (hold_expires_at - clock_timestamp())) AS remaining_seconds
+    FROM bookings WHERE id = $1
+  `, [booking.id]);
   assert.ok(afterRow.rows[0].hold_expires_at, "a failed charge must set a real grace-period deadline, not leave it NULL forever");
-  const hoursUntilExpiry = (new Date(afterRow.rows[0].hold_expires_at).getTime() - Date.now()) / 3600000;
-  assert.ok(hoursUntilExpiry > 70 && hoursUntilExpiry <= 72, "the grace period must be genuinely ~72 hours, not the original 15-minute deadline");
+  assert.equal(Number(afterRow.rows[0].grace_seconds), 72 * 3600,
+    "the stored deadline must be exactly 72 hours after the grace period began");
+  const hoursUntilExpiry = Number(afterRow.rows[0].remaining_seconds) / 3600;
+  assert.ok(hoursUntilExpiry > 70 && hoursUntilExpiry <= 72,
+    "the grace period must have ~72 hours remaining on the database clock");
 
   const { findExpiredHoldBookingIds } = await import("./createBooking");
   const due = await findExpiredHoldBookingIds();
@@ -265,7 +286,18 @@ test("GRACE-PERIOD EXPIRY CANCELS THE BOOKING AND RELEASES INVENTORY", async () 
 
   // Simulate the full 72-hour grace period having genuinely elapsed
   // with no successful recovery.
-  await db.query(`UPDATE bookings SET hold_expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [booking.id]);
+  // Keep this fixture in the real sweep's first 200-row batch even when
+  // earlier test runs have left more than 200 expired bookings behind.
+  await db.query(`
+    UPDATE bookings
+    SET hold_expires_at = LEAST(
+      NOW() - INTERVAL '1 minute',
+      COALESCE((SELECT MIN(hold_expires_at) - INTERVAL '1 minute'
+                FROM bookings
+                WHERE status = 'pending_payment' AND hold_expires_at <= NOW()), NOW())
+    )
+    WHERE id = $1
+  `, [booking.id]);
 
   const { findExpiredHoldBookingIds, releaseExpiredHold } = await import("./createBooking");
   const due = await findExpiredHoldBookingIds();
