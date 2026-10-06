@@ -53,13 +53,26 @@ test("findReleaseDueEntitlementIds only finds entitlements whose release time ha
   const suffix = crypto.randomBytes(4).toString("hex");
   const { bookingId, hostProfileId } = await setupBookingWithHost(suffix);
 
-  const pastId = await createEntitlement({ bookingId, hostId: hostProfileId, amountMinor: 10000, taxAmountMinor: null, currency: "GBP", scheduledReleaseAt: new Date(Date.now() - 3600000) });
+  const timing = await db.query(`SELECT NOW() - INTERVAL '1 hour' AS past, NOW() + INTERVAL '1 day' AS future`);
+  const pastId = await createEntitlement({ bookingId, hostId: hostProfileId, amountMinor: 10000, taxAmountMinor: null, currency: "GBP", scheduledReleaseAt: timing.rows[0].past });
+  const eligible = await db.query(`SELECT hte.id FROM host_transfer_entitlements hte
+    JOIN bookings b ON b.id = hte.booking_id
+    WHERE hte.status = 'entitled' AND hte.scheduled_release_at <= NOW()
+      AND b.status NOT IN ('cancelled', 'disputed')
+      AND NOT EXISTS (SELECT 1 FROM refunds r WHERE r.booking_id = hte.booking_id AND r.status = 'succeeded')`);
+  const eligibleIds = new Set<string>(eligible.rows.map(row => row.id));
+  assert.ok(eligibleIds.has(pastId!), "the generated past entitlement must genuinely be eligible");
   const dueIds = await findReleaseDueEntitlementIds();
-  assert.ok(dueIds.includes(pastId!));
+  assert.equal(dueIds.length, Math.min(200, eligibleIds.size), "the selector returns a full bounded batch");
+  assert.equal(new Set(dueIds).size, dueIds.length, "the batch must not duplicate an entitlement");
+  assert.ok(dueIds.every(id => eligibleIds.has(id)), "every returned entitlement must be genuinely eligible");
+  // An unordered LIMIT cannot promise a particular ID when the backlog
+  // exceeds the batch. With a smaller backlog, every eligible ID is required.
+  if (eligibleIds.size <= 200) assert.ok(dueIds.includes(pastId!));
 
   const suffix2 = crypto.randomBytes(4).toString("hex");
   const b2 = await setupBookingWithHost(suffix2);
-  const futureId = await createEntitlement({ bookingId: b2.bookingId, hostId: b2.hostProfileId, amountMinor: 10000, taxAmountMinor: null, currency: "GBP", scheduledReleaseAt: new Date(Date.now() + 86400000) });
+  const futureId = await createEntitlement({ bookingId: b2.bookingId, hostId: b2.hostProfileId, amountMinor: 10000, taxAmountMinor: null, currency: "GBP", scheduledReleaseAt: timing.rows[0].future });
   const dueIdsAfter = await findReleaseDueEntitlementIds();
   assert.equal(dueIdsAfter.includes(futureId!), false, "a not-yet-due entitlement must never be found as release-due");
 });

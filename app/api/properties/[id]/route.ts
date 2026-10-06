@@ -173,6 +173,9 @@ export async function GET(
            ),
            '[]'::json
          ) AS images,
+         COALESCE((SELECT json_agg(json_build_object('name', a.name, 'slug', a.slug) ORDER BY a.name)
+           FROM property_amenities pa JOIN amenities a ON a.id = pa.amenity_id
+           WHERE pa.property_id = p.id), '[]'::json) AS amenities,
          cp.name AS cancellation_policy_name,
          cp.description AS cancellation_policy_description,
          cp.rules AS cancellation_policy_rules
@@ -285,6 +288,7 @@ export async function GET(
             ? JSON.parse(row.public_location)
             : null,
           images: row.images,
+          amenities: row.amenities,
           cancellationPolicy: row.cancellation_policy_name
             ? {
                 name: row.cancellation_policy_name,

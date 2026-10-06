@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import styles from "./AvailabilityCalendar.module.css";
 import { classifyDay } from "./calendarClassification";
 import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
 import { LOCALE_TAGS } from "@/lib/i18n/config";
@@ -26,6 +27,10 @@ export type DayStatus = "available" | "unavailable" | "host-blocked" | "calendar
 
 type CalendarProps = {
   monthsToShow?: number;
+  spacious?: boolean;
+  onVisibleRangeChange?: (start: string, end: string) => void;
+  selectableCheckoutDate?: string;
+  maxViewOffset?: number;
   today?: Date;
   disabledDates?: Set<string>;
   hostBlockedDates?: Set<string>;
@@ -50,6 +55,8 @@ function daysInMonth(year: number, month: number): number {
 
 export function AvailabilityCalendar({
   monthsToShow = 2,
+  spacious = false,
+  onVisibleRangeChange, selectableCheckoutDate, maxViewOffset,
   today = new Date(),
   disabledDates = new Set(),
   hostBlockedDates = new Set(),
@@ -81,8 +88,13 @@ export function AvailabilityCalendar({
   });
 
 
+  const rangeStart = toIso(new Date(months[0].year, months[0].month, 1));
+  const lastMonth = months[months.length - 1];
+  const rangeEnd = toIso(new Date(lastMonth.year, lastMonth.month + 1, 1));
+  useEffect(() => { onVisibleRangeChange?.(rangeStart, rangeEnd); }, [rangeStart, rangeEnd, onVisibleRangeChange]);
+
   return (
-    <div className="avail-calendar">
+    <div className={`avail-calendar ${spacious ? styles.spacious : ""}`}>
       <style>{`
         .avail-calendar { --cal-ink: #14120E; --cal-graphite: #1F1B15; --cal-stone: #2A251C; --cal-ivory: #F2ECDE; --cal-warm-grey: #A79E8C; --cal-brass: #C9974B; --cal-gold: #C9974B; --cal-grey: #6B6456; --cal-calendar: #536F73; }
         .avail-calendar { font-family: 'Space Grotesk', system-ui, sans-serif; }
@@ -108,7 +120,7 @@ export function AvailabilityCalendar({
 
       <div className="cal-nav">
         <button type="button" onClick={() => setViewOffset((o) => o - 1)} disabled={viewOffset <= 0}>← {gt("previous")}</button>
-        <button type="button" onClick={() => setViewOffset((o) => o + 1)}>{gt("next")} →</button>
+        <button type="button" onClick={() => setViewOffset((o) => o + 1)} disabled={maxViewOffset != null && viewOffset >= maxViewOffset}>{gt("next")} →</button>
       </div>
 
       <div className="cal-months">
@@ -128,6 +140,14 @@ export function AvailabilityCalendar({
                     todayIso, hostBlockedDates, calendarBlockedDates, bookedDates, disabledDates, checkIn, checkOut,
                     interactive, hasSelectHandler: !!onSelectDate,
                   });
+                  if (spacious) return (
+                    <button type="button" key={iso} className={classes.join(" ")} disabled={!clickable && iso !== selectableCheckoutDate}
+                      aria-label={new Date(year, month, Number(iso.slice(8, 10))).toLocaleDateString(LOCALE_TAGS[locale], { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                      aria-pressed={iso === checkIn || iso === checkOut}
+                      onClick={() => onSelectDate?.(iso)}>
+                      {Number(iso.slice(8, 10))}
+                    </button>
+                  );
                   return (
                     <div key={iso} className={classes.join(" ")} onClick={clickable ? () => onSelectDate!(iso) : undefined}>
                       {Number(iso.slice(8, 10))}
@@ -140,7 +160,7 @@ export function AvailabilityCalendar({
         })}
       </div>
 
-      <div className="cal-legend">
+      {spacious ? <div className="cal-legend"><span>{gt("available")}</span><span style={{ textDecoration: "line-through" }}>{gt("unavailable")}</span><span>{gt("checkIn")} / {gt("checkOut")}</span></div> : <div className="cal-legend">
         <span className="cal-legend-item"><span className="cal-legend-swatch" style={{ background: "var(--cal-grey)" }} /> {gt("manuallyBlocked")}</span>
         {calendarBlockedDates.size > 0 && (
           <span className="cal-legend-item">
@@ -153,7 +173,7 @@ export function AvailabilityCalendar({
         )}
         <span className="cal-legend-item"><span className="cal-legend-swatch" style={{ background: "var(--cal-gold)" }} /> {gt("bookedByGuest")}</span>
         <span className="cal-legend-item"><span className="cal-legend-swatch" style={{ background: "var(--cal-graphite)", border: "1px solid var(--cal-stone)" }} /> {gt("available")}</span>
-      </div>
+      </div>}
     </div>
   );
 }

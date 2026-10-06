@@ -51,13 +51,20 @@ after(async () => { await db.end(); });
  *  simulating "the first failure genuinely happened N hours in the
  *  past", the only way to set an already-elapsed grace period given the
  *  immutability trigger only permits a single initial write. */
-async function createDueBookingWithGrace(suffix: string, graceStartedHoursAgo: number | null) {
+async function createDueBookingWithGrace(suffix: string, graceStartedHoursAgo: number | null, firstExpiredFixture = false) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b-gp-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
   const property = await db.query(`INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'GP Test', 'Liverpool', 'GBP', 100, 2, 'published') RETURNING id`, [hostProfile.rows[0].id]);
   const guestUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b-gp-guest-${suffix}@test.host`]);
 
-  const graceStartedAt = graceStartedHoursAgo !== null ? new Date(Date.now() - graceStartedHoursAgo * 3600000) : null;
+  // Use the database clock. For the expiry assertion only, position this
+  // newly generated fixture ahead of older test holds in the bounded batch.
+  const timing = await db.query(`SELECT CASE WHEN $1::double precision IS NULL THEN NULL
+    WHEN $2::boolean THEN LEAST(NOW() - $1 * INTERVAL '1 hour',
+      COALESCE((SELECT MIN(hold_expires_at) - INTERVAL '72 hours 1 minute'
+        FROM bookings WHERE status = 'pending_payment' AND hold_expires_at <= NOW()), NOW() - $1 * INTERVAL '1 hour'))
+    ELSE NOW() - $1 * INTERVAL '1 hour' END AS grace_started`, [graceStartedHoursAgo, firstExpiredFixture]);
+  const graceStartedAt = timing.rows[0].grace_started as Date | null;
   const holdExpiresAt = graceStartedAt ? new Date(graceStartedAt.getTime() + 72 * 3600000) : null;
 
   const booking = await db.query(
@@ -151,9 +158,9 @@ test("UNCHANGED DEADLINE CONFIRMED DIRECTLY: after simulated retries at both T+2
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
 
-test("CANCELLATION/RELEASE AT T+72h: a booking whose grace period genuinely started 73 hours ago is now expired and gets cancelled with inventory released", async () => {
+test("CANCELLATION/RELEASE AT T+72h: a booking whose grace period genuinely started at least 73 hours ago is now expired and gets cancelled with inventory released", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
-  const { bookingId, propertyId } = await createDueBookingWithGrace(suffix, 73); // 1 hour past the 72h deadline
+  const { bookingId, propertyId } = await createDueBookingWithGrace(suffix, 73, true); // At least 1 hour past the fixed 72h deadline
   // Give it real inventory to release, matching the genuine booking flow.
   await db.query(`INSERT INTO availability_blocks (property_id, date, status, source) VALUES ($1, '2026-12-01', 'booked', 'booking'), ($1, '2026-12-02', 'booked', 'booking') ON CONFLICT (property_id, date) DO UPDATE SET status = 'booked', source = 'booking'`, [propertyId]);
 

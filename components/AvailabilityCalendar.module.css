@@ -1,0 +1,22 @@
+.spacious.spacious {
+  --cal-ink: #26241f; --cal-graphite: #f7f4ed; --cal-stone: #ddd7cc;
+  --cal-ivory: #26241f; --cal-warm-grey: #625d53;
+  background: #f7f4ed; color: #26241f; border-radius: 24px; padding: 28px;
+}
+.spacious :global(.cal-nav) { margin-bottom: 24px; }
+.spacious :global(.cal-nav button) { min-height: 44px; padding: 10px 16px; border-radius: 24px; }
+.spacious :global(.cal-nav button:disabled) { opacity: .4; cursor: default; }
+.spacious :global(.cal-months) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.spacious :global(.cal-month-title) { font-family: var(--font-display), Georgia, serif; font-size: 21px; color: #26241f; margin-bottom: 20px; }
+.spacious :global(.cal-grid) { gap: 4px; }
+.spacious :global(.cal-dow) { font-size: 12px; padding-bottom: 12px; }
+.spacious :global(.cal-day) { min-width: 0; padding: 0; font: inherit; font-size: 14px; border-radius: 50%; }
+.spacious :global(.cal-day.in-range) { border-radius: 12px; }
+.spacious :global(.cal-day.past), .spacious :global(.cal-day.disabled) { opacity: .45; }
+.spacious :global(.cal-day:focus-visible), .spacious :global(.cal-nav button:focus-visible) { outline: 2px solid #80612f; outline-offset: 2px; }
+.spacious :global(.cal-legend) { margin-top: 24px; padding-top: 20px; border-top: 1px solid #ddd7cc; }
+@media (max-width: 640px) {
+  .spacious.spacious { padding: 20px 14px; }
+  .spacious :global(.cal-months) { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .spacious :global(.cal-day) { min-height: 40px; }
+}

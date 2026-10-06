@@ -1,0 +1,72 @@
+.section { margin: 32px 0; }
+.intro, .capacity { color: var(--warm-grey); font-size: 13px; line-height: 1.7; }
+.cards { display: grid; gap: 18px; margin-top: 18px; }
+.card { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); overflow: hidden; border: 1px solid var(--stone); border-radius: 12px; background: var(--graphite); }
+.selected { border-color: var(--brass); }
+.photoButton { position: relative; display: block; min-height: 210px; width: 100%; padding: 0; border: 0; background: var(--ink); color: var(--warm-grey); cursor: pointer; }
+.photoButton img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.noPhoto { display: block; padding: 24px; }
+.photoCount { position: absolute; bottom: 12px; left: 12px; padding: 5px 9px; border-radius: 20px; background: #14120de6; color: var(--ivory); font-size: 11px; }
+.cardBody { padding: 20px; min-width: 0; }
+.cardHeading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.cardHeading h3 { margin: 0; color: var(--ivory); font-family: var(--font-display), Georgia, serif; font-size: 21px; font-weight: 400; }
+.badge { color: var(--brass); font-size: 11px; border: 1px solid var(--brass); border-radius: 20px; padding: 3px 8px; }
+.description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--warm-grey); font-size: 13px; line-height: 1.7; }
+.price { color: var(--ivory); font-size: 13px; line-height: 1.7; margin: 14px 0; }
+.price strong { font-size: 19px; font-weight: 500; }
+.price span { color: var(--warm-grey); }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.detailsButton, .chooseButton, .closeButton { font-family: var(--font-body), sans-serif; font-size: 13px; cursor: pointer; }
+.detailsButton { min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: var(--ivory); text-decoration: underline; text-underline-offset: 4px; }
+.chooseButton { min-height: 44px; border: 1px solid var(--brass); border-radius: 6px; padding: 10px 15px; background: var(--brass); color: var(--ink); }
+.chooseButton:hover:not(:disabled) { filter: brightness(1.12); }
+.chooseButton:disabled { opacity: .6; cursor: not-allowed; }
+.photoButton:focus-visible, .detailsButton:focus-visible, .chooseButton:focus-visible, .closeButton:focus-visible { outline: 2px solid var(--brass); outline-offset: -3px; }
+.dialog { padding: 0; width: min(820px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); box-sizing: border-box; border: 1px solid var(--stone); border-radius: 14px; color: var(--ivory); background: var(--graphite); }
+.dialog::backdrop { background: #000a; }
+.dialogHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; border-bottom: 1px solid var(--stone); }
+.dialogHeader h2 { margin: 0; font-family: var(--font-display), Georgia, serif; font-weight: 400; }
+.closeButton { width: 44px; height: 44px; flex-shrink: 0; font-size: 26px; border: 1px solid var(--stone); border-radius: 50%; color: var(--ivory); background: var(--ink); }
+.dialogBody { padding: 24px; }
+.gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
+.gallery img:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
+.fullDescription { white-space: pre-wrap; line-height: 1.8; font-size: 14px; }
+.dialogFooter { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 24px; background: var(--graphite); border-top: 1px solid var(--stone); }
+.dialogFooter .price { margin: 0; }
+@media (max-width: 600px) { .card { grid-template-columns: 1fr; } .photoButton { min-height: 220px; } .dialogBody, .dialogHeader, .dialogFooter { padding: 16px; } .dialogFooter .chooseButton { width: 100%; } }
+
+/* The card-wide button sits behind the text and explicit actions. */
+.card { position: relative; }
+.cardSelect { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.photoButton { pointer-events: none; }
+.cardBody { position: relative; z-index: 2; pointer-events: none; }
+.actions { pointer-events: auto; }
+.cardSelect:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--brass); }
+.cardSelect:focus-visible { outline: 2px solid var(--brass); outline-offset: -4px; }
+.cardSelect:disabled { cursor: not-allowed; }
+
+/* Warm ivory details, with HOST's brass and serif identity. */
+.card { border-radius: 20px; }
+.cardBody { padding: 24px; }
+.chooseButton { border-radius: 12px; padding: 12px 22px; min-height: 48px; font-weight: 500; }
+.dialog { border: 0; border-radius: 24px; background: #f7f4ed; color: #26241f; box-shadow: 0 24px 80px #0005; }
+.dialog::backdrop { background: #19171399; backdrop-filter: blur(4px); }
+.dialogHeader { border-color: #ddd7cc; }
+.dialogHeader h2 { font-size: 28px; }
+.dialog .closeButton { background: #eee9df; border-color: #ddd7cc; color: #26241f; }
+.dialog .capacity, .dialog .intro, .dialog .price span { color: #625d53; }
+.dialog .price { color: #26241f; }
+.dialog .chooseButton { background: var(--brass); color: #211f19; }
+.dialogFooter { background: #f7f4ed; border-color: #ddd7cc; padding: 20px 24px; }
+.reserveNote { display: block; color: #625d53; font-size: 12px; margin-top: 4px; }
+.amenities { margin: 28px 0; padding: 24px 0; border-top: 1px solid #ddd7cc; border-bottom: 1px solid #ddd7cc; }
+.amenities h3 { font-family: var(--font-display), Georgia, serif; font-size: 23px; font-weight: 400; margin: 0; }
+.amenities p { font-size: 13px; line-height: 1.7; color: #625d53; }
+.gallery { gap: 8px; border-radius: 16px; overflow: hidden; }
+.gallery img { border-radius: 0; }
+@media (min-width: 601px) {
+  .gallery:has(img:nth-child(3)) { grid-template-columns: 1.5fr 1fr; }
+  .gallery:has(img:nth-child(3)) img:first-child { grid-column: 1; grid-row: span 2; height: 100%; }
+}
+@media (max-width: 600px) { .dialogHeader h2 { font-size: 23px; } .dialogFooter { padding: 16px; } }

@@ -33,7 +33,11 @@ test("findExpiredHoldBookingIds finds a genuinely expired pending_payment bookin
 
   // Force the hold into the past — a real expired hold, not a
   // hypothetical one.
-  await db.query(`UPDATE bookings SET hold_expires_at = NOW() - INTERVAL '1 hour' WHERE id = $1`, [booking.id]);
+  await db.query(`UPDATE bookings SET hold_expires_at = LEAST(
+    NOW() - INTERVAL '1 hour',
+    COALESCE((SELECT MIN(hold_expires_at) - INTERVAL '1 minute' FROM bookings
+      WHERE status = 'pending_payment' AND hold_expires_at <= NOW()), NOW())
+  ) WHERE id = $1`, [booking.id]);
 
   const expiredIds = await findExpiredHoldBookingIds();
   assert.ok(expiredIds.includes(booking.id), "a genuinely expired pending_payment booking must be found by the sweep query");
@@ -75,7 +79,11 @@ test("END-TO-END: sweeping an expired hold releases inventory and a different gu
     propertyId, guestId, checkIn: "2026-12-15", checkOut: "2026-12-17", guests: 1,
     guestName: "Original Guest", guestEmail: "original@test.host", idempotencyKey: crypto.randomUUID(),
   });
-  await db.query(`UPDATE bookings SET hold_expires_at = NOW() - INTERVAL '1 hour' WHERE id = $1`, [booking.id]);
+  await db.query(`UPDATE bookings SET hold_expires_at = LEAST(
+    NOW() - INTERVAL '1 hour',
+    COALESCE((SELECT MIN(hold_expires_at) - INTERVAL '1 minute' FROM bookings
+      WHERE status = 'pending_payment' AND hold_expires_at <= NOW()), NOW())
+  ) WHERE id = $1`, [booking.id]);
 
   const expiredIds = await findExpiredHoldBookingIds();
   assert.ok(expiredIds.includes(booking.id));

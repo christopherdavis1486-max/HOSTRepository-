@@ -84,7 +84,7 @@ test("returns a published property with exactly the documented public-safe field
     "id", "name", "slug", "description", "city", "district", "countryCode", "propertyType",
     "currency", "nightlyPrice", "cleaningFee", "maxGuests", "bedrooms", "bathrooms",
     "minStayNights", "maxStayNights", "checkInTime", "checkOutTime", "houseRules",
-    "rating", "reviewCount", "compliance", "publicLocation", "images", "cancellationPolicy", "roomTypes",
+    "rating", "reviewCount", "compliance", "publicLocation", "images", "cancellationPolicy", "roomTypes", "amenities",
   ]);
   for (const key of Object.keys(data.property)) {
     assert.ok(allowedKeys.has(key), `unexpected field "${key}" — must be an explicit public-safe field`);
@@ -148,4 +148,18 @@ test("a property with no cancellation policy set returns cancellationPolicy: nul
   const data = await response.json();
   assert.equal(response.status, 200);
   assert.equal(data.property.cancellationPolicy, null);
+});
+
+test("public amenities contain only the features assigned to this property", async () => {
+  const propertyId = await createTestProperty();
+  const wifi = await db.query("SELECT id FROM amenities WHERE slug = 'wifi'");
+  assert.equal(wifi.rows.length, 1);
+  await db.query("INSERT INTO property_amenities (property_id, amenity_id) VALUES ($1, $2)", [propertyId, wifi.rows[0].id]);
+  const response = await GET(new NextRequest(`http://localhost/api/properties/${propertyId}`), { params: Promise.resolve({ id: propertyId }) });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.deepEqual(data.property.amenities, [{ name: "Wi-Fi", slug: "wifi" }]);
+  const otherId = await createTestProperty();
+  const other = await GET(new NextRequest(`http://localhost/api/properties/${otherId}`), { params: Promise.resolve({ id: otherId }) });
+  assert.deepEqual((await other.json()).property.amenities, []);
 });

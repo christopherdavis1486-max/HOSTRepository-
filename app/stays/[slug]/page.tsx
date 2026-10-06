@@ -11,7 +11,7 @@ import {
   initialFavouriteState, interpretFavouritesLoad, interpretFavouriteMutation,
   beginFavouriteAction, completeFavouriteAction, buildLoginRedirectUrl,
 } from "./favouriteControl";
-import { formatTime, formatCurrency } from "@/lib/presentation/formatters";
+import { formatDate, formatTime, formatCurrency } from "@/lib/presentation/formatters";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { PropertyReviews } from "@/components/PropertyReviews";
 import { PropertyLocationMap } from "@/components/PropertyLocationMap";
@@ -47,6 +47,7 @@ type Property = {
   publicLocation: { type: "Point"; coordinates: [number, number] } | null;
   images: PublicPropertyImage[];
   roomTypes: PublicRoomType[];
+  amenities: { name: string; slug: string }[];
   cancellationPolicy: { name: string; description: string | null; rules: unknown } | null;
   compliance: { reviewStatus: string; reviewedAt: string | null; reviewedCheckCount: number; statement: string };
 };
@@ -58,6 +59,14 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
   const { gt } = useGuestI18n();
   const [slug, setSlug] = useState<string | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
+  const [selectedHotelRoomId, setSelectedHotelRoomId] = useState("");
+  const [hotelReservationBusy, setHotelReservationBusy] = useState(false);
+  const selectHotelRoom = (id: string) => {
+    setSelectedHotelRoomId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("roomTypeId", id);
+    window.history.replaceState(window.history.state, "", url);
+  };
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const [checkIn, setCheckIn] = useState("");
@@ -483,7 +492,12 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
                 />
               )}
 
-              {isHotelType(property.propertyType) && <HotelRoomGallery rooms={property.roomTypes??[]} currency={property.currency}/>}
+              {isHotelType(property.propertyType) && <HotelRoomGallery amenities={property.amenities ?? []} rooms={property.roomTypes??[]} currency={property.currency} selectedRoomId={selectedHotelRoomId || property.roomTypes?.[0]?.id || ""} onChooseRoom={selectHotelRoom} busy={hotelReservationBusy}/>}
+              {isHotelType(property.propertyType) && <div id="hotel-calendar-container" />}
+              {!isHotelType(property.propertyType) && <section aria-labelledby="stay-calendar-heading" style={{ margin: "32px 0" }}>
+                <h2 id="stay-calendar-heading">{gt("checkIn")} / {gt("checkOut")}</h2>
+                <AvailabilityCalendar spacious disabledDates={unavailableDates} checkIn={checkIn} checkOut={checkOut} onSelectDate={handleCalendarSelect} />
+              </section>}
               <PropertyReviews
                 propertyId={property.id}
                 rating={property.rating != null ? Number(property.rating) : null}
@@ -491,7 +505,7 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
               />
             </div>
 
-            {isHotelType(property.propertyType) ? <HotelBookingPanel propertyId={property.id} currency={property.currency} rooms={property.roomTypes??[]}/> : (
+            {isHotelType(property.propertyType) ? <HotelBookingPanel propertyId={property.id} currency={property.currency} rooms={property.roomTypes??[]} selectedRoomId={selectedHotelRoomId} onSelectRoom={selectHotelRoom} onReservationBusyChange={setHotelReservationBusy}/> : (
             <div className="booking-panel">
               <div className="booking-price">
                 {property.currency} {Number(property.nightlyPrice).toFixed(0)} <span className="unit">/ {gt("night")}</span>
@@ -500,21 +514,14 @@ export default function StayDetailPage({ params }: { params: Promise<{ slug: str
                 {gt("informationalPrice")}
               </div>
 
-              <AvailabilityCalendar
-                disabledDates={unavailableDates}
-                checkIn={checkIn}
-                checkOut={checkOut}
-                onSelectDate={handleCalendarSelect}
-              />
-
               <div className="booking-fields" style={{ marginTop: 14 }}>
                 <div className="booking-field">
                   <label>{gt("checkIn")}</label>
-                  <div className="date-display">{checkIn || gt("selectDate")}</div>
+                  <div className="date-display">{checkIn ? formatDate(checkIn) : gt("selectDate")}</div>
                 </div>
                 <div className="booking-field">
                   <label>{gt("checkOut")}</label>
-                  <div className="date-display">{checkOut || gt("selectDate")}</div>
+                  <div className="date-display">{checkOut ? formatDate(checkOut) : gt("selectDate")}</div>
                 </div>
                 <div className="booking-field full">
                   <label htmlFor="guests">{gt("guests")}</label>

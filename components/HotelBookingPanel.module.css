@@ -1,0 +1,104 @@
+.roomSelect {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  appearance: none;
+  background: var(--ink, #14120d);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c99a4b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  border: 1px solid var(--stone, #39342b);
+  border-radius: 6px;
+  color: var(--ivory, #f5efdf);
+  color-scheme: dark;
+  padding: 12px 40px 12px 14px;
+  font-family: var(--font-body, sans-serif);
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.roomSelect option {
+  background: var(--ink, #14120d);
+  color: var(--ivory, #f5efdf);
+}
+
+.refreshButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  margin-top: 18px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--stone, #39342b);
+  border-radius: 6px;
+  color: var(--ivory, #f5efdf);
+  font-family: var(--font-body, sans-serif);
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.refreshButton svg {
+  flex-shrink: 0;
+  color: var(--brass, #c99a4b);
+}
+
+.roomSelect:hover:not(:disabled),
+.refreshButton:hover:not(:disabled) {
+  border-color: var(--brass, #c99a4b);
+}
+
+.refreshButton:hover:not(:disabled) {
+  background: var(--ink, #14120d);
+}
+
+.roomSelect:focus-visible,
+.refreshButton:focus-visible {
+  outline: 2px solid var(--brass, #c99a4b);
+  outline-offset: 3px;
+}
+
+.roomSelect:disabled,
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (forced-colors: active) {
+  .roomSelect {
+    appearance: auto;
+    background-image: none;
+  }
+}
+
+.roomHint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--warm-grey);
+}
+
+.dateDialog { width: min(860px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); box-sizing: border-box; padding: 20px; border: 0; border-radius: 24px; background: #f7f4ed; color: #26241f; }
+.dateDialog::backdrop { background: #19171399; backdrop-filter: blur(4px); }
+.dateHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.dateHeader h2 { margin: 0; font-family: var(--font-display), Georgia, serif; font-weight: 400; }
+.dateHeader p, .dateHelp { font-size: 13px; line-height: 1.7; color: #625d53; }
+.dateDialog button { font-family: inherit; cursor: pointer; }
+.dateHeader button { border: 1px solid #ddd7cc; border-radius: 50%; width: 44px; height: 44px; background: transparent; color: #26241f; font-size: 26px; }
+.dateFooter { position: sticky; bottom: -20px; background: #f7f4ed; border-top: 1px solid #ddd7cc; padding: 16px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 14px; }
+.dateFooter button { min-height: 44px; padding: 10px 18px; border: 1px solid #ddd7cc; border-radius: 12px; background: transparent; color: #26241f; }
+.dateFooter button:last-child { background: var(--brass); border-color: var(--brass); }
+.dateDialog button:focus-visible { outline: 2px solid #80612f; outline-offset: 2px; }
+@media (max-width: 600px) { .dateDialog { padding: 14px; } }
+
+.inlineCalendar { margin: 32px 0; padding: 24px; border: 1px solid #ddd7cc; border-radius: 24px; background: #f7f4ed; color: #26241f; scroll-margin-top: 96px; }
+.inlineCalendar button { font-family: inherit; cursor: pointer; }
+.inlineCalendar button:disabled { cursor: default; }
+.inlineCalendar button:focus-visible, .inlineCalendar:focus-visible { outline: 2px solid #80612f; outline-offset: 3px; }
+.inlineCalendar .dateFooter { position: static; padding-bottom: 0; }
+@media (max-width: 600px) { .inlineCalendar { padding: 14px; margin: 24px 0; } }
