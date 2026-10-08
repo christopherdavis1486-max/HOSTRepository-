@@ -46,3 +46,17 @@
 .browseField input:focus-visible, .browseField select:focus-visible, .searchButton:focus-visible, .browseButton:focus-visible { outline: 2px solid #f2ecde; outline-offset: 3px; }
 .searchHint { margin: 14px 0 28px; color: #bfb5a4; font-size: 13px; line-height: 1.6; }
 @media (max-width: 600px) { .browseField { flex-basis: 100%; } .searchButton, .browseButton { width: 100%; } }
+
+/* City accommodation filter */
+.browseField select {
+  color-scheme: dark;
+  background-color: #1f1b15;
+  color: #f2ecde;
+  border: 1px solid #675b48;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.browseField select option {
+  background-color: #1f1b15;
+  color: #f2ecde;
+}

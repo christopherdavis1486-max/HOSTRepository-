@@ -102,3 +102,39 @@
 .inlineCalendar button:focus-visible, .inlineCalendar:focus-visible { outline: 2px solid #80612f; outline-offset: 3px; }
 .inlineCalendar .dateFooter { position: static; padding-bottom: 0; }
 @media (max-width: 600px) { .inlineCalendar { padding: 14px; margin: 24px 0; } }
+
+/* HOST Hotels — cream calendar selection button */
+.bookingCalendarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 54px;
+  padding: 14px 20px;
+  box-sizing: border-box;
+  background: #f7f4ed;
+  color: #26241f;
+  border: 1px solid #c99a4b;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.bookingCalendarButton:hover:not(:disabled) {
+  background: #e9ddc6;
+  border-color: #b88c43;
+}
+
+.bookingCalendarButton:focus-visible {
+  outline: 2px solid #c99a4b;
+  outline-offset: 3px;
+}
+
+.bookingCalendarButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

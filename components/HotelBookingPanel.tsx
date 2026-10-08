@@ -16,9 +16,22 @@ export function HotelBookingPanel({propertyId,currency,rooms,selectedRoomId,onSe
  const [quote,setQuote]=useState<{key:string;availableRooms:number;breakdown:PriceBreakdown}|null>(null);
  const [message,setMessage]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0);
  const calendarSection=useRef<HTMLElement>(null);
+ const [calendarOpen,setCalendarOpen]=useState(false);
  const [calendarTarget,setCalendarTarget]=useState<HTMLElement|null>(null);
  useEffect(()=>{setCalendarTarget(document.getElementById("hotel-calendar-container"));},[propertyId]);
  const dateOpener=useRef<HTMLButtonElement>(null);
+ useEffect(()=>{
+  if(!calendarOpen)return;
+  calendarSection.current?.scrollIntoView({behavior:"smooth",block:"start"});
+  calendarSection.current?.focus({preventScroll:true});
+ },[calendarOpen,calendarTarget]);
+ function closeCalendar(){
+  setCalendarOpen(false);
+  requestAnimationFrame(()=>{
+   dateOpener.current?.scrollIntoView({behavior:"smooth",block:"center"});
+   dateOpener.current?.focus({preventScroll:true});
+  });
+ }
  const [calendarRange,setCalendarRange]=useState<{start:string;end:string}|null>(null);
  const [calendarData,setCalendarData]=useState<{key:string;dates:Set<string>}|null>(null);
  const [calendarError,setCalendarError]=useState("");
@@ -101,7 +114,7 @@ export function HotelBookingPanel({propertyId,currency,rooms,selectedRoomId,onSe
  <div className="booking-field"><label htmlFor="hotel-guests">Guests in total</label><input id="hotel-guests" disabled={busy} type="number" min={1} max={Math.min(50,(selected?.maxGuests??1)*quantity)} value={guests} onChange={e=>setGuests(Number(e.target.value))}/></div>
  <div className="booking-field"><label htmlFor="hotel-check-in">Check-in</label><input id="hotel-check-in" disabled={busy} type="date" min={new Date().toISOString().slice(0,10)} value={checkIn} onChange={e=>setCheckIn(e.target.value)}/></div>
  <div className="booking-field"><label htmlFor="hotel-check-out">Check-out</label><input id="hotel-check-out" disabled={busy} type="date" min={checkIn} value={checkOut} onChange={e=>setCheckOut(e.target.value)}/></div>
- <div className="booking-field full"><button type="button" ref={dateOpener} disabled={busy} className={styles.refreshButton} onClick={()=>{calendarSection.current?.scrollIntoView({behavior:"smooth",block:"start"});calendarSection.current?.focus({preventScroll:true});}}>Choose dates on calendar</button></div>
+ <div className="booking-field full"><button type="button" ref={dateOpener} disabled={busy} className={styles.bookingCalendarButton} onClick={()=>setCalendarOpen(true)} aria-expanded={calendarOpen} aria-controls="hotel-calendar-container">Choose dates on calendar</button></div>
  <div className="booking-field full"><label htmlFor="hotel-name">Full name</label><input id="hotel-name" disabled={busy} value={name} onChange={e=>setName(e.target.value)}/></div>
  <div className="booking-field full"><label htmlFor="hotel-email">Email</label><input id="hotel-email" disabled={busy} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></div>
  </div>
@@ -119,12 +132,12 @@ export function HotelBookingPanel({propertyId,currency,rooms,selectedRoomId,onSe
  <button type="button" disabled={busy||refreshPending} onClick={refreshAvailability} className={styles.refreshButton}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9"/></svg><span>{refreshPending?"Refreshing…":"Refresh availability"}</span></button>
  <p role="status" aria-live="polite">{refreshFeedback}</p>
  </>}
- {calendarTarget && createPortal(<section ref={calendarSection} tabIndex={-1} className={styles.inlineCalendar} aria-labelledby="hotel-calendar-title">
- <div className={styles.dateHeader}><div><h2 id="hotel-calendar-title">Choose your dates</h2><p>{selected?.name} · {quantity} {quantity===1?"room":"rooms"}</p></div></div>
+ {calendarTarget && calendarOpen && createPortal(<section ref={calendarSection} tabIndex={-1} className={styles.inlineCalendar} aria-labelledby="hotel-calendar-title">
+ <div className={styles.dateHeader}><div><h2 id="hotel-calendar-title">Choose your dates</h2><p>{selected?.name} · {quantity} {quantity===1?"room":"rooms"}</p></div><button type="button" aria-label="Close calendar" onClick={closeCalendar}>×</button></div>
  <p className={styles.dateHelp}>Select check-in, then check-out. Crossed-out dates cannot be reserved as nights. Checkout on the first unavailable night is allowed.</p>
  <p role="status" aria-live="polite" className={styles.dateHelp}>{refreshFeedback || calendarError || (!calendarReady?"Loading room availability…":"Availability is checked again before reservation.")}</p>
  <AvailabilityCalendar spacious maxViewOffset={12} onVisibleRangeChange={visibleRange} disabledDates={calendarDates} interactive={!!calendarReady&&!busy} checkIn={checkIn} checkOut={checkOut} selectableCheckoutDate={calendarReady&&!busy?firstClosed:undefined} onSelectDate={selectCalendarDate}/>
- <div className={styles.dateFooter}><button type="button" disabled={busy||refreshPending} onClick={refreshAvailability}>{refreshPending?"Refreshing…":"Refresh availability"}</button><span>{checkIn?formatDate(checkIn):"Check-in"} → {checkOut?formatDate(checkOut):"Check-out"}</span><button type="button" disabled={busy} onClick={()=>{setCheckIn("");setCheckOut("");}}>Clear dates</button><button type="button" onClick={()=>{dateOpener.current?.scrollIntoView({behavior:"smooth",block:"center"});dateOpener.current?.focus({preventScroll:true});}}>Back to reservation</button></div>
+ <div className={styles.dateFooter}><button type="button" disabled={busy||refreshPending} onClick={refreshAvailability}>{refreshPending?"Refreshing…":"Refresh availability"}</button><span>{checkIn?formatDate(checkIn):"Check-in"} → {checkOut?formatDate(checkOut):"Check-out"}</span><button type="button" disabled={busy} onClick={()=>{setCheckIn("");setCheckOut("");}}>Clear dates</button><button type="button" onClick={closeCalendar}>Back to reservation</button></div>
  </section>,calendarTarget)}
  </div>;
 }

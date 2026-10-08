@@ -40,7 +40,7 @@ export function CityListings({ city }: { city: string }) {
 
   return (
     <section className={styles.content} aria-live="polite">
-      <label>Accommodation type <select value={propertyType} onChange={e=>setPropertyType(e.target.value)} style={{padding:10,marginBottom:20}}><option value="">All accommodation</option><option>Apartment</option><option>House</option><option>Hotel</option><option>Aparthotel</option></select></label>
+      <label className={styles.browseField}>Accommodation type <select value={propertyType} onChange={e=>setPropertyType(e.target.value)} ><option value="">All accommodation</option><option>Apartment</option><option>House</option><option>Hotel</option><option>Aparthotel</option></select></label>
       {state === "loading" && <p className={styles.muted}>Finding stays in {city}…</p>}
       {state === "error" && <p className={styles.muted}>We couldn’t load stays right now. Please try again shortly.</p>}
       {state === "ready" && properties.length === 0 && (

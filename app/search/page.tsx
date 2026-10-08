@@ -383,7 +383,7 @@ export default function SearchPage() {
         )}
       </div>
 
-      <div style={{maxWidth:1200,margin:"20px auto",padding:"0 28px"}}><label>Accommodation type <select value={propertyType} onChange={e=>setPropertyType(e.target.value)} style={{padding:10}}><option value="">All accommodation</option><option>Apartment</option><option>House</option><option>Hotel</option><option>Aparthotel</option></select></label></div>
+      <div style={{maxWidth:1200,margin:"20px auto",padding:"0 28px"}}><label>Accommodation type <select value={propertyType} onChange={e=>setPropertyType(e.target.value)} style={{padding:"12px 14px",minHeight:46,background:"#1f1b15",color:"#f2ecde",border:"1px solid #675b48",borderRadius:4,colorScheme:"dark",font:"inherit",cursor:"pointer"}}><option value="">All accommodation</option><option>Apartment</option><option>House</option><option>Hotel</option><option>Aparthotel</option></select></label></div>
       {state === "loading" && (
         <div className="state-block">
           {gt("searching")}
