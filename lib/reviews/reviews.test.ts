@@ -3,6 +3,48 @@ import assert from "node:assert/strict";
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import { db } from "../db";
+import { assertSafeTestDatabase } from "../db/testDatabaseGuard";
+
+// Every generated email contains this per-process token, allowing teardown to
+// identify only fixtures from this run (never previous tests or acceptance data).
+const reviewTestRun = crypto.randomBytes(12).toString("hex");
+function testSuffix(): string {
+  return `${reviewTestRun}-${crypto.randomBytes(4).toString("hex")}`;
+}
+
+function assertReviewCleanupDatabase(): void {
+  if (!process.env.NODE_TEST_CONTEXT) {
+    throw new Error("Review cleanup requires the Node test runner.");
+  }
+  assertSafeTestDatabase();
+}
+
+// Hide only listings created by this test process. We deliberately do not
+// delete fixtures here: other migrations add foreign-key dependencies, and
+// deleting without a verified complete dependency graph risks test failures.
+// This prevents review-test listings from polluting public property searches.
+async function cleanupReviewFixtures(): Promise<void> {
+  assertReviewCleanupDatabase();
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE properties SET status = 'draft'
+       WHERE host_id IN (
+         SELECT hp.id FROM host_profiles hp
+         JOIN users u ON u.id = hp.user_id
+         WHERE u.email LIKE $1
+       )`,
+      [`rev-%${reviewTestRun}-%@test.host`],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 let mockSession: {
   user: {
@@ -20,6 +62,7 @@ let hostReviewsGET: typeof import("../../app/api/host/reviews/route").GET;
 let bookingReviewGET: typeof import("../../app/api/bookings/[id]/review/route").GET;
 
 before(async () => {
+  assertReviewCleanupDatabase();
   mock.module("next-auth", { namedExports: { getServerSession: async () => mockSession } });
   ({ POST: reviewsPOST } = await import("../../app/api/reviews/route"));
   ({ POST: replyPOST } = await import("../../app/api/reviews/[id]/reply/route"));
@@ -30,7 +73,13 @@ before(async () => {
   const check = await db.query(`SELECT COUNT(*) FROM fee_configs WHERE active = TRUE`);
   if (Number(check.rows[0].count) === 0) throw new Error("No active fee_configs row — run scripts/seedFeeConfig.ts first");
 });
-after(async () => { await db.end(); });
+after(async () => {
+  try {
+    await cleanupReviewFixtures();
+  } finally {
+    await db.end();
+  }
+});
 
 async function createAuthenticatedSession(
   userId: string,
@@ -74,7 +123,7 @@ async function createCompletedBooking(suffix: string) {
 }
 
 test("guest can review their completed stay", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, propertyId, guestId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
 
@@ -92,7 +141,7 @@ test("guest can review their completed stay", async () => {
 });
 
 test("another user cannot review someone else's booking", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId } = await createCompletedBooking(suffix);
   const otherUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`rev-other-${suffix}@test.host`]);
   mockSession = await createAuthenticatedSession(otherUser.rows[0].id, null, ["guest"]);
@@ -106,7 +155,7 @@ test("another user cannot review someone else's booking", async () => {
 });
 
 test("review cannot be submitted before the stay is completed", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`rev-early-host-${suffix}@test.host`]);
   const hostProfile = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser.rows[0].id]);
   const property = await db.query(`INSERT INTO properties (host_id, name, city, currency, nightly_price, max_guests, status) VALUES ($1, 'Early Review Test', 'Liverpool', 'GBP', 100, 2, 'published') RETURNING id`, [hostProfile.rows[0].id]);
@@ -127,7 +176,7 @@ test("review cannot be submitted before the stay is completed", async () => {
 });
 
 test("duplicate review is rejected cleanly, not as a raw database error", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, guestId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
 
@@ -140,7 +189,7 @@ test("duplicate review is rejected cleanly, not as a raw database error", async 
 });
 
 test("invalid ratings are rejected", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, guestId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
 
@@ -155,7 +204,7 @@ test("invalid ratings are rejected", async () => {
 });
 
 test("excessive review text is rejected", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, guestId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
 
@@ -166,7 +215,7 @@ test("excessive review text is rejected", async () => {
 });
 
 test("the property's own host can reply to a review", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, guestId, hostUserId, hostProfileId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
   const created = await reviewsPOST(new NextRequest("http://localhost/api/reviews", { method: "POST", body: JSON.stringify({ bookingId, overall: 5 }) }));
@@ -180,7 +229,7 @@ test("the property's own host can reply to a review", async () => {
 });
 
 test("a second reply attempt is rejected with a clear message, not a silent overwrite", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, guestId, hostUserId, hostProfileId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
   const created = await reviewsPOST(new NextRequest("http://localhost/api/reviews", { method: "POST", body: JSON.stringify({ bookingId, overall: 5 }) }));
@@ -195,8 +244,8 @@ test("a second reply attempt is rejected with a clear message, not a silent over
 });
 
 test("a different host cannot reply to another host's property review", async () => {
-  const suffixA = crypto.randomBytes(4).toString("hex");
-  const suffixB = crypto.randomBytes(4).toString("hex");
+  const suffixA = testSuffix();
+  const suffixB = testSuffix();
   const a = await createCompletedBooking(suffixA);
   const b = await createCompletedBooking(suffixB);
   mockSession = await createAuthenticatedSession(a.guestId, null, ["guest"]);
@@ -212,12 +261,12 @@ test("a different host cannot reply to another host's property review", async ()
 });
 
 test("public endpoint displays only published reviews — flagged and removed are excluded", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, propertyId, guestId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
   await reviewsPOST(new NextRequest("http://localhost/api/reviews", { method: "POST", body: JSON.stringify({ bookingId, overall: 5, body: "Published review" }) }));
 
-  const suffix2 = crypto.randomBytes(4).toString("hex");
+  const suffix2 = testSuffix();
   const hostUser2 = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`rev-flag-host-${suffix2}@test.host`]);
   const hostProfile2 = await db.query(`INSERT INTO host_profiles (user_id, payout_account_status) VALUES ($1, 'active') RETURNING id`, [hostUser2.rows[0].id]);
   const guestUser2 = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`rev-flag-guest-${suffix2}@test.host`]);
@@ -239,7 +288,7 @@ test("public endpoint displays only published reviews — flagged and removed ar
 });
 
 test("host replies render in the public listing where permitted", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, propertyId, guestId, hostUserId, hostProfileId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
   const created = await reviewsPOST(new NextRequest("http://localhost/api/reviews", { method: "POST", body: JSON.stringify({ bookingId, overall: 5 }) }));
@@ -254,12 +303,12 @@ test("host replies render in the public listing where permitted", async () => {
 });
 
 test("aggregate rating and review count stay accurate across multiple reviews", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const first = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(first.guestId, null, ["guest"]);
   await reviewsPOST(new NextRequest("http://localhost/api/reviews", { method: "POST", body: JSON.stringify({ bookingId: first.bookingId, overall: 5 }) }));
 
-  const suffix2 = crypto.randomBytes(4).toString("hex");
+  const suffix2 = testSuffix();
   const guestUser2 = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`rev-agg-guest-${suffix2}@test.host`]);
   const booking2 = await db.query(
     `INSERT INTO bookings (property_id, guest_id, host_id, check_in, check_out, guests, status, guest_name, guest_email, cancellation_policy_snapshot)
@@ -281,7 +330,7 @@ test("review-request notification resolves to a working review journey URL", asy
 });
 
 test("a guest can fetch their own submitted review via the booking-scoped route", async () => {
-  const suffix = crypto.randomBytes(4).toString("hex");
+  const suffix = testSuffix();
   const { bookingId, guestId } = await createCompletedBooking(suffix);
   mockSession = await createAuthenticatedSession(guestId, null, ["guest"]);
   await reviewsPOST(new NextRequest("http://localhost/api/reviews", { method: "POST", body: JSON.stringify({ bookingId, overall: 4 }) }));
@@ -292,8 +341,8 @@ test("a guest can fetch their own submitted review via the booking-scoped route"
 });
 
 test("host reviews listing correctly scopes to only the requesting host's own properties", async () => {
-  const suffixA = crypto.randomBytes(4).toString("hex");
-  const suffixB = crypto.randomBytes(4).toString("hex");
+  const suffixA = testSuffix();
+  const suffixB = testSuffix();
   const a = await createCompletedBooking(suffixA);
   const b = await createCompletedBooking(suffixB);
   mockSession = await createAuthenticatedSession(a.guestId, null, ["guest"]);
