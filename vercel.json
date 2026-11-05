@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "host-staging-preview": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/sweep",
