@@ -171,6 +171,27 @@ export async function registerUploadedPropertyImage(
   userId: string,
   blob: UploadedPropertyBlob
 ): Promise<PropertyImage> {
+  if (typeof blob.url !== "string" || !/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.public\.blob\.vercel-storage\.com\/[^\s?#\\]+$/i.test(blob.url)) {
+    throw new PropertyImageError(
+      "INVALID_UPLOAD_URL",
+      "Image URL must be a public HTTPS Vercel Blob URL.",
+      400
+    );
+  }
+
+  const expectedPrefix = `properties/${propertyId}/`;
+  if (
+    typeof blob.pathname !== "string" ||
+    !blob.pathname.startsWith(expectedPrefix) ||
+    blob.pathname.length === expectedPrefix.length
+  ) {
+    throw new PropertyImageError(
+      "INVALID_UPLOAD_PATH",
+      "The uploaded image does not belong to this property.",
+      400
+    );
+  }
+
   return withTransaction(async (client) => {
     await assertPropertyOwnership(client, propertyId, userId);
 

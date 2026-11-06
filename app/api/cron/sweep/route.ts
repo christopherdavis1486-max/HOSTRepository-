@@ -145,5 +145,13 @@ export async function GET(request: NextRequest) {
       (error as Error).message;
   }
 
-  return NextResponse.json({ success: true, results }, { headers: { "Cache-Control": "private, no-store" } });
+  const failedJobs = Object.keys(results).filter(key => key.endsWith("Error"));
+  const success = failedJobs.length === 0;
+  return NextResponse.json(
+    { success, results, failedJobs },
+    {
+      status: success ? 200 : 500,
+      headers: { "Cache-Control": "private, no-store" },
+    },
+  );
 }

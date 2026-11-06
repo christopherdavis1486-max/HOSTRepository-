@@ -226,3 +226,179 @@ test("a genuinely fresh first attempt never calls the reconciliation lookup at a
     listMock.mock.restore();
   }
 });
+
+test("concurrent legacy refunds cannot reserve more than the paid amount", async () => {
+  const { bookingId, paymentId, paymentIntentId } = await setupBookingAndPayment();
+  const createMock = mock.method(stripe.refunds, "create",
+    async (_params: any, options: any) => ({
+      id: "re_concurrency_" + options.idempotencyKey,
+      status: "pending",
+    } as any));
+  const listMock = mock.method(stripe.refunds, "list",
+    async () => ({ data: [], has_more: false } as any));
+
+  try {
+    const common = {
+      bookingId, paymentId, providerPaymentIntentId: paymentIntentId,
+      currency: "GBP", reason: "admin_goodwill" as const,
+      initiatedBy: "admin" as const,
+    };
+    const outcomes = await Promise.allSettled([
+      initiateRefund({ ...common, amountMinor: 20000 }),
+      initiateRefund({ ...common, amountMinor: 19000 }),
+    ]);
+    const reserved = await db.query(
+      "SELECT COALESCE(SUM(amount_minor),0) AS total FROM refunds WHERE payment_id=$1 AND status IN ('pending','succeeded')",
+      [paymentId]
+    );
+
+    assert.ok(Number(reserved.rows[0].total) <= 25500,
+      "Concurrent refunds reserved more than the payment's 25500 minor units");
+    assert.equal(outcomes.filter(result => result.status === "fulfilled").length, 1);
+    assert.equal(createMock.mock.callCount(), 1);
+  } finally {
+    createMock.mock.restore();
+    listMock.mock.restore();
+  }
+});
+
+for (const [label, override] of [
+  ["booking", { bookingId: crypto.randomUUID() }],
+  ["payment", { paymentId: crypto.randomUUID() }],
+  ["intent", { providerPaymentIntentId: "pi_wrong_fixture" }],
+  ["currency", { currency: "USD" }],
+  ["zero amount", { amountMinor: 0 }],
+  ["negative amount", { amountMinor: -1 }],
+  ["fractional amount", { amountMinor: 1.5 }],
+  ["unsafe amount", { amountMinor: Number.MAX_SAFE_INTEGER + 1 }],
+] as Array<[string, Partial<Parameters<typeof initiateRefund>[0]>]>) {
+  test("legacy refund service rejects invalid payment details: " + label, async () => {
+    const { bookingId, paymentId, paymentIntentId } = await setupBookingAndPayment();
+    const createMock = mock.method(stripe.refunds, "create", async () => {
+      throw new Error("Provider must not be called");
+    });
+    const listMock = mock.method(stripe.refunds, "list", async () => {
+      throw new Error("Provider lookup must not be called");
+    });
+    try {
+      await assert.rejects(initiateRefund({
+        bookingId, paymentId, providerPaymentIntentId: paymentIntentId,
+        amountMinor: 6375, currency: "GBP",
+        reason: "admin_goodwill", initiatedBy: "admin",
+        ...override,
+      }), /payment details do not match|positive integer/);
+
+      assert.equal(createMock.mock.callCount(), 0);
+      assert.equal(listMock.mock.callCount(), 0);
+      const rows = await db.query(
+        "SELECT COUNT(*) FROM refunds WHERE payment_id=$1", [paymentId]
+      );
+      assert.equal(Number(rows.rows[0].count), 0);
+    } finally {
+      createMock.mock.restore();
+      listMock.mock.restore();
+    }
+  });
+}
+
+test("simultaneous retries do not execute one unresolved refund twice", async () => {
+  const { bookingId, paymentId, paymentIntentId } = await setupBookingAndPayment();
+  let releaseFirst!: () => void;
+  let enteredFirst!: () => void;
+  const firstEntered = new Promise<void>(resolve => { enteredFirst = resolve; });
+  const firstMayFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+  let creates = 0;
+
+  const createMock = mock.method(stripe.refunds, "create",
+    async (_params: any, options: any) => {
+      creates++;
+      if (creates === 1) {
+        enteredFirst();
+        await firstMayFinish;
+      }
+      return {
+        id: "re_same_" + options.idempotencyKey,
+        status: "pending",
+      } as any;
+    });
+  const listMock = mock.method(stripe.refunds, "list",
+    async () => ({ data: [], has_more: false } as any));
+
+  const input = {
+    bookingId, paymentId, providerPaymentIntentId: paymentIntentId,
+    amountMinor: 6375, currency: "GBP",
+    reason: "admin_goodwill" as const, initiatedBy: "admin" as const,
+  };
+  let first: Promise<unknown> | undefined;
+  try {
+    first = initiateRefund(input);
+    await firstEntered;
+    const second = await Promise.allSettled([initiateRefund(input)]);
+    releaseFirst();
+    await first;
+
+    assert.equal(creates, 1,
+      "A second caller entered provider execution while the same refund was in flight");
+    const rows = await db.query(
+      "SELECT COUNT(*) FROM refunds WHERE payment_id=$1", [paymentId]
+    );
+    assert.equal(Number(rows.rows[0].count), 1);
+  } finally {
+    releaseFirst();
+    if (first) await first.catch(() => {});
+    createMock.mock.restore();
+    listMock.mock.restore();
+  }
+});
+
+test("provider failure releases the refund execution lock for a later retry", async () => {
+  const { bookingId, paymentId, paymentIntentId } = await setupBookingAndPayment();
+  // Keep this connection checked out so the service cannot reuse it.
+  const observer = await db.connect();
+  const lockKey = "legacy-refund-execution:" + paymentId;
+  const keys: string[] = [];
+  let observerLocked = false;
+  const createMock = mock.method(stripe.refunds, "create",
+    async (_params: any, options: any) => {
+      keys.push(options.idempotencyKey);
+      if (keys.length === 1) throw new Error("fixture provider unavailable");
+      return { id: "re_retry_after_failure", status: "pending" } as any;
+    });
+  const listMock = mock.method(stripe.refunds, "list",
+    async () => ({ data: [], has_more: false } as any));
+  const input = {
+    bookingId, paymentId, providerPaymentIntentId: paymentIntentId,
+    amountMinor: 6375, currency: "GBP",
+    reason: "admin_goodwill" as const, initiatedBy: "admin" as const,
+  };
+
+  try {
+    await assert.rejects(initiateRefund(input), /fixture provider unavailable/);
+    const check = await observer.query(
+      "SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked", [lockKey]
+    );
+    observerLocked = check.rows[0].locked;
+    assert.equal(observerLocked, true, "Execution lock leaked after provider failure");
+    await observer.query(
+      "SELECT pg_advisory_unlock(hashtextextended($1, 0))", [lockKey]
+    );
+    observerLocked = false;
+
+    await initiateRefund(input);
+    assert.equal(keys.length, 2);
+    assert.equal(keys[0], keys[1]);
+    const rows = await db.query(
+      "SELECT COUNT(*) FROM refunds WHERE payment_id=$1", [paymentId]
+    );
+    assert.equal(Number(rows.rows[0].count), 1);
+  } finally {
+    if (observerLocked) {
+      await observer.query(
+        "SELECT pg_advisory_unlock(hashtextextended($1, 0))", [lockKey]
+      );
+    }
+    observer.release();
+    createMock.mock.restore();
+    listMock.mock.restore();
+  }
+});

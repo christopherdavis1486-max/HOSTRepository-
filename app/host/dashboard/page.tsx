@@ -136,7 +136,11 @@ export default function HostDashboardPage() {
       )}
 
       {state === "forbidden" && (
-        <div className="state-block"><div className="error-box">{ht("This account doesn't have host access.")}</div></div>
+        <div className="state-block">
+          <div className="error-box">{ht("This account doesn't have host access.")}</div>
+          <p>{ht("To become a host, continue host setup. If you already host with HOST, check that you are signed in to the correct account.")}</p>
+          <a href="/host/onboarding/connect-account" className="btn-primary">{ht("Continue host setup")}</a>
+        </div>
       )}
 
       {state === "error" && (

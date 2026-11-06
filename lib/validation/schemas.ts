@@ -123,7 +123,7 @@ export const hostOnboardingStartSchema = z.object({
   hostAgreementAccepted: z.literal(
     true,
     {
-      errorMap: () => ({
+      error: () => ({
         message:
           "You must accept the HOST host agreement before continuing",
       }),
@@ -132,7 +132,7 @@ export const hostOnboardingStartSchema = z.object({
   defaultPoliciesAccepted: z.literal(
     true,
     {
-      errorMap: () => ({
+      error: () => ({
         message:
           "You must accept HOST's default pilot policies before continuing",
       }),
@@ -157,7 +157,7 @@ export const adminRefundSchema = z.object({
       "pricing_error",
     ],
     {
-      errorMap: () => ({
+      error: () => ({
         message:
           "reason must be one of admin_goodwill, dispute, host_cancellation, pricing_error",
       }),
@@ -522,8 +522,8 @@ export const ownerComplianceSchema = z.object({
     }
 
     if (
-      data.submit &&
-      item.applicability === "required"
+      item.applicability === "required" &&
+      (data.submit || Boolean(item.evidenceUrl))
     ) {
       const evidenceUrl =
         item.evidenceUrl ?? "";
@@ -531,9 +531,12 @@ export const ownerComplianceSchema = z.object({
       let validHttpsUrl = false;
 
       try {
+        const parsedUrl = new URL(evidenceUrl);
         validHttpsUrl =
-          new URL(evidenceUrl).protocol ===
-          "https:";
+          evidenceUrl.startsWith("https://") &&
+          !/\s/.test(evidenceUrl) &&
+          parsedUrl.protocol === "https:" &&
+          Boolean(parsedUrl.hostname);
       } catch {
         validHttpsUrl = false;
       }
@@ -547,7 +550,7 @@ export const ownerComplianceSchema = z.object({
             "evidenceUrl",
           ],
           message:
-            "Enter a valid HTTPS evidence link",
+            `${item.category.replace(/_/g, " ")}: Enter a valid HTTPS evidence link starting with https://`,
         });
       }
     }
@@ -736,7 +739,7 @@ export function validationErrorResponse(
     success: false as const,
     error: {
       code: "INVALID_INPUT",
-      message: error.errors
+      message: error.issues
         .map(
           (issue) =>
             `${issue.path.join(".")}: ${issue.message}`

@@ -1,0 +1,31 @@
+{
+  "status": "decisions_only_delivery_disabled",
+  "preparedOn": "2026-10-24",
+  "scope": "local development; mocked sender only",
+  "channel": "email",
+  "intendedRecipient": "hostplatform.admin@gmail.com",
+  "recipientSource": "Explicitly supplied by operator",
+  "mailboxOwnershipVerified": false,
+  "deliveryEnabled": false,
+  "rules": {
+    "openedWarning": "candidate for operator email",
+    "informationalFinding": "report only",
+    "continuingWarning": "report only; no automatic reminders",
+    "unconfirmedCondition": "retain pending; never claim recovery",
+    "clearedWarning": "candidate only when opening acceptance is recorded for the same condition occurrence and recipient"
+  },
+  "remindersEnabled": false,
+  "outcomes": {
+    "accepted": "provider returned a message id; not proof of inbox delivery",
+    "rejected": "sender returned an explicit provider error without an acceptance id",
+    "uncertain": "thrown error, missing acceptance evidence or contradictory response"
+  },
+  "implementationLimits": [
+    "Adapter currently returns an in-memory outcome only",
+    "No durable attempts or acceptance receipts exist yet",
+    "No occurrence tracking or clearing eligibility implemented yet",
+    "No provider connection, automatic retries or command integration",
+    "Existing sendEmail throws on provider rejection; such throws remain uncertain through this adapter",
+    "Do not enable delivery before durable attempt handling and explicit activation"
+  ]
+}

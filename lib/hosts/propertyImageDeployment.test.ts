@@ -94,7 +94,7 @@ test("localhost uploads use a property-scoped path and authenticated confirmatio
     /const details = await head\(parsed\.data\.blobUrl\)/
   );
   assert.ok(
-    imagesRoute.includes("const expectedPrefix = `properties/${propertyId}`")
+    imagesRoute.includes("const expectedPrefix = `properties/${propertyId}/`")
   );
   assert.match(
     imagesRoute,

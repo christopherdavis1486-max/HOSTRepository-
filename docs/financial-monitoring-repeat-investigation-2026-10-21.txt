@@ -1,0 +1,170 @@
+Isolated monitoring database investigation
+
+PASS 1
+✔ real collection: empty temporary storage preserves ten missing reports (73.5055ms)
+✔ real collection: overdue queue and heartbeat outcome started (71.0879ms)
+✔ real collection: overdue queue and heartbeat outcome returned (68.1676ms)
+✔ real collection: overdue queue and heartbeat outcome threw (72.8306ms)
+✔ real collection: absent heartbeat schema retains queue assessment (69.1484ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (68.3898ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 641.3741
+
+
+PASS 2
+✔ real collection: empty temporary storage preserves ten missing reports (142.7494ms)
+✔ real collection: overdue queue and heartbeat outcome started (91.549ms)
+✔ real collection: overdue queue and heartbeat outcome returned (77.0977ms)
+✔ real collection: overdue queue and heartbeat outcome threw (77.9361ms)
+✔ real collection: absent heartbeat schema retains queue assessment (83.4105ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (65.9944ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 739.1141
+
+
+PASS 3
+✔ real collection: empty temporary storage preserves ten missing reports (78.789ms)
+✔ real collection: overdue queue and heartbeat outcome started (73.283ms)
+✔ real collection: overdue queue and heartbeat outcome returned (68.2283ms)
+✔ real collection: overdue queue and heartbeat outcome threw (245.803ms)
+✔ real collection: absent heartbeat schema retains queue assessment (93.2871ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (71.4912ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 866.7192
+
+
+PASS 4
+✔ real collection: empty temporary storage preserves ten missing reports (86.633ms)
+✔ real collection: overdue queue and heartbeat outcome started (74.6515ms)
+✔ real collection: overdue queue and heartbeat outcome returned (67.1662ms)
+✔ real collection: overdue queue and heartbeat outcome threw (68.9116ms)
+✔ real collection: absent heartbeat schema retains queue assessment (67.6003ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (65.0199ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 690.5497
+
+
+PASS 5
+✔ real collection: empty temporary storage preserves ten missing reports (157.914ms)
+✔ real collection: overdue queue and heartbeat outcome started (78.0991ms)
+✔ real collection: overdue queue and heartbeat outcome returned (87.1197ms)
+✔ real collection: overdue queue and heartbeat outcome threw (65.2683ms)
+✔ real collection: absent heartbeat schema retains queue assessment (66.0133ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (64.421ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 773.2099
+
+
+PASS 6
+✔ real collection: empty temporary storage preserves ten missing reports (80.8585ms)
+✔ real collection: overdue queue and heartbeat outcome started (70.8878ms)
+✔ real collection: overdue queue and heartbeat outcome returned (72.1822ms)
+✔ real collection: overdue queue and heartbeat outcome threw (66.2317ms)
+✔ real collection: absent heartbeat schema retains queue assessment (67.2846ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (67.9229ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 653.3527
+
+
+PASS 7
+✔ real collection: empty temporary storage preserves ten missing reports (258.302ms)
+✔ real collection: overdue queue and heartbeat outcome started (97.0908ms)
+✔ real collection: overdue queue and heartbeat outcome returned (72.7104ms)
+✔ real collection: overdue queue and heartbeat outcome threw (71.8219ms)
+✔ real collection: absent heartbeat schema retains queue assessment (67.4348ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (64.9528ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 848.3285
+
+
+PASS 8
+✔ real collection: empty temporary storage preserves ten missing reports (77.7086ms)
+✔ real collection: overdue queue and heartbeat outcome started (67.6616ms)
+✔ real collection: overdue queue and heartbeat outcome returned (69.7289ms)
+✔ real collection: overdue queue and heartbeat outcome threw (83.3572ms)
+✔ real collection: absent heartbeat schema retains queue assessment (69.4909ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (66.4669ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 638.1279
+
+
+PASS 9
+✔ real collection: empty temporary storage preserves ten missing reports (261.9791ms)
+✔ real collection: overdue queue and heartbeat outcome started (96.4025ms)
+✔ real collection: overdue queue and heartbeat outcome returned (68.163ms)
+✔ real collection: overdue queue and heartbeat outcome threw (67.9241ms)
+✔ real collection: absent heartbeat schema retains queue assessment (68.2367ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (64.7853ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 847.8572
+
+
+PASS 10
+✔ real collection: empty temporary storage preserves ten missing reports (152.1285ms)
+✔ real collection: overdue queue and heartbeat outcome started (103.5352ms)
+✔ real collection: overdue queue and heartbeat outcome returned (73.6725ms)
+✔ real collection: overdue queue and heartbeat outcome threw (68.7848ms)
+✔ real collection: absent heartbeat schema retains queue assessment (69.66ms)
+✔ real collection: queue schema failure rolls back and retains heartbeat evidence (62.4997ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 746.1718

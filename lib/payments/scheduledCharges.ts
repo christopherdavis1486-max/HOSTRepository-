@@ -1,3 +1,4 @@
+import { deriveNewFlowRefundDisplay, newFlowRefundDisplaySql } from "./newFlowRefundDisplay";
 import { db, withTransaction } from "../db";
 import crypto from "crypto";
 import Stripe from "stripe";
@@ -5,6 +6,8 @@ import { stripe } from "./stripeClient";
 import { isAutomatedOffSessionChargingEnabled } from "../config/featureFlags";
 import { listAttemptsForBooking } from "./paymentAttempts";
 import { hashToBigint } from "../utils/advisoryLock";
+import { newFlowPaymentIntentEvidenceMatches } from "./newFlowPaymentIntentEvidence";
+import { withScheduledChargeProviderLock } from "./withScheduledChargeProviderLock";
 
 /**
  * Batch 9's payment-timing decision and guest-facing status model.
@@ -18,17 +21,14 @@ import { hashToBigint } from "../utils/advisoryLock";
 export const SCHEDULED_CHARGE_THRESHOLD_DAYS = 60;
 export const GRACE_PERIOD_HOURS = 72;
 export const REMINDER_AFTER_HOURS = 24;
-/** How long a worker's exclusive claim on a payment attempt's Stripe
- *  execution lasts before it's considered abandoned (e.g. a genuine
- *  process crash) and eligible for another worker to reclaim. Long
- *  enough to comfortably cover a real Stripe API call's typical
- *  latency plus margin; short enough that a crashed worker never
- *  blocks reconciliation for an unreasonable time. */
+/** Maximum execution ownership duration. Expiry blocks outcome recording
+ * and requires provider reconciliation; it never authorises charge replay. */
 export const EXECUTION_LEASE_SECONDS = 120;
 
 export type GuestPaymentStatus =
   | "payment_method_required" | "payment_method_saved" | "payment_scheduled" | "payment_attempting"
-  | "authentication_required" | "payment_failed" | "payment_grace_period" | "paid" | "cancelled_for_nonpayment";
+  | "authentication_required" | "payment_failed" | "payment_grace_period" | "paid" | "cancelled_for_nonpayment"
+  | import("./newFlowRefundDisplay").RefundDisplayStatus;
 
 /** Decided ONCE, at booking creation, for a new-architecture booking —
  *  never re-evaluated afterward (payment_flow_version's own immutability
@@ -56,7 +56,7 @@ export function deriveGuestPaymentStatus(input: {
 }): GuestPaymentStatus {
   const now = input.now ?? new Date();
   if (input.bookingCancelledForNonpayment) return "cancelled_for_nonpayment";
-  if (input.hasSucceeded) return "paid";
+  if (input.hasSucceeded || input.latestAttemptStatus === "succeeded") return "paid";
   if (input.latestAttemptStatus === "requires_action") return "authentication_required";
   if (input.latestAttemptStatus === "failed") {
     if (input.gracePeriodExpiresAt && now < input.gracePeriodExpiresAt) return "payment_grace_period";
@@ -68,16 +68,8 @@ export function deriveGuestPaymentStatus(input: {
   return "payment_method_saved";
 }
 
-/**
- * Batch 9B-1: real Stripe SDK logic, replacing the prior deliberate
- * stub. Reuses the exact reconciliation-before-retry pattern already
- * proven in lib/payments/refund.ts's initiateRefund() — before calling
- * stripe.paymentIntents.create() again, check whether an unresolved
- * ('processing', no confirmed outcome yet) attempt already exists and
- * reconcile against Stripe directly rather than blindly retrying, which
- * is exactly what protects against "Stripe succeeded but HOST lost the
- * response" and duplicate cron execution alike.
- */
+/** New attempts execute once. Unresolved attempts require separate provider
+ * reconciliation, including after a timeout or execution lease expiry. */
 /**
  * Extends a booking's hold_expires_at to the full 72-hour grace period —
  * called whenever a real charge attempt does NOT succeed (failed,
@@ -128,11 +120,53 @@ async function recordChargeOutcome(
   bookingId: string,
   attemptId: string,
   claimToken: string,
+  expected: {
+    customerId: string; paymentMethodId: string;
+    amountMinor: number; currency: string; idempotencyKey: string;
+  },
   status: "succeeded" | "requires_action" | "processing" | "failed",
-  opts?: { providerPaymentIntentId?: string; failureCode?: string; failureMessage?: string }
+  opts?: { providerPaymentIntentId?: string; failureCode?: string; failureMessage?: string; successIntent?: Stripe.PaymentIntent; paymentMethodId?: string }
 ): Promise<{ recorded: boolean }> {
   return withTransaction(async (client) => {
     await client.query(`SELECT pg_advisory_xact_lock($1)`, [hashToBigint(bookingId)]);
+
+    const booking = (await client.query(
+      "SELECT * FROM bookings WHERE id = $1 FOR UPDATE", [bookingId]
+    )).rows[0];
+    const price = (await client.query(
+      "SELECT guest_total_minor, currency FROM booking_price_components WHERE booking_id = $1 FOR SHARE",
+      [bookingId]
+    )).rows[0];
+    const attempt = (await client.query(
+      "SELECT * FROM payment_attempts WHERE id = $1 AND booking_id = $2 FOR UPDATE",
+      [attemptId, bookingId]
+    )).rows[0];
+    if (!booking || !price || !attempt ||
+        booking.status !== "pending_payment" ||
+        booking.payment_flow_version !== "separate_charges_delayed_v1" ||
+        booking.tax_treatment === "unconfigured" ||
+        booking.stripe_customer_id !== expected.customerId ||
+        booking.stripe_payment_method_id !== expected.paymentMethodId ||
+        price.guest_total_minor !== expected.amountMinor ||
+        String(price.currency).trim().toUpperCase() !== expected.currency.toUpperCase() ||
+        attempt.amount_minor !== expected.amountMinor ||
+        String(attempt.currency).trim().toUpperCase() !== expected.currency.toUpperCase() ||
+        attempt.idempotency_key !== expected.idempotencyKey ||
+        attempt.status !== "pending" ||
+        attempt.claim_token !== claimToken ||
+        (attempt.provider_payment_intent_id !== null &&
+         attempt.provider_payment_intent_id !== opts?.providerPaymentIntentId)) {
+      return { recorded: false };
+    }
+    if (status === "succeeded" &&
+        (!opts?.successIntent ||
+         opts.providerPaymentIntentId !== opts.successIntent.id ||
+         !newFlowPaymentIntentEvidenceMatches(opts.successIntent, {
+           bookingId, attemptId, customerId: expected.customerId,
+           amountMinor: expected.amountMinor, currency: expected.currency,
+           ...(attempt.provider_payment_intent_id !== null
+             ? { providerPaymentIntentId: attempt.provider_payment_intent_id } : {}),
+         }))) return { recorded: false };
 
     // Compare-and-set: only the worker holding the matching claim_token
     // may write, AND a genuinely succeeded attempt can never be
@@ -147,7 +181,8 @@ async function recordChargeOutcome(
        SET status = $3, provider_payment_intent_id = COALESCE($4, provider_payment_intent_id),
            failure_code = $5, failure_message = $6, updated_at = NOW(),
            claim_token = NULL, lease_expires_at = NULL
-       WHERE id = $1 AND claim_token = $2 AND status != 'succeeded'`,
+       WHERE id = $1 AND claim_token = $2 AND status != 'succeeded'
+         AND lease_expires_at > clock_timestamp()`,
       [attemptId, claimToken, status, opts?.providerPaymentIntentId ?? null, opts?.failureCode ?? null, opts?.failureMessage ?? null]
     );
     if (updated.rowCount === 0) {
@@ -164,12 +199,8 @@ async function recordChargeOutcome(
         [bookingId]
       );
     }
-    // Only a genuine decline/API-error schedules a next retry —
-    // requires_action is never auto-retried at all (the decision phase
-    // refuses it outright), and processing (including a genuine
-    // idempotency_key_in_use, which is recorded as 'processing' — see
-    // attemptScheduledCharge's own handling below) is reconciled via
-    // the same attempt, never superseded by a newly scheduled one.
+    // A recorded terminal provider failure schedules a retry.
+    // API errors and unresolved states remain processing and do not schedule one.
     if (status === "failed") {
       await client.query(
         `UPDATE bookings SET next_retry_at = NOW() + (${REMINDER_AFTER_HOURS} || ' hours')::interval, updated_at = NOW()
@@ -215,13 +246,17 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
    *   - latest attempt is pending/processing, actively leased by
    *     another worker -> awaiting_owner (no Stripe call at all)
    *   - latest attempt is pending/processing, lease absent or expired
-   *     -> claim it (new claim_token + lease) and reconcile via the
-   *     same attempt, same idempotency key
+   *     -> refuse; separate provider reconciliation is required
    *   - latest attempt is requires_action -> refuse; never auto-retried
    *   - latest attempt is failed, next_retry_at not yet due -> refuse
    *   - latest attempt is failed and due, or no latest attempt at all
    *     -> reserve a new attempt AND immediately claim it, atomically
    */
+  if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0 ||
+      typeof currency !== "string" || !/^[A-Za-z]{3}$/.test(currency)) {
+    return { attempted: false, reason: "Invalid charge amount or currency" };
+  }
+
   type Decision =
     | { kind: "already_succeeded" }
     | { kind: "refuse"; reason: string }
@@ -236,12 +271,15 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
     }
 
     const bookingRow = await client.query(
-      `SELECT stripe_customer_id, stripe_payment_method_id, tax_treatment, payment_flow_version, grace_period_started_at, hold_expires_at, next_retry_at
-       FROM bookings WHERE id = $1`,
+      `SELECT status, stripe_customer_id, stripe_payment_method_id, tax_treatment, payment_flow_version, grace_period_started_at, hold_expires_at, next_retry_at
+       FROM bookings WHERE id = $1 FOR UPDATE`,
       [bookingId]
     );
     if (bookingRow.rows.length === 0) return { kind: "refuse", reason: "booking not found" };
     const b = bookingRow.rows[0];
+    if (b.status !== "pending_payment") {
+      return { kind: "refuse", reason: "booking is not pending_payment; refusing to charge" };
+    }
     if (b.payment_flow_version !== "separate_charges_delayed_v1") {
       return { kind: "refuse", reason: "not a separate_charges_delayed_v1 booking — refusing to charge" };
     }
@@ -255,6 +293,37 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
       return { kind: "refuse", reason: "the grace period has genuinely expired — no further retry is permitted; this booking is only eligible for cancellation now" };
     }
 
+    const unresolvedSetup = await client.query(
+      `SELECT r.id FROM audit_log r
+         WHERE r.object_id = $1 AND r.object_type = 'booking'
+           AND r.action = 'setup_intent_creation_reserved'
+           AND NOT EXISTS (
+             SELECT 1 FROM audit_log c
+             WHERE c.object_id = r.object_id AND c.object_type = 'booking'
+               AND c.action = 'setup_intent_creation_completed'
+               AND c.new_state->>'creationId' = r.id::text
+           ) LIMIT 1`, [bookingId]
+    );
+    if (unresolvedSetup.rows.length) {
+      return {
+        kind: "refuse",
+        reason: "Unresolved SetupIntent creation reservation requires review; charging blocked",
+      };
+    }
+
+    const priceResult = await client.query(
+      "SELECT guest_total_minor, currency FROM booking_price_components WHERE booking_id = $1 FOR SHARE",
+      [bookingId]
+    );
+    const price = priceResult.rows[0];
+    if (priceResult.rows.length !== 1 ||
+        !Number.isSafeInteger(price?.guest_total_minor) || price.guest_total_minor <= 0 ||
+        typeof price.currency !== "string" || !/^[A-Za-z]{3}$/.test(price.currency.trim()) ||
+        amountMinor !== price.guest_total_minor ||
+        currency.toUpperCase() !== price.currency.trim().toUpperCase()) {
+      return { kind: "refuse", reason: "Charge amount or currency does not match stored booking prices" };
+    }
+
     const latestResult = await client.query(
       `SELECT id, status, idempotency_key, claim_token, lease_expires_at FROM payment_attempts WHERE booking_id = $1 ORDER BY attempt_number DESC LIMIT 1`,
       [bookingId]
@@ -264,17 +333,18 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
     if (latest && (latest.status === "pending" || latest.status === "processing")) {
       const leaseActive = latest.lease_expires_at && new Date(latest.lease_expires_at) > new Date();
       if (leaseActive) {
-        return { kind: "refuse", reason: "another worker currently holds an active execution lease on this attempt — refusing to call Stripe concurrently" };
+        return { kind: "refuse", reason: "another worker currently holds an active execution lease on this attempt; refusing to call Stripe concurrently" };
       }
-      // No active lease (never claimed, or a prior claim's lease has
-      // genuinely expired — e.g. that worker crashed) — claim it now,
-      // atomically, still inside this same locked transaction.
-      const newClaimToken = crypto.randomUUID();
-      await client.query(
-        `UPDATE payment_attempts SET claim_token = $2, lease_expires_at = NOW() + (${EXECUTION_LEASE_SECONDS} || ' seconds')::interval, updated_at = NOW() WHERE id = $1`,
-        [latest.id, newClaimToken]
-      );
-      return { kind: "charge", attemptId: latest.id, idempotencyKey: latest.idempotency_key, claimToken: newClaimToken, customerId: b.stripe_customer_id, paymentMethodId: b.stripe_payment_method_id };
+      // An expired or cleared lease does not prove that Stripe received no charge.
+      // Read-only provider reconciliation must resolve this attempt first.
+      return { kind: "refuse", reason: "Unresolved payment attempt requires reconciliation; automatic execution is blocked" };
+    }
+
+    if (latest && latest.status === "cancelled") {
+      return {
+        kind: "refuse",
+        reason: "Verified cancelled payment attempt cannot be automatically charged again",
+      };
     }
 
     if (latest && latest.status === "requires_action") {
@@ -282,9 +352,10 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
     }
 
     if (latest && latest.status === "failed") {
-      if (b.next_retry_at && new Date(b.next_retry_at) > new Date()) {
-        return { kind: "refuse", reason: `the previous attempt failed and is awaiting its scheduled retry at ${new Date(b.next_retry_at).toISOString()} — refusing a premature duplicate attempt` };
-      }
+      return {
+        kind: "refuse",
+        reason: "Historical failed payment attempt requires reconciliation; automatic retry is blocked",
+      };
     }
 
     const maxAttemptResult = await client.query(`SELECT COALESCE(MAX(attempt_number), 0) AS max FROM payment_attempts WHERE booking_id = $1`, [bookingId]);
@@ -310,10 +381,24 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
   }
 
   const { attemptId, idempotencyKey, claimToken, customerId, paymentMethodId } = decision;
+  const recordOutcome = (
+    status: Parameters<typeof recordChargeOutcome>[4],
+    opts?: Parameters<typeof recordChargeOutcome>[5]
+  ) => recordChargeOutcome(
+    bookingId, attemptId, claimToken,
+    { customerId, paymentMethodId, amountMinor, currency, idempotencyKey },
+    status, opts
+  );
 
   let intent: Stripe.PaymentIntent;
+  let providerStarted = false;
   try {
-    intent = await stripe.paymentIntents.create(
+    intent = await withScheduledChargeProviderLock({
+      bookingId, attemptId, claimToken, customerId, paymentMethodId,
+      amountMinor, currency, idempotencyKey,
+    }, () => {
+      providerStarted = true;
+      return stripe.paymentIntents.create(
       {
         amount: amountMinor,
         currency: currency.toLowerCase(),
@@ -323,9 +408,17 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
         confirm: true,
         metadata: { booking_id: bookingId, payment_attempt_id: attemptId, payment_flow_version: "separate_charges_delayed_v1" },
       },
-      { idempotencyKey }
-    );
+      { idempotencyKey, timeout: 20000, maxNetworkRetries: 0 }
+      );
+    });
   } catch (error) {
+    if (!providerStarted) {
+      return {
+        attempted: false,
+        reason: "Provider creation blocked before access: " +
+          (error instanceof Error ? error.message : "execution snapshot unavailable"),
+      };
+    }
     const stripeErr = error as { type?: string; payment_intent?: Stripe.PaymentIntent; message?: string };
     // Stripe's own documented pattern for detecting a card decline: the
     // .type string property is part of their stable, public error
@@ -334,55 +427,88 @@ export async function attemptScheduledCharge(bookingId: string, amountMinor: num
     if (stripeErr.type === "StripeCardError" && stripeErr.payment_intent) {
       intent = stripeErr.payment_intent;
     } else if (stripeErr.type === "idempotency_error") {
-      // idempotency_key_in_use (or any other idempotency-layer
-      // conflict) means Stripe itself detected a genuinely concurrent
-      // request with this exact key — this is NEVER a terminal card
-      // failure. Recorded as 'processing' (an unresolved state, exactly
-      // like a genuine async PaymentIntent) so a later call reconciles
-      // it via the same attempt, rather than treating this as a decline
-      // and scheduling a needless new-attempt retry.
-      const result = await recordChargeOutcome(bookingId, attemptId, claimToken, "processing", { failureMessage: (error as Error).message });
+      // Idempotency conflicts are unresolved provider outcomes. Keep this
+      // attempt processing; a later charge call must not replay creation.
+      const result = await recordOutcome("processing", { failureMessage: (error as Error).message });
       return { attempted: result.recorded, outcome: result.recorded ? "processing" : undefined, reason: result.recorded ? (error as Error).message : "a webhook or another worker already recorded this attempt's outcome — refusing to overwrite it" };
     } else {
-      const result = await recordChargeOutcome(bookingId, attemptId, claimToken, "failed", { failureMessage: (error as Error).message });
+      const result = await recordOutcome("processing", { failureMessage: (error as Error).message });
       return { attempted: result.recorded, outcome: result.recorded ? "api_error" : undefined, reason: result.recorded ? (error as Error).message : "a webhook or another worker already recorded this attempt's outcome — refusing to overwrite it" };
     }
   }
 
+  if (intent.status === "succeeded" && !newFlowPaymentIntentEvidenceMatches(intent, {
+    bookingId, attemptId, customerId, amountMinor, currency,
+  })) {
+    const result = await recordOutcome("processing", {
+      failureMessage: "Successful payment evidence mismatch; reconciliation required",
+    });
+    return {
+      attempted: result.recorded,
+      outcome: result.recorded ? "processing" : undefined,
+      reason: "Successful payment evidence requires reconciliation",
+    };
+  }
+
   if (intent.status === "succeeded") {
-    const result = await recordChargeOutcome(bookingId, attemptId, claimToken, "succeeded", { providerPaymentIntentId: intent.id });
+    const result = await recordOutcome("succeeded", { providerPaymentIntentId: intent.id, successIntent: intent, paymentMethodId });
     return { attempted: result.recorded, outcome: result.recorded ? "succeeded" : undefined, reason: result.recorded ? undefined : "a webhook or another worker already recorded this attempt's outcome — refusing to overwrite it" };
   }
+  if (intent.status !== "requires_payment_method" &&
+      !newFlowPaymentIntentEvidenceMatches(intent, {
+        bookingId, attemptId, customerId, amountMinor, currency,
+      })) {
+    const result = await recordOutcome("processing", {
+      failureMessage: "Non-success payment evidence mismatch; reconciliation required",
+    });
+    return {
+      attempted: result.recorded,
+      outcome: result.recorded ? "processing" : undefined,
+      reason: "Provider evidence requires reconciliation",
+    };
+  }
+
   if (intent.status === "requires_action") {
-    const result = await recordChargeOutcome(bookingId, attemptId, claimToken, "requires_action", { providerPaymentIntentId: intent.id });
+    const result = await recordOutcome("requires_action", { providerPaymentIntentId: intent.id });
     return { attempted: result.recorded, outcome: result.recorded ? "requires_action" : undefined, reason: result.recorded ? undefined : "a webhook or another worker already recorded this attempt's outcome — refusing to overwrite it" };
   }
   if (intent.status === "processing") {
-    const result = await recordChargeOutcome(bookingId, attemptId, claimToken, "processing", { providerPaymentIntentId: intent.id });
+    const result = await recordOutcome("processing", { providerPaymentIntentId: intent.id });
     return { attempted: result.recorded, outcome: result.recorded ? "processing" : undefined, reason: result.recorded ? undefined : "a webhook or another worker already recorded this attempt's outcome — refusing to overwrite it" };
   }
-  // requires_payment_method (a genuine decline), or any other terminal-ish
-  // non-success state.
-  const declineCode = intent.last_payment_error?.decline_code ?? intent.last_payment_error?.code;
-  const failResult = await recordChargeOutcome(bookingId, attemptId, claimToken, "failed", {
-    providerPaymentIntentId: intent.id,
-    failureCode: declineCode,
-    failureMessage: intent.last_payment_error?.message,
-  });
-  if (!failResult.recorded) {
-    // The compare-and-set write was correctly rejected — most
-    // importantly, this is exactly what stops a late decline result
-    // from ever downgrading an attempt a webhook already confirmed
-    // succeeded. The real-world outcome (the guest was actually
-    // charged) stands; this worker's own belated "failed" observation
-    // is simply not the authoritative one.
-    return { attempted: false, reason: "a webhook or another worker already recorded this attempt's outcome — refusing to overwrite it with a late failure" };
+  if (intent.status === "requires_payment_method") {
+    // This PaymentIntent can still be reused; a decline does not prove
+    // terminal nonpayment or authorize creation of another PaymentIntent.
+    const verifiedIdentity = newFlowPaymentIntentEvidenceMatches(intent, {
+      bookingId, attemptId, customerId, amountMinor, currency,
+    });
+    const result = await recordOutcome("processing", {
+      ...(verifiedIdentity ? { providerPaymentIntentId: intent.id } : {}),
+      failureCode: intent.last_payment_error?.decline_code ?? intent.last_payment_error?.code,
+      failureMessage: intent.last_payment_error?.message ?? "Declined payment requires reconciliation",
+    });
+    return {
+      attempted: result.recorded,
+      outcome: result.recorded ? "processing" : undefined,
+      reason: "Declined PaymentIntent requires reconciliation; automatic retry is blocked",
+    };
   }
-  return { attempted: true, outcome: "failed", reason: intent.last_payment_error?.message };
+
+  // Separate reconciliation records verified terminal nonpayment.
+  // This worker never authorizes replay from a canceled provider response.
+  const result = await recordOutcome("processing", {
+    providerPaymentIntentId: intent.id,
+    failureMessage: "Provider status requires reconciliation: " + intent.status,
+  });
+  return {
+    attempted: result.recorded,
+    outcome: result.recorded ? "processing" : undefined,
+    reason: "Provider outcome requires reconciliation; automatic retry is blocked",
+  };
 }
 
 /** Finds separate_charges_delayed_v1 bookings whose scheduled charge date
- *  has arrived and which have no succeeded attempt yet — the sweep's
+ *  has arrived and which have no payment attempt yet — the sweep's
  *  read-only "what's due" query, mirroring findExpiredHoldBookingIds()'s
  *  established pattern exactly. */
 export async function findBookingsDueForScheduledCharge(): Promise<string[]> {
@@ -394,7 +520,7 @@ export async function findBookingsDueForScheduledCharge(): Promise<string[]> {
        AND b.scheduled_charge_date <= NOW()
        AND (b.grace_period_started_at IS NULL OR b.hold_expires_at > NOW())
        AND (b.next_retry_at IS NULL OR b.next_retry_at <= NOW())
-       AND NOT EXISTS (SELECT 1 FROM payment_attempts pa WHERE pa.booking_id = b.id AND pa.status = 'succeeded')
+       AND NOT EXISTS (SELECT 1 FROM payment_attempts pa WHERE pa.booking_id = b.id)
      LIMIT 200`
   );
   return result.rows.map((r) => r.id);
@@ -437,6 +563,13 @@ export async function computeGuestPaymentStatus(
   booking: { paymentFlowVersion: string; hasPaymentMethod: boolean; status: string; gracePeriodStartedAt: string | Date | null; scheduledChargeDate: Date | null }
 ): Promise<GuestPaymentStatus | null> {
   if (booking.paymentFlowVersion !== "separate_charges_delayed_v1") return null;
+
+  const refundEvidence = await db.query(
+    `SELECT ${newFlowRefundDisplaySql} AS refunds FROM bookings b WHERE b.id = $1`,
+    [bookingId]
+  );
+  const refundDisplay = deriveNewFlowRefundDisplay(refundEvidence.rows[0]?.refunds ?? []);
+  if (refundDisplay) return refundDisplay;
 
   const attemptRow = await db.query(
     `SELECT status, created_at FROM payment_attempts WHERE booking_id = $1 ORDER BY attempt_number DESC LIMIT 1`,

@@ -4,7 +4,7 @@
  * Replaces the previous inline `node -e` one-liner, which blindly
  * re-ran every migration file on every invocation. That worked only by
  * accident, because every migration after 002 was deliberately written
- * with an idempotent DO $$ ... EXCEPTION WHEN duplicate_object pattern —
+ * with an idempotent DO $$ ... EXCEPTION WHEN duplicate_object pattern â€”
  * migration 002 itself predates that discipline and genuinely fails on
  * a second run (ADD CONSTRAINT fk_properties_cancellation_policy has no
  * such guard). Confirmed as the real, reported cause of `npm run
@@ -13,23 +13,23 @@
  * Fixed with a schema_migrations ledger: only migrations not already
  * recorded are executed, each wrapped in its own transaction, and a
  * migration is recorded as applied ONLY after that transaction has
- * genuinely committed — never marked complete on a failure, a partial
+ * genuinely committed â€” never marked complete on a failure, a partial
  * run, or a rollback.
  *
  * BOOTSTRAPPING AN EXISTING, PRE-LEDGER DATABASE: the very first time
  * this runner meets a database that was already fully migrated by the
  * old, ledger-less runner, none of its migrations have a ledger entry
  * yet. For each such migration, this script genuinely attempts to
- * apply it — if the object it creates already exists (a duplicate
+ * apply it â€” if the object it creates already exists (a duplicate
  * table/column/constraint/etc. error, the exact class of error the
  * reported bug produces), that is direct, positive evidence this exact
  * migration already ran successfully at some earlier point before the
  * ledger existed. In that specific, narrow case only, the attempt is
  * rolled back (never left partially applied) and the ledger entry is
- * backfilled to reflect what the database's own state already proves —
+ * backfilled to reflect what the database's own state already proves â€”
  * logged clearly, every time, so this is never silent. Any OTHER kind
  * of failure (a genuine syntax error, a real schema conflict, a
- * connection drop) is NOT treated this way — it aborts the run loudly,
+ * connection drop) is NOT treated this way â€” it aborts the run loudly,
  * exactly as a real migration failure should.
  *
  * A genuinely fresh, empty database is unaffected by any of this: the
@@ -110,10 +110,24 @@ const MIGRATION_FILES = [
   "033_property_vat_rates.sql",
   "034_hotel_rooms.sql",
   "035_hotel_lifecycle.sql",
+  "036_new_flow_refund_safety.sql",
+  "037_new_flow_refund_execution_safety.sql",
+  "038_transfer_execution_leases.sql",
+  "039_cancellation_host_settlements.sql",
+  "040_booking_authorization_audit_lock.sql",
+  "041_audit_log_object_lookup.sql",
+  "042_cancellation_settlement_queue_reviews.sql",
+  "043_new_flow_payment_queue_reviews.sql",
+  "044_new_flow_refund_queue_reviews.sql",
+  "045_host_transfer_queue_reviews.sql",
+  "046_transfer_reversal_queue_reviews.sql",
+  "047_financial_runner_heartbeats.sql",
+  "048_setup_review_cases.sql",
+  "049_setup_review_digest_deliveries.sql",
 ];
 
 // Postgres SQLSTATE codes for "the object this statement tries to
-// create already exists" — the specific, narrow class of error that
+// create already exists" â€” the specific, narrow class of error that
 // justifies the bootstrap inference above. Anything else propagates as
 // a genuine failure.
 const DUPLICATE_OBJECT_SQLSTATES = new Set([
@@ -146,20 +160,20 @@ export type MigrationRunResult = { filename: string; outcome: "applied" | "skipp
  * using the ledger + bootstrap logic described above. Exported
  * separately from the top-level, self-executing script entry point so
  * it can be exercised directly by tests against a real, disposable
- * test database — the same discipline used throughout this project for
+ * test database â€” the same discipline used throughout this project for
  * database-backed logic.
  */
 /**
  * Splits a SQL file's text into individual statements, correctly
  * respecting dollar-quoted blocks ($$...$$ or $tag$...$tag$, used by
- * this project's PL/pgSQL trigger functions — migrations 010 and 013),
+ * this project's PL/pgSQL trigger functions â€” migrations 010 and 013),
  * single-quoted string literals (with '' as an escaped quote), and both
- * comment styles — none of these can be split on a semicolon found
+ * comment styles â€” none of these can be split on a semicolon found
  * inside them. Needed for the per-statement bootstrap verification
  * below: the whole-file, single-query fast path can't distinguish
  * "this whole migration was already applied" from "only this one
  * early statement happens to already exist, but later statements in
- * this same file were never actually run" — splitting into real,
+ * this same file were never actually run" â€” splitting into real,
  * individual statements is what makes that distinction possible.
  */
 export function splitSqlStatements(sql: string): string[] {
@@ -211,7 +225,7 @@ export function splitSqlStatements(sql: string): string[] {
 
     if (ch === "'") { inSingleQuote = true; current += ch; i++; continue; }
 
-    // Dollar-quote opening: $$ or $tag$ — a $ followed by an optional
+    // Dollar-quote opening: $$ or $tag$ â€” a $ followed by an optional
     // identifier, then another $.
     if (ch === "$") {
       const match = /^\$[A-Za-z_]*\$/.exec(sql.slice(i));
@@ -243,7 +257,7 @@ export function splitSqlStatements(sql: string): string[] {
  * migration whose whole-file attempt failed with a duplicate-object
  * error, by re-attempting it one real SQL statement at a time inside
  * savepoints. Never infers that the whole file is done from one
- * statement's failure — each statement is individually either
+ * statement's failure â€” each statement is individually either
  * genuinely (re-)applied or confirmed already present.
  *
  * Returns "bootstrapped" if every statement was already present (a
@@ -251,7 +265,7 @@ export function splitSqlStatements(sql: string): string[] {
  * "completed" if at least one statement was genuinely new and just got
  * applied for the first time (safely finishing a partially-applied
  * legacy migration), or "aborted" if any statement failed for a
- * reason OTHER than already existing — in which case nothing is
+ * reason OTHER than already existing â€” in which case nothing is
  * recorded as applied, matching the explicit requirement that a
  * partially-verified migration is never marked complete.
  */
@@ -270,24 +284,24 @@ async function verifyOrCompleteStatementByStatement(pool: Pool, filename: string
       } catch (err: any) {
         await client.query("ROLLBACK TO SAVEPOINT stmt_verify");
         if (!(err.code && DUPLICATE_OBJECT_SQLSTATES.has(err.code))) {
-          // A genuine, unexpected failure on a specific statement — this
+          // A genuine, unexpected failure on a specific statement â€” this
           // migration cannot be safely verified or completed. Roll back
           // everything from this attempt and record nothing.
           await client.query("ROLLBACK");
           return "aborted";
         }
-        // This specific statement's object already exists — confirmed,
-        // not inferred — continue to the next statement.
+        // This specific statement's object already exists â€” confirmed,
+        // not inferred â€” continue to the next statement.
       }
     }
 
-    // EXPLICIT SCHEMA VERIFICATION — the critical fix for a real,
+    // EXPLICIT SCHEMA VERIFICATION â€” the critical fix for a real,
     // audited defect: a statement succeeding (including a genuine,
     // no-op CREATE TABLE IF NOT EXISTS against an already-existing
     // table) does NOT prove that table has every column, constraint,
     // index, function, or trigger this migration is supposed to
     // introduce. Postgres's IF NOT EXISTS only checks the object's
-    // NAME — if an earlier, partial run created a table with fewer
+    // NAME â€” if an earlier, partial run created a table with fewer
     // columns than this migration's own CREATE TABLE statement defines,
     // re-running that exact statement here silently no-ops, never
     // adding the missing columns, and no error of any kind is thrown
@@ -296,12 +310,12 @@ async function verifyOrCompleteStatementByStatement(pool: Pool, filename: string
     // Verified directly against a committed, positively-generated
     // manifest (scripts/migrationSchemaManifest.json, produced by
     // scripts/generateMigrationManifest.ts against a real, fresh
-    // reference database — never by parsing this SQL file's text) —
+    // reference database â€” never by parsing this SQL file's text) â€”
     // this is querying Postgres's own system catalogs for the ACTUAL,
     // current schema, not inferring anything from the migration source.
     //
     // If anything is still missing after the statement-by-statement
-    // pass above, this migration is NOT recorded — a missing column's
+    // pass above, this migration is NOT recorded â€” a missing column's
     // exact type, nullability, and default cannot be safely
     // reconstructed from catalog metadata alone (the manifest records
     // whether a default exists, not its expression), so guessing a
@@ -312,7 +326,7 @@ async function verifyOrCompleteStatementByStatement(pool: Pool, filename: string
     const manifest = loadManifest(manifestPath);
     const requiredEntry = manifest[filename];
     if (requiredEntry) {
-      // Must query via THIS transaction's own client, not the pool —
+      // Must query via THIS transaction's own client, not the pool â€”
       // this transaction's own, not-yet-committed work (the statements
       // just genuinely applied above) must be visible to this check.
       const actual = await captureSchemaSnapshot(client);
@@ -368,7 +382,7 @@ export async function runMigrations(pool: Pool, migrationsDir: string, migration
         if (err.code && DUPLICATE_OBJECT_SQLSTATES.has(err.code)) {
           // FOUND AND FIXED: the whole-file attempt failing with a
           // duplicate-object error does NOT prove the entire migration
-          // was already applied — only that ONE statement's object
+          // was already applied â€” only that ONE statement's object
           // already exists. A migration with several statements could
           // have had its first object created in an earlier, genuinely
           // partial run, while later statements in the same file were
@@ -377,7 +391,7 @@ export async function runMigrations(pool: Pool, migrationsDir: string, migration
           // completeness from this single failure.
           const outcome = await verifyOrCompleteStatementByStatement(pool, filename, sql, migrationFiles, manifestPath);
           if (outcome === "aborted") {
-            throw new Error(`${filename}: could not be safely completed or verified statement-by-statement — a genuine, non-duplicate error occurred partway through. Not recorded as applied.`);
+            throw new Error(`${filename}: could not be safely completed or verified statement-by-statement â€” a genuine, non-duplicate error occurred partway through. Not recorded as applied.`);
           }
           results.push({ filename, outcome });
         } else {
@@ -400,8 +414,8 @@ async function main() {
   const results = await runMigrations(pool, MIGRATIONS_DIR, MIGRATION_FILES);
   for (const r of results) {
     if (r.outcome === "skipped") console.log(`Skipping ${r.filename} (already applied)`);
-    else if (r.outcome === "bootstrapped") console.log(`${r.filename}: verified statement-by-statement — every object it creates already existed in this database. Ledger entry backfilled without re-running anything.`);
-    else if (r.outcome === "completed") console.log(`${r.filename}: was only partially applied to this database — safely completed the missing statements and recorded it.`);
+    else if (r.outcome === "bootstrapped") console.log(`${r.filename}: verified statement-by-statement â€” every object it creates already existed in this database. Ledger entry backfilled without re-running anything.`);
+    else if (r.outcome === "completed") console.log(`${r.filename}: was only partially applied to this database â€” safely completed the missing statements and recorded it.`);
     else console.log(`Running ${r.filename}`);
   }
   await pool.end();

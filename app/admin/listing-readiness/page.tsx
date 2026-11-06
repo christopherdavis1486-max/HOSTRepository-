@@ -261,6 +261,12 @@ export default function AdminListingReadinessPage() {
             >
               {ht("Admin security")}
             </a>
+<a
+              href="/admin/financial-report"
+              style={{ color: "#c4a98b" }}
+            >
+              {ht("Financial report")}
+            </a>
 
             <a
               href="/admin/property-compliance"

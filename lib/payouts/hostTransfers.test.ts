@@ -145,3 +145,39 @@ test("attemptRelease is a genuine no-op while ENABLE_HOST_TRANSFER_EXECUTION is 
   assert.equal(row.rows[0].status, "transfer_claimed", "the status must remain exactly where claimEntitlement() left it");
   assert.equal(row.rows[0].provider_transfer_id, null, "no transfer ID must ever appear while the flag is off");
 });
+
+test("SAFETY: a cancelled booking cannot have its host entitlement claimed", async () => {
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const { bookingId, hostProfileId } = await setupBookingWithHost(suffix);
+
+  const entitlementId = await createEntitlement({
+    bookingId,
+    hostId: hostProfileId,
+    amountMinor: 10000,
+    taxAmountMinor: null,
+    currency: "GBP",
+    scheduledReleaseAt: new Date(Date.now() - 3600000),
+  });
+
+  assert.ok(entitlementId);
+
+  await db.query(
+    `UPDATE bookings SET status = 'cancelled' WHERE id = $1`,
+    [bookingId]
+  );
+
+  const claimed = await claimEntitlement(entitlementId!, "worker-after-cancellation");
+
+  assert.equal(
+    claimed,
+    false,
+    "a cancelled booking must never allow its entitlement to be claimed"
+  );
+
+  const row = await db.query(
+    `SELECT status FROM host_transfer_entitlements WHERE id = $1`,
+    [entitlementId]
+  );
+
+  assert.equal(row.rows[0].status, "entitled");
+});

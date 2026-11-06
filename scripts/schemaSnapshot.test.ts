@@ -78,3 +78,72 @@ test("a successor cannot excuse a missing historical object or an unknown functi
   actual.functions.set("hotel_guard", "unrecognized definition");
   assert.equal(schemaSatisfiesWithSuccessors(actual, required, [successor]).complete, false);
 });
+
+function constraintSuccessorScenario() {
+  const required = emptySnapshot();
+  required.constraints.set(
+    "new_flow_refunds_status_check",
+    "CHECK (status IN ('pending', 'succeeded', 'failed'))"
+  );
+
+  const successor = emptySnapshot();
+  successor.constraints.set(
+    "new_flow_refunds_status_check",
+    "CHECK (status IN ('pending', 'processing', 'succeeded', 'failed'))"
+  );
+  successor.indexes.set(
+    "new_flow_refunds_execution_claim_idx",
+    "CREATE INDEX new_flow_refunds_execution_claim_idx ON new_flow_refunds (status)"
+  );
+
+  const actual = emptySnapshot();
+  actual.constraints.set(
+    "new_flow_refunds_status_check",
+    successor.constraints.get("new_flow_refunds_status_check")!
+  );
+  actual.indexes.set(
+    "new_flow_refunds_execution_claim_idx",
+    successor.indexes.get("new_flow_refunds_execution_claim_idx")!
+  );
+
+  return { actual, required, successor };
+}
+
+test("a verified successor may replace a historical refund status constraint", () => {
+  const { actual, required, successor } = constraintSuccessorScenario();
+
+  assert.equal(
+    schemaSatisfiesWithSuccessors(actual, required, [successor]).complete,
+    true
+  );
+
+  assert.match(
+    required.constraints.get("new_flow_refunds_status_check")!,
+    /'pending', 'succeeded', 'failed'/
+  );
+});
+
+test("an incorrect refund status constraint is rejected", () => {
+  const { actual, required, successor } = constraintSuccessorScenario();
+
+  actual.constraints.set(
+    "new_flow_refunds_status_check",
+    "CHECK (false)"
+  );
+
+  assert.equal(
+    schemaSatisfiesWithSuccessors(actual, required, [successor]).complete,
+    false
+  );
+});
+
+test("an incomplete successor cannot replace a historical refund constraint", () => {
+  const { actual, required, successor } = constraintSuccessorScenario();
+
+  actual.indexes.clear();
+
+  assert.equal(
+    schemaSatisfiesWithSuccessors(actual, required, [successor]).complete,
+    false
+  );
+});

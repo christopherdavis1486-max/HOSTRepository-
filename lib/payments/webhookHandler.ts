@@ -120,7 +120,13 @@ async function onPaymentSucceeded(intent: Stripe.PaymentIntent) {
   }
 
 const shouldNotify = await withTransaction(async (client) => {   
-const payment = await client.query(`SELECT status FROM payments WHERE provider_payment_intent_id = $1 FOR UPDATE`, [intent.id]);
+const payment = await client.query(
+      "SELECT booking_id, status FROM payments WHERE provider_payment_intent_id = $1 FOR UPDATE",
+      [intent.id]
+    );
+    if (payment.rows.length !== 1 || payment.rows[0].booking_id !== bookingId) {
+      throw new Error("Matching legacy payment reference required; payment outcome needs review.");
+    }
     if (payment.rows.length > 0 && payment.rows[0].status === "paid") return false; // already processed — idempotent no-op
 
     await client.query(`UPDATE payments SET status = 'paid', updated_at = NOW() WHERE provider_payment_intent_id = $1`, [intent.id]);
@@ -197,21 +203,32 @@ const payment = await client.query(`SELECT status FROM payments WHERE provider_p
 }
 
 async function onPaymentFailed(intent: Stripe.PaymentIntent) {
-  await db.query(
-    `UPDATE payments SET status = 'failed', failure_code = $2, failure_message = $3, updated_at = NOW()
-     WHERE provider_payment_intent_id = $1`,
-    [intent.id, intent.last_payment_error?.code ?? null, intent.last_payment_error?.message ?? null]
-  );
-  // Booking deliberately stays 'pending_payment' here, not 'cancelled' —
-  // the guest may retry with a different payment method before the hold
-  // expires. The expiry sweep (createBooking.ts's releaseExpiredHold) is
-  // what actually cancels it if no successful payment follows.
   const bookingId = intent.metadata?.booking_id;
-  if (bookingId) {
-    const booking = await db.query(`SELECT guest_id FROM bookings WHERE id = $1`, [bookingId]);
-    if (booking.rows.length > 0) {
-      await notifyUser(booking.rows[0].guest_id, "payment_failed", { bookingRef: bookingId });
-    }
+  if (!bookingId) return;
+
+  // A failed attempt does not prove cancellation of an unresolved intent.
+  // Apply the state guard atomically so stale failures cannot undo payment
+  // success or refund completion, including concurrent webhook delivery.
+  const updated = await db.query(
+    `UPDATE payments
+     SET status = 'failed', failure_code = $2, failure_message = $3, updated_at = NOW()
+     WHERE provider_payment_intent_id = $1
+       AND booking_id = $4
+       AND provider = 'stripe'
+       AND status IN ('pending', 'processing', 'failed')
+       AND failure_code IS DISTINCT FROM 'legacy_intent_creation_reserved'
+     RETURNING booking_id`,
+    [intent.id, intent.last_payment_error?.code ?? null,
+     intent.last_payment_error?.message ?? null, bookingId]
+  );
+  if (updated.rows.length !== 1) return;
+
+  // An accepted failure leaves the booking pending until retry or expiry.
+  const booking = await db.query(
+    "SELECT guest_id FROM bookings WHERE id = $1", [bookingId]
+  );
+  if (booking.rows.length > 0) {
+    await notifyUser(booking.rows[0].guest_id, "payment_failed", { bookingRef: bookingId });
   }
 }
 

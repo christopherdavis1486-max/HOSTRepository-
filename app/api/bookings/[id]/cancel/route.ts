@@ -25,7 +25,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       success: true,
       ...result,
-      warning: result.refundError ? "Booking was cancelled, but the refund could not be initiated automatically and needs manual follow-up." : undefined,
+      warning: [
+        result.refundError
+          ? "Booking was cancelled, but the refund could not be initiated automatically and needs manual follow-up."
+          : null,
+        result.notificationError
+          ? "Booking was cancelled, but cancellation notifications could not be fully delivered and need follow-up."
+          : null,
+      ].filter(Boolean).join(" ") || undefined,
     });
   } catch (error) {
     if (error instanceof AuthError) {

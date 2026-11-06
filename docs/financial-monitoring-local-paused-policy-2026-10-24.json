@@ -1,0 +1,36 @@
+{
+  "maxSnapshotAgeMs": 30000,
+  "maxHeartbeatAgeMs": 60000,
+  "operations": {
+    "settlement_execute": {
+      "expectedState": "paused"
+    },
+    "settlement_reconcile": {
+      "expectedState": "paused"
+    },
+    "payment_reconcile": {
+      "expectedState": "paused"
+    },
+    "missing_refund_recover": {
+      "expectedState": "paused"
+    },
+    "refund_execute": {
+      "expectedState": "paused"
+    },
+    "refund_reconcile": {
+      "expectedState": "paused"
+    },
+    "transfer_execute": {
+      "expectedState": "paused"
+    },
+    "transfer_reconcile": {
+      "expectedState": "paused"
+    },
+    "reversal_execute": {
+      "expectedState": "paused"
+    },
+    "reversal_reconcile": {
+      "expectedState": "paused"
+    }
+  }
+}

@@ -18,6 +18,7 @@ export type TemplateContext = {
   checkOut?: string;
   bookingRef?: string;
   refundAmount?: string;
+  refundStatus?: "requested" | "initiated" | "needs_review";
   checkInTime?: string;
   checkInInstructions?: string;
   /** FOUND during Batch 8's audit: no notification type has ever
@@ -50,7 +51,7 @@ export function renderNotification(type: NotificationType, ctx: TemplateContext)
     case "booking_cancelled":
       return {
         subject: `Your booking at ${ctx.propertyName} has been cancelled`,
-        body: `Your booking (${ctx.bookingRef}) has been cancelled.${ctx.refundAmount ? ` A refund of ${ctx.refundAmount} has been initiated.` : ""}`,
+        body: `Your booking (${ctx.bookingRef}) has been cancelled.${ctx.refundAmount ? ` A refund of ${ctx.refundAmount} ${ctx.refundStatus === "needs_review" ? "needs review because initiation could not be confirmed; please contact support" : ctx.refundStatus === "requested" ? "has been requested and is awaiting processing" : "has been initiated"}.` : ""}`,
       };
     case "refund_issued":
       return {

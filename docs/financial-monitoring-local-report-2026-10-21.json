@@ -1,0 +1,262 @@
+{
+  "scope": "local_read_only_financial_monitoring_rehearsal",
+  "recordedAt": "2026-10-21T21:10:44.166Z",
+  "exitCode": 2,
+  "policy": {
+    "maxSnapshotAgeMs": 60000,
+    "maxHeartbeatAgeMs": 60000,
+    "operations": {}
+  },
+  "policyPurpose": "Rehearsal only; no production thresholds or runner states selected",
+  "assertions": "queue available; heartbeat schema unavailable; all ten operations require explicit policy",
+  "report": {
+    "scope": "monitoring_metadata_only",
+    "assessedAt": "2026-10-21T21:10:44.153Z",
+    "queue": {
+      "status": "available",
+      "assessment": {
+        "observedAt": "2026-10-21T21:10:44.148Z",
+        "assessedAt": "2026-10-21T21:10:44.153Z",
+        "status": "observed",
+        "operations": [
+          {
+            "operation": "missing_refund_recover",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "payment_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "refund_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "refund_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "reversal_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "reversal_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "settlement_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "settlement_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "transfer_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          },
+          {
+            "operation": "transfer_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        ]
+      }
+    },
+    "heartbeat": {
+      "status": "unavailable",
+      "reason": "schema_unavailable"
+    },
+    "operations": [
+      {
+        "operation": "settlement_execute",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "settlement_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "settlement_reconcile",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "settlement_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "payment_reconcile",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "payment_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "missing_refund_recover",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "missing_refund_recover",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "refund_execute",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "refund_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "refund_reconcile",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "refund_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "transfer_execute",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "transfer_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "transfer_reconcile",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "transfer_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "reversal_execute",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "reversal_execute",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      },
+      {
+        "operation": "reversal_reconcile",
+        "expectedState": "unknown",
+        "queue": {
+          "status": "observed",
+          "assessment": {
+            "operation": "reversal_reconcile",
+            "expectedState": "unknown",
+            "disposition": "configuration_required",
+            "observations": []
+          }
+        },
+        "heartbeat": {
+          "status": "unavailable",
+          "reason": "schema_unavailable"
+        }
+      }
+    ]
+  }
+}

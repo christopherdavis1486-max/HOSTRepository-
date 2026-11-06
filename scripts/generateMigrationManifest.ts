@@ -62,6 +62,20 @@ const MIGRATION_FILES = [
   "033_property_vat_rates.sql",
   "034_hotel_rooms.sql",
   "035_hotel_lifecycle.sql",
+  "036_new_flow_refund_safety.sql",
+  "037_new_flow_refund_execution_safety.sql",
+  "038_transfer_execution_leases.sql",
+  "039_cancellation_host_settlements.sql",
+  "040_booking_authorization_audit_lock.sql",
+  "041_audit_log_object_lookup.sql",
+  "042_cancellation_settlement_queue_reviews.sql",
+  "043_new_flow_payment_queue_reviews.sql",
+  "044_new_flow_refund_queue_reviews.sql",
+  "045_host_transfer_queue_reviews.sql",
+  "046_transfer_reversal_queue_reviews.sql",
+  "047_financial_runner_heartbeats.sql",
+  "048_setup_review_cases.sql",
+  "049_setup_review_digest_deliveries.sql",
 ];
 
 function serializeSnapshot(snapshot: SchemaSnapshot) {
@@ -90,7 +104,7 @@ function serializeSnapshot(snapshot: SchemaSnapshot) {
 async function main() {
   if (!process.env.DATABASE_URL) {
     console.error(
-      "DATABASE_URL is not set — point this at a fresh, disposable database."
+      "DATABASE_URL is not set â€” point this at a fresh, disposable database."
     );
     process.exit(1);
   }

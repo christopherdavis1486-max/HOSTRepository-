@@ -1,0 +1,213 @@
+{
+  "scope": "disposable_logged_table_index_lock_and_failure_cleanup",
+  "observedAt": "2026-10-21T18:19:04.249Z",
+  "database": "host_index_rehearsal_e3dc86aec852d64a",
+  "scales": [
+    10000
+  ],
+  "cases": [
+    {
+      "count": 10000,
+      "table": "refunds",
+      "scenario": "regular_build_write_block",
+      "blockedCode": "55P03",
+      "blockedMs": 109.94500000000005,
+      "assertions": "writer blocked while build transaction held lock; writer recovered after commit; index removed"
+    },
+    {
+      "count": 10000,
+      "table": "refunds",
+      "scenario": "concurrent_timeout_cleanup",
+      "failureCode": "55P03",
+      "failureMs": 205.54380000000003,
+      "failedIndexState": {
+        "indisvalid": false,
+        "indisready": false
+      },
+      "rebuiltIndexState": {
+        "indisvalid": true,
+        "indisready": true
+      },
+      "assertions": "timeout observed; invalid index inspected and removed; valid concurrent rebuild and final removal passed"
+    },
+    {
+      "count": 10000,
+      "table": "payouts",
+      "scenario": "regular_build_write_block",
+      "blockedCode": "55P03",
+      "blockedMs": 114.3923000000002,
+      "assertions": "writer blocked while build transaction held lock; writer recovered after commit; index removed"
+    },
+    {
+      "count": 10000,
+      "table": "payouts",
+      "scenario": "concurrent_timeout_cleanup",
+      "failureCode": "55P03",
+      "failureMs": 213.07270000000017,
+      "failedIndexState": {
+        "indisvalid": false,
+        "indisready": false
+      },
+      "rebuiltIndexState": {
+        "indisvalid": true,
+        "indisready": true
+      },
+      "assertions": "timeout observed; invalid index inspected and removed; valid concurrent rebuild and final removal passed"
+    }
+  ],
+  "sourceSchemas": [
+    {
+      "table": "refunds",
+      "columns": [
+        {
+          "attname": "id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "booking_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "payment_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "provider_refund_id",
+          "type": "text",
+          "attnotnull": false
+        },
+        {
+          "attname": "amount_minor",
+          "type": "integer",
+          "attnotnull": true
+        },
+        {
+          "attname": "currency",
+          "type": "character(3)",
+          "attnotnull": true
+        },
+        {
+          "attname": "reason",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "initiated_by",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "status",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "created_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        },
+        {
+          "attname": "updated_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "refunds_pkey",
+          "indexdef": "CREATE UNIQUE INDEX refunds_pkey ON public.refunds USING btree (id)"
+        }
+      ]
+    },
+    {
+      "table": "payouts",
+      "columns": [
+        {
+          "attname": "id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "host_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "booking_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "provider_transfer_id",
+          "type": "text",
+          "attnotnull": false
+        },
+        {
+          "attname": "provider_payout_id",
+          "type": "text",
+          "attnotnull": false
+        },
+        {
+          "attname": "amount_minor",
+          "type": "integer",
+          "attnotnull": true
+        },
+        {
+          "attname": "currency",
+          "type": "character(3)",
+          "attnotnull": true
+        },
+        {
+          "attname": "status",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "scheduled_release_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        },
+        {
+          "attname": "released_at",
+          "type": "timestamp with time zone",
+          "attnotnull": false
+        },
+        {
+          "attname": "created_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        },
+        {
+          "attname": "updated_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "payouts_pkey",
+          "indexdef": "CREATE UNIQUE INDEX payouts_pkey ON public.payouts USING btree (id)"
+        },
+        {
+          "indexname": "payouts_status_release_idx",
+          "indexdef": "CREATE INDEX payouts_status_release_idx ON public.payouts USING btree (status, scheduled_release_at)"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Synthetic logged tables, 10000 rows; one controlled lock scenario per table/mode.",
+    "Regular-build transaction deliberately retains its table lock after build completion.",
+    "Concurrent failure is induced by a pre-existing writer and a 200ms lock timeout.",
+    "This does not measure sustained workload, production migration timing or all concurrent-build failure phases.",
+    "Application tables, financial workers and providers are not modified or invoked."
+  ],
+  "server": {
+    "version": "PostgreSQL 16.15, compiled by Visual C++ build 1944, 64-bit",
+    "synchronous_commit": "on"
+  },
+  "disposableDatabaseRemoved": true
+}

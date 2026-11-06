@@ -57,6 +57,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   const [showConfirm, setShowConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelNotice, setCancelNotice] = useState<{ bookingId: string; message: string } | null>(null);
   const [historyAction, setHistoryAction] = useState<"discard" | "archive" | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
@@ -108,6 +109,11 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
         setCancelling(false);
         return;
       }
+      setCancelNotice(
+        typeof data.warning === "string" && data.warning.trim()
+          ? { bookingId, message: data.warning.trim() }
+          : null
+      );
       setShowConfirm(false);
       setCancelling(false);
       loadBooking(); // refresh with the real, backend-confirmed post-cancellation state
@@ -150,11 +156,21 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   // real Stripe webhook has updated it.
   const latestRefund = booking?.refunds?.[0];
   let refundStateLabel: string | null = null;
-  if (booking?.status === "cancelled" || booking?.status === "refunded") {
-    if (!latestRefund) refundStateLabel = "No refund due";
+  if (booking?.paymentFlowVersion === "separate_charges_delayed_v1") {
+    const refundStatuses = [
+      "refund_requested", "refund_processing", "refund_needs_review",
+      "refund_failed", "refunded", "partially_refunded",
+    ];
+    if (booking.guestPaymentStatus && refundStatuses.includes(booking.guestPaymentStatus)) {
+      refundStateLabel = formatStatus(booking.guestPaymentStatus);
+    } else if (booking.status === "cancelled" || booking.status === "refunded") {
+      refundStateLabel = "No refund recorded";
+    }
+  } else if (booking?.status === "cancelled" || booking?.status === "refunded") {
+    if (!latestRefund) refundStateLabel = "No refund recorded";
     else if (latestRefund.status === "succeeded") refundStateLabel = "Refund completed";
     else if (latestRefund.status === "pending") refundStateLabel = "Refund processing";
-    else if (latestRefund.status === "failed") refundStateLabel = "Refund failed — support required";
+    else if (latestRefund.status === "failed") refundStateLabel = "Refund failed - support required";
   }
 
   return (
@@ -228,6 +244,14 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
       `}</style>
 
       <div className="top-link"><a href="/trips">← Back to My Trips</a></div>
+
+      {cancelNotice?.bookingId === bookingId && (
+        <div className="wrap" style={{ paddingBottom: 16 }}>
+          <div className="card" role="alert" style={{ borderColor: "var(--brass)" }}>
+            <p style={{ margin: 0, lineHeight: 1.6 }}>{cancelNotice.message}</p>
+          </div>
+        </div>
+      )}
 
       {loadState === "loading" && <div className="state-block">{gt("loadingTrip")}</div>}
 
@@ -312,10 +336,10 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
           {refundStateLabel && (
             <div className="card">
               <h2>{gt("refundStatus")}</h2>
-              <span className={`refund-badge ${refundStateLabel === "Refund completed" ? "completed" : refundStateLabel === "Refund failed — support required" ? "failed" : "processing"}`}>
+              <span className={`refund-badge ${["Refund completed", "Refunded", "Partially refunded"].includes(refundStateLabel) ? "completed" : refundStateLabel === "Refund failed - support required" ? "failed" : "processing"}`}>
                 {refundStateLabel}
               </span>
-              {latestRefund && refundStateLabel !== "No refund due" && (
+              {latestRefund && refundStateLabel !== "No refund due" && refundStateLabel !== "No refund recorded" && (
                 <p className="policy-note" style={{ marginTop: 10 }}>
                   {formatCurrency(latestRefund.amountMinor, latestRefund.currency)}
                 </p>

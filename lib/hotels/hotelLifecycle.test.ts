@@ -98,3 +98,50 @@ test("room photos and management access cannot cross property ownership",async()
  const {resolveHostPropertyAccess}=await import("../auth/hostAccess");
  await assert.rejects(resolveHostPropertyAccess({user:{id:f.input.guestId,hostProfileId:crypto.randomUUID(),roles:["host"]},expires:"2099-01-01"} as any,f.propertyId),/permission/);
 });
+
+
+test("hotel cancellation stays on the legacy flow and preserves another booking and host closure", async () => {
+  const originalFlag = process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+  process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
+  try {
+    const f = await fixture(3);
+    const first = await createBooking({ ...f.input, roomQuantity: 2, guests: 4 });
+    const second = await createBooking({ ...f.input, idempotencyKey: crypto.randomUUID() });
+    const flow = await db.query(
+      "SELECT payment_flow_version FROM bookings WHERE id = $1",
+      [first.id]
+    );
+    assert.equal(flow.rows[0].payment_flow_version, "destination_charge_legacy");
+
+    const before = await roomNights(db, f.roomId, f.input.checkIn, f.input.checkOut);
+    assert.equal(before.length, 2);
+    assert.ok(before.every(night => night.reserved === 3));
+    await db.query(
+      "INSERT INTO availability_blocks(property_id,date,status,source) VALUES($1,$2,'blocked','host')",
+      [f.propertyId, f.input.checkIn]
+    );
+    const closureBefore = await db.query(
+      "SELECT * FROM availability_blocks WHERE property_id = $1 ORDER BY date",
+      [f.propertyId]
+    );
+    const otherBefore = await db.query("SELECT * FROM bookings WHERE id = $1", [second.id]);
+
+    await cancelBooking({ bookingId: first.id, cancelledBy: "guest" });
+
+    const after = await roomNights(db, f.roomId, f.input.checkIn, f.input.checkOut);
+    assert.equal(after.length, 2);
+    assert.ok(after.every(night => night.reserved === 1));
+    const closureAfter = await db.query(
+      "SELECT * FROM availability_blocks WHERE property_id = $1 ORDER BY date",
+      [f.propertyId]
+    );
+    assert.deepEqual(closureAfter.rows, closureBefore.rows);
+    const otherAfter = await db.query("SELECT * FROM bookings WHERE id = $1", [second.id]);
+    assert.deepEqual(otherAfter.rows, otherBefore.rows);
+    const cancelled = await db.query("SELECT status FROM bookings WHERE id = $1", [first.id]);
+    assert.equal(cancelled.rows[0].status, "cancelled");
+  } finally {
+    if (originalFlag === undefined) delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+    else process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = originalFlag;
+  }
+});

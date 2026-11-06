@@ -1,5 +1,9 @@
-import { db } from "../db";
+import { db, withTransaction } from "../db";
+import { transferFinancialEligibility, withHostTransferProviderLock } from "./withHostTransferProviderLock";
+export { withHostTransferProviderLock, type HostTransferExecutionSnapshot } from "./withHostTransferProviderLock";
 import crypto from "crypto";
+import type { PoolClient } from "pg";
+import type Stripe from "stripe";
 import { stripe } from "../payments/stripeClient";
 import { isHostTransferExecutionEnabled } from "../config/featureFlags";
 
@@ -19,7 +23,7 @@ import { isHostTransferExecutionEnabled } from "../config/featureFlags";
  * it is never inferred from them.
  */
 
-export type EntitlementStatus = "entitled" | "release_due" | "transfer_claimed" | "transfer_created" | "transfer_failed" | "cancelled_before_transfer";
+export type EntitlementStatus = "entitled" | "release_due" | "transfer_claimed" | "transfer_created" | "transfer_failed" | "cancelled_before_transfer" | "transfer_processing" | "transfer_reconciliation_required" | "cancellation_settlement_required";
 
 /** Called only after a real payment_attempts row shows status='succeeded'
  *  — never at charge time, never automatically as a side effect of a
@@ -28,9 +32,9 @@ export type EntitlementStatus = "entitled" | "release_due" | "transfer_claimed" 
 export async function createEntitlement(input: {
   bookingId: string; hostId: string; amountMinor: number; taxAmountMinor: number | null;
   currency: string; scheduledReleaseAt: Date;
-}) {
+}, client?: PoolClient) {
   const idempotencyKey = crypto.createHash("sha256").update(`host-transfer-entitlement:${input.bookingId}`).digest("hex");
-  const result = await db.query(
+  const result = await (client ?? db).query(
     `INSERT INTO host_transfer_entitlements (booking_id, host_id, amount_minor, tax_amount_minor, currency, status, scheduled_release_at, idempotency_key)
      VALUES ($1, $2, $3, $4, $5, 'entitled', $6, $7)
      ON CONFLICT (booking_id) DO NOTHING
@@ -65,35 +69,36 @@ export async function claimEntitlement(entitlementId: string, workerId: string):
     `UPDATE host_transfer_entitlements
      SET status = 'transfer_claimed', claimed_at = NOW(), claimed_by_worker_id = $2, updated_at = NOW()
      WHERE id = $1 AND status = 'entitled'
+       AND EXISTS (
+         SELECT 1 FROM bookings b
+         WHERE b.id = host_transfer_entitlements.booking_id
+           AND b.status = 'confirmed'
+       )
      RETURNING id`,
     [entitlementId, workerId]
   );
   return result.rows.length > 0;
 }
 
-/**
- * Batch 9B-1: real Stripe SDK logic, replacing the prior deliberate
- * stub. The flag check remains the absolute first thing this function
- * does — before any other logic, any database read, or any Stripe call
- * — exactly as it was in the stub version, now simply followed by real
- * work instead of a thrown placeholder error.
- *
- * Only ever called on an entitlement already moved to
- * 'transfer_claimed' by claimEntitlement()'s atomic claim — this
- * function does not re-claim or re-check the release-due invariants
- * itself; that separation of concerns (find/claim vs. execute) already
- * existed in the stub and is unchanged.
+/** Executes only after the independent transfer gate is enabled.
+ * Rechecks booking status, release time and refunds before atomically
+ * claiming execution. Completes provider lookup and validates transfer
+ * evidence before recording success. Uncertain outcomes require
+ * reconciliation and cannot automatically execute again.
  */
+
 export async function attemptRelease(entitlementId: string): Promise<{ attempted: boolean; reason?: string; providerTransferId?: string }> {
   if (!isHostTransferExecutionEnabled()) {
     return { attempted: false, reason: "ENABLE_HOST_TRANSFER_EXECUTION is not set — real transfer creation is disabled" };
   }
 
   const row = await db.query(
-    `SELECT hte.id, hte.status, hte.amount_minor, hte.currency, hte.idempotency_key, hte.provider_transfer_id, hp.stripe_connect_account_id
+    `SELECT hte.id, hte.booking_id, hte.host_id, hte.status, hte.amount_minor, hte.currency, hte.idempotency_key, hte.provider_transfer_id, hp.stripe_connect_account_id
      FROM host_transfer_entitlements hte
      JOIN host_profiles hp ON hp.id = hte.host_id
-     WHERE hte.id = $1`,
+     JOIN bookings b ON b.id = hte.booking_id
+     WHERE hte.id = $1
+       AND b.status = 'confirmed'`,
     [entitlementId]
   );
   if (row.rows.length === 0) return { attempted: false, reason: "entitlement not found" };
@@ -109,36 +114,164 @@ export async function attemptRelease(entitlementId: string): Promise<{ attempted
     return { attempted: false, reason: "host has no connected Stripe account" };
   }
 
-  // Reconciliation before creating: ask Stripe directly whether a
-  // transfer with this exact idempotency key already exists, rather than
-  // assuming our own local state is authoritative — the same discipline
-  // already established in lib/payments/refund.ts's initiateRefund().
-  const existingTransfers = await stripe.transfers.list({ destination: e.stripe_connect_account_id, limit: 20 });
-  const reconciled = existingTransfers.data.find((t) => t.metadata?.host_entitlement_id === entitlementId);
-
-  let transfer;
-  if (reconciled) {
-    transfer = reconciled;
-  } else {
-    try {
-      transfer = await stripe.transfers.create(
-        {
-          amount: e.amount_minor,
-          currency: e.currency.toLowerCase(),
-          destination: e.stripe_connect_account_id,
-          metadata: { host_entitlement_id: entitlementId },
-        },
-        { idempotencyKey: e.idempotency_key }
-      );
-    } catch (error) {
-      await db.query(`UPDATE host_transfer_entitlements SET status = 'transfer_failed', updated_at = NOW() WHERE id = $1`, [entitlementId]);
-      return { attempted: true, reason: (error as Error).message };
+  const executionToken = crypto.randomUUID();
+  const executionClaimed = await withTransaction(async (client) => {
+    // Cancellation must use this same booking-first lock order.
+    const booking = await client.query(
+      `SELECT b.id, b.status
+       FROM bookings b
+       WHERE b.id = (
+         SELECT booking_id FROM host_transfer_entitlements WHERE id = $1
+       )
+       FOR UPDATE OF b`,
+      [entitlementId]
+    );
+    if (booking.rows.length !== 1 || booking.rows[0].status !== "confirmed") {
+      return false;
     }
+
+    const claim = await client.query(
+      `UPDATE host_transfer_entitlements
+       SET status = 'transfer_processing', updated_at = NOW(),
+           execution_token = $2, execution_started_at = clock_timestamp(),
+           execution_lease_expires_at = clock_timestamp() + INTERVAL '5 minutes'
+       WHERE id = $1
+         AND status = 'transfer_claimed'
+         AND provider_transfer_id IS NULL
+         AND scheduled_release_at <= clock_timestamp()
+         AND NOT EXISTS (
+           SELECT 1 FROM refunds r
+           WHERE r.booking_id = host_transfer_entitlements.booking_id
+             AND r.status IN ('pending', 'processing', 'succeeded')
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM new_flow_refunds r
+           WHERE r.booking_id = host_transfer_entitlements.booking_id
+         )
+       ${transferFinancialEligibility(3, 4, 5, 6)}
+       RETURNING id`,
+      [entitlementId, executionToken, e.amount_minor, e.currency, e.idempotency_key, e.stripe_connect_account_id]
+    );
+    return claim.rowCount === 1;
+  });
+
+  if (!executionClaimed) {
+    return {
+      attempted: false,
+      reason: "transfer execution already started or release is no longer eligible",
+    };
   }
 
-  await db.query(
-    `UPDATE host_transfer_entitlements SET status = 'transfer_created', provider_transfer_id = $2, updated_at = NOW() WHERE id = $1`,
-    [entitlementId, transfer.id]
-  );
-  return { attempted: true, providerTransferId: transfer.id };
+  try {
+    if (
+      !Number.isSafeInteger(e.amount_minor) || e.amount_minor <= 0 ||
+      typeof e.currency !== "string" || !/^[a-zA-Z]{3}$/.test(e.currency.trim()) ||
+      typeof e.stripe_connect_account_id !== "string" ||
+      !e.stripe_connect_account_id.startsWith("acct_")
+    ) {
+      throw new Error("Invalid expected transfer details");
+    }
+
+    let reconciled: Stripe.Transfer | null = null;
+    let cursor: string | undefined;
+    const seenCursors = new Set<string>();
+    let lookupComplete = false;
+    for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
+      const page = await stripe.transfers.list({
+        destination: e.stripe_connect_account_id,
+        limit: 100,
+        ...(cursor ? { starting_after: cursor } : {}),
+      });
+      if (!Array.isArray(page.data) || typeof page.has_more !== "boolean") {
+        throw new Error("Incomplete transfer lookup response");
+      }
+      for (const candidate of page.data) {
+        if (candidate.metadata?.host_entitlement_id === entitlementId) {
+          if (reconciled) throw new Error("Duplicate transfers match this entitlement");
+          reconciled = candidate;
+        }
+      }
+      if (!page.has_more) {
+        lookupComplete = true;
+        break;
+      }
+      const nextCursor = page.data.at(-1)?.id;
+      if (!nextCursor || seenCursors.has(nextCursor)) {
+        throw new Error("Incomplete or repeating transfer pagination cursor");
+      }
+      seenCursors.add(nextCursor);
+      cursor = nextCursor;
+    }
+    if (!lookupComplete) throw new Error("Transfer pagination limit reached");
+    const ownership = await db.query(
+      `SELECT id FROM host_transfer_entitlements
+       WHERE id = $1 AND status = 'transfer_processing'
+         AND execution_token = $2 AND provider_transfer_id IS NULL
+         AND execution_lease_expires_at > clock_timestamp()
+         ${transferFinancialEligibility(3, 4, 5, 6)}`,
+      [entitlementId, executionToken, e.amount_minor, e.currency, e.idempotency_key, e.stripe_connect_account_id]
+    );
+    if (ownership.rowCount !== 1) throw new Error("Transfer execution lease is no longer active");
+    const transfer = reconciled ?? await withHostTransferProviderLock({
+      entitlementId, bookingId: e.booking_id, hostId: e.host_id,
+      executionToken, amountMinor: e.amount_minor, currency: e.currency,
+      idempotencyKey: e.idempotency_key, destination: e.stripe_connect_account_id,
+    }, () => {
+      if (!isHostTransferExecutionEnabled()) {
+        throw new Error("Transfer execution disabled before provider creation");
+      }
+      return stripe.transfers.create(
+      {
+        amount: e.amount_minor,
+        currency: e.currency.trim().toLowerCase(),
+        destination: e.stripe_connect_account_id,
+        metadata: { host_entitlement_id: entitlementId },
+      },
+      { idempotencyKey: e.idempotency_key, timeout: 20000, maxNetworkRetries: 0 }
+    );
+    });
+
+    const destination = typeof transfer.destination === "string"
+      ? transfer.destination
+      : transfer.destination?.id;
+    if (
+      typeof transfer.id !== "string" || !/^tr_[a-zA-Z0-9_]+$/.test(transfer.id) ||
+      transfer.amount !== e.amount_minor ||
+      typeof transfer.currency !== "string" ||
+      transfer.currency.toLowerCase() !== e.currency.trim().toLowerCase() ||
+      destination !== e.stripe_connect_account_id ||
+      transfer.metadata?.host_entitlement_id !== entitlementId ||
+      transfer.reversed !== false || transfer.amount_reversed !== 0
+    ) {
+      throw new Error("Stripe transfer evidence does not match the entitlement");
+    }
+
+    const recorded = await db.query(
+      `UPDATE host_transfer_entitlements
+       SET status = 'transfer_created', provider_transfer_id = $2, updated_at = NOW(),
+           execution_token = NULL, execution_lease_expires_at = NULL
+       WHERE id = $1 AND status = 'transfer_processing'
+         AND provider_transfer_id IS NULL AND execution_token = $3
+         AND execution_lease_expires_at > clock_timestamp()
+         ${transferFinancialEligibility(4, 5, 6, 7)}
+       RETURNING id`,
+      [entitlementId, transfer.id, executionToken, e.amount_minor, e.currency, e.idempotency_key, e.stripe_connect_account_id]
+    );
+    if (recorded.rowCount !== 1) {
+      throw new Error("Transfer outcome could not be recorded");
+    }
+    return { attempted: true, providerTransferId: transfer.id };
+  } catch (error) {
+    await db.query(
+      `UPDATE host_transfer_entitlements
+       SET status = 'transfer_reconciliation_required', updated_at = NOW(),
+           execution_lease_expires_at = NULL
+       WHERE id = $1 AND status = 'transfer_processing' AND execution_token = $2`,
+      [entitlementId, executionToken]
+    );
+    return {
+      attempted: true,
+      reason: "Transfer outcome requires reconciliation: " + (error as Error).message,
+    };
+  }
 }

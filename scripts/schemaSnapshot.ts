@@ -199,11 +199,23 @@ export function schemaSatisfiesWithSuccessors(
   successors: SchemaSnapshot[]
 ) {
   const functions = new Map(required.functions);
+  const constraints = new Map(required.constraints);
+
   for (const successor of successors) {
     if (!schemaSatisfies(actual, successor).complete) continue;
+
     for (const [name, definition] of successor.functions) {
       if (functions.has(name)) functions.set(name, definition);
     }
+
+    for (const [name, definition] of successor.constraints) {
+      if (constraints.has(name)) constraints.set(name, definition);
+    }
   }
-  return schemaSatisfies(actual, { ...required, functions });
+
+  return schemaSatisfies(actual, {
+    ...required,
+    functions,
+    constraints,
+  });
 }

@@ -1,4 +1,6 @@
-import { withTransaction } from "../db";
+import { db, withTransaction } from "../db";
+import { cancelUnchargedNewFlowBooking } from "./cancelUnchargedNewFlowBooking";
+import { cancelPaidNewFlowBooking } from "./cancelPaidNewFlowBooking";
 import { hashToBigint } from "../utils/advisoryLock";
 import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 import { calculateCancellation } from "./cancellationEngine";
@@ -33,6 +35,13 @@ export async function cancelBooking(input: CancelBookingInput) {
     );
     if (bookingResult.rows.length === 0) throw new BookingError("BOOKING_NOT_FOUND", "Booking does not exist");
     const b = bookingResult.rows[0];
+    if (b.payment_flow_version === "separate_charges_delayed_v1") {
+      throw new BookingError(
+        "NOT_CANCELLABLE",
+        "This booking requires the new payment-flow cancellation process."
+      );
+    }
+
 
     if (!["confirmed", "pending_payment"].includes(b.status)) {
       throw new BookingError("NOT_CANCELLABLE", `Booking status '${b.status}' cannot be cancelled`);
@@ -115,7 +124,15 @@ export async function cancelBooking(input: CancelBookingInput) {
  *  the caller (and eventually a support/ops view) can see the refund
  *  needs manual attention rather than assuming the whole action failed. */
 export async function cancelBookingAndRefund(input: CancelBookingInput) {
-  const result = await cancelBooking(input);
+  const flow = await db.query(
+    "SELECT payment_flow_version, status FROM bookings WHERE id = $1",
+    [input.bookingId]
+  );
+  const result = flow.rows[0]?.payment_flow_version === "separate_charges_delayed_v1"
+    ? flow.rows[0].status === "confirmed"
+      ? await cancelPaidNewFlowBooking(input)
+      : await cancelUnchargedNewFlowBooking(input)
+    : await cancelBooking(input);
   let refundError: string | null = null;
   if (result.refundInitiated) {
     try {
@@ -131,8 +148,21 @@ export async function cancelBookingAndRefund(input: CancelBookingInput) {
   // Notify regardless of whether a refund applied — a 0%-refund
   // cancellation still needs to tell the guest their booking is cancelled.
   const refundAmountFormatted = result.outcome.refundableMinor > 0
-    ? `${(result.outcome.refundableMinor / 100).toFixed(2)} ${result.refundInitiated?.currency ?? ""}`.trim()
+    ? `${(result.outcome.refundableMinor / 100).toFixed(2)} ${result.refundInitiated?.currency ?? ("currency" in result ? result.currency : "")}`.trim()
     : undefined;
-  await sendBookingCancelledMessage(input.bookingId, refundAmountFormatted);
-  return { ...result, refundError };
+  const refundStatus = refundError
+    ? "needs_review" as const
+    : "refundRequested" in result && result.refundRequested
+      ? "requested" as const : "initiated" as const;
+  let notificationError: string | null = null;
+  try {
+    await sendBookingCancelledMessage(input.bookingId, refundAmountFormatted, refundStatus);
+  } catch (err) {
+    notificationError = err instanceof Error ? err.message : "Cancellation notification failed.";
+    console.error("[HOST cancelBookingAndRefund] cancellation succeeded but notification failed", {
+      bookingId: input.bookingId,
+      error: notificationError,
+    });
+  }
+  return { ...result, refundError, notificationError };
 }

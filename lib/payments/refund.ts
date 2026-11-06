@@ -1,5 +1,6 @@
 import { stripe } from "./stripeClient";
-import { db } from "../db";
+import { db, withTransaction } from "../db";
+import { sessionLockPool } from "../db/sessionPool";
 
 export type InitiateRefundInput = {
   bookingId: string;
@@ -49,42 +50,128 @@ export type InitiateRefundInput = {
  * refund.idempotency.test.ts's reconciliation test.
  */
 export async function initiateRefund(input: InitiateRefundInput) {
-  const existingAttempt = await db.query(
-    `SELECT id, provider_refund_id FROM refunds
-     WHERE booking_id = $1 AND payment_id = $2 AND amount_minor = $3 AND reason = $4
-       AND status = 'pending'
-     ORDER BY created_at DESC LIMIT 1`,
-    [input.bookingId, input.paymentId, input.amountMinor, input.reason]
-  );
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
+    throw new Error("Refund amount must be a positive integer.");
+  }
 
-  let refundRowId: string;
-  let isRetryOfUnresolvedAttempt = false;
-  if (existingAttempt.rows.length > 0 && !existingAttempt.rows[0].provider_refund_id) {
-    // A prior attempt inserted the row but never recorded a
-    // provider_refund_id — either Stripe was never reached, or it
-    // succeeded and we crashed before saving the result. Either way,
-    // reusing this row's id as the idempotency key is safe: if Stripe
-    // never actually processed it, this is simply the first real
-    // attempt; if it did, Stripe returns the original result instead of
-    // creating a duplicate (within the key retention window), or the
-    // reconciliation lookup below finds it directly (outside that window).
-    refundRowId = existingAttempt.rows[0].id;
-    isRetryOfUnresolvedAttempt = true;
-  } else {
-    const inserted = await db.query(
+  // A session lock covers provider work without keeping a transaction open.
+  // Do not wait: another executor may be handling an uncertain provider result.
+  const client = await sessionLockPool().connect();
+  const lockKey = "legacy-refund-execution:" + input.paymentId;
+  let locked = false;
+  let discardConnection = false;
+  try {
+    const result = await client.query(
+      "SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked",
+      [lockKey]
+    );
+    locked = result.rows[0]?.locked === true;
+    if (!locked) {
+      throw new Error("Refund execution is already in progress for this payment; retry later.");
+    }
+    return await initiateRefundLocked(input);
+  } finally {
+    if (locked) {
+      try {
+        const result = await client.query(
+          "SELECT pg_advisory_unlock(hashtextextended($1, 0)) AS unlocked",
+          [lockKey]
+        );
+        discardConnection = result.rows[0]?.unlocked !== true;
+      } catch {
+        discardConnection = true;
+      }
+    }
+    client.release(discardConnection);
+  }
+}
+
+async function initiateRefundLocked(input: InitiateRefundInput) {
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
+    throw new Error("Refund amount must be a positive integer.");
+  }
+
+  const { refundRowId, isRetryOfUnresolvedAttempt } = await withTransaction(async (client) => {
+    // Serialize balance checks and reservations for every caller of this service.
+    const paymentResult = await client.query(
+      `SELECT id, booking_id, provider_payment_intent_id, amount_minor, currency, status
+       FROM payments WHERE id = $1 FOR UPDATE`,
+      [input.paymentId]
+    );
+    const payment = paymentResult.rows[0];
+    if (!payment ||
+        payment.booking_id !== input.bookingId ||
+        payment.provider_payment_intent_id !== input.providerPaymentIntentId ||
+        String(payment.currency).trim().toUpperCase() !== input.currency.trim().toUpperCase()) {
+      throw new Error("Refund payment details do not match.");
+    }
+    if (!["paid", "partially_refunded"].includes(payment.status)) {
+      throw new Error("Payment is not eligible for a refund.");
+    }
+
+    const existingAttempt = await client.query(
+      `SELECT id, provider_refund_id FROM refunds
+       WHERE booking_id = $1 AND payment_id = $2 AND amount_minor = $3 AND reason = $4
+         AND status = 'pending'
+       ORDER BY created_at DESC LIMIT 1`,
+      [input.bookingId, input.paymentId, input.amountMinor, input.reason]
+    );
+
+    if (existingAttempt.rows.length > 0 && !existingAttempt.rows[0].provider_refund_id) {
+      return {
+        refundRowId: existingAttempt.rows[0].id as string,
+        isRetryOfUnresolvedAttempt: true,
+      };
+    }
+
+    const reservedResult = await client.query(
+      `SELECT COALESCE(SUM(amount_minor), 0) AS total FROM refunds
+       WHERE payment_id = $1 AND status IN ('pending', 'succeeded')`,
+      [input.paymentId]
+    );
+    const remaining = Number(payment.amount_minor) - Number(reservedResult.rows[0].total);
+    if (input.amountMinor > remaining) {
+      throw new Error("Refund amount exceeds the remaining refundable balance.");
+    }
+
+    const inserted = await client.query(
       `INSERT INTO refunds (booking_id, payment_id, amount_minor, currency, reason, initiated_by, status)
        VALUES ($1,$2,$3,$4,$5,$6,'pending') RETURNING id`,
       [input.bookingId, input.paymentId, input.amountMinor, input.currency, input.reason, input.initiatedBy]
     );
-    refundRowId = inserted.rows[0].id;
-  }
+    return {
+      refundRowId: inserted.rows[0].id as string,
+      isRetryOfUnresolvedAttempt: false,
+    };
+  });
 
   let stripeRefund;
   if (isRetryOfUnresolvedAttempt) {
-    const existingRefunds = await stripe.refunds.list({ payment_intent: input.providerPaymentIntentId, limit: 20 });
-    const reconciled = existingRefunds.data.find((r) => r.metadata?.host_refund_id === refundRowId);
-    if (reconciled) {
-      stripeRefund = reconciled;
+    let startingAfter: string | undefined;
+    const seenCursors = new Set<string>();
+    for (let pageNumber = 0; ; pageNumber++) {
+      if (pageNumber >= 100) {
+        throw new Error("Refund recovery search limit reached; refusing to create another refund.");
+      }
+      const existingRefunds = await stripe.refunds.list({
+        payment_intent: input.providerPaymentIntentId,
+        limit: 20,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+      const reconciled = existingRefunds.data.find(
+        (r) => r.metadata?.host_refund_id === refundRowId
+      );
+      if (reconciled) {
+        stripeRefund = reconciled;
+        break;
+      }
+      if (!existingRefunds.has_more) break;
+      const cursor = existingRefunds.data[existingRefunds.data.length - 1]?.id;
+      if (!cursor || seenCursors.has(cursor)) {
+        throw new Error("Refund recovery pagination did not advance; refusing to create another refund.");
+      }
+      seenCursors.add(cursor);
+      startingAfter = cursor;
     }
   }
 

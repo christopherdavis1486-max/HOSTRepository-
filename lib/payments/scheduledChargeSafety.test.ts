@@ -148,3 +148,24 @@ test("NO STRIPE IDENTIFIERS EXPOSED: getBookingDetail's response never contains 
   assert.equal("stripePaymentMethodId" in detail, false);
   assert.equal("stripeSetupIntentId" in detail, false);
 });
+
+for (const status of ["pending", "processing", "requires_action", "failed", "cancelled"]) {
+  test("scheduled sweep excludes existing payment attempt: " + status, async () => {
+    const suffix = crypto.randomBytes(8).toString("hex");
+    const bookingId = await createNewFlowBooking(suffix, new Date(Date.now() - 86400000));
+    await db.query(
+      "INSERT INTO payment_attempts (booking_id, attempt_number, status, amount_minor, currency, idempotency_key) VALUES ($1, 1, $2, 25500, 'GBP', $3)",
+      [bookingId, status, "sweep-existing-" + suffix]
+    );
+    await db.query(
+      "UPDATE bookings SET next_retry_at = NOW() - INTERVAL '1 hour' WHERE id = $1", [bookingId]
+    );
+    const before = (await db.query(
+      "SELECT * FROM payment_attempts WHERE booking_id = $1", [bookingId]
+    )).rows;
+    assert.equal((await findBookingsDueForScheduledCharge()).includes(bookingId), false);
+    assert.deepEqual((await db.query(
+      "SELECT * FROM payment_attempts WHERE booking_id = $1", [bookingId]
+    )).rows, before);
+  });
+}

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "crypto";
 import { db } from "../db";
 import { createBooking } from "./createBooking";
+import { cancelBooking } from "./cancelBooking";
 import { findBookingsDueForScheduledCharge } from "../payments/scheduledCharges";
 import { findReleaseDueEntitlementIds } from "../payouts/hostTransfers";
 
@@ -102,4 +103,70 @@ test("ISOLATION: a legacy booking (with no entitlement row at all) never appears
   const entitlementCheck = await db.query(`SELECT COUNT(*) FROM host_transfer_entitlements WHERE booking_id = $1`, [booking.id]);
   assert.equal(Number(entitlementCheck.rows[0].count), 0, "no entitlement row must ever exist for a legacy booking");
   assert.equal(dueIds.length >= 0, true);
+});
+
+
+test("SECURITY: new-flow booking cannot enter legacy cancellation", async () => {
+  const previousFlag = process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+  process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
+
+  try {
+    const suffix = crypto.randomBytes(4).toString("hex");
+    const { propertyId, guestId } = await createTestPropertyAndGuest(suffix);
+
+    const booking = await createBooking({
+      propertyId, guestId,
+      checkIn: "2026-12-20", checkOut: "2026-12-22",
+      guests: 1,
+      guestName: "New Flow Cancellation Guard",
+      guestEmail: "new-flow-guard@test.host",
+      idempotencyKey: crypto.randomUUID(),
+    });
+
+    const beforeBooking = await db.query(
+      `SELECT status, payment_flow_version FROM bookings WHERE id = $1`,
+      [booking.id]
+    );
+    assert.equal(beforeBooking.rows[0].payment_flow_version, "separate_charges_delayed_v1");
+    assert.equal(beforeBooking.rows[0].status, "pending_payment");
+
+    const beforeInventory = await db.query(
+      `SELECT date, status, source FROM availability_blocks
+       WHERE property_id = $1 ORDER BY date`,
+      [propertyId]
+    );
+
+    await assert.rejects(
+      () => cancelBooking({ bookingId: booking.id, cancelledBy: "guest" }),
+      (error: unknown) => (error as { code?: string }).code === "NOT_CANCELLABLE"
+    );
+
+    const afterBooking = await db.query(
+      `SELECT status, payment_flow_version FROM bookings WHERE id = $1`,
+      [booking.id]
+    );
+    assert.deepEqual(afterBooking.rows, beforeBooking.rows);
+
+    const afterInventory = await db.query(
+      `SELECT date, status, source FROM availability_blocks
+       WHERE property_id = $1 ORDER BY date`,
+      [propertyId]
+    );
+    assert.deepEqual(afterInventory.rows, beforeInventory.rows);
+
+    const audit = await db.query(
+      `SELECT COUNT(*) FROM audit_log
+       WHERE object_type = 'booking'
+         AND object_id = $1
+         AND action = 'booking_cancelled'`,
+      [booking.id]
+    );
+    assert.equal(Number(audit.rows[0].count), 0);
+  } finally {
+    if (previousFlag === undefined) {
+      delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+    } else {
+      process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = previousFlag;
+    }
+  }
 });

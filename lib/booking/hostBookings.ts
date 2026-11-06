@@ -1,3 +1,4 @@
+import { newFlowPayoutLabel } from "../presentation/newFlowPayout";
 import { db } from "../db";
 import { computeGuestPaymentStatus } from "../payments/scheduledCharges";
 
@@ -91,13 +92,24 @@ export async function getHostBookingDetail(bookingId: string) {
        bpc.taxes_minor, bpc.guest_total_minor, bpc.host_commission_minor, bpc.host_payout_minor,
        pay.status AS payment_status,
        po.status AS payout_status,
-       hte.status AS entitlement_status
+       hte.status AS entitlement_status,
+       settlement.status AS settlement_status, settlement.count AS settlement_count,
+       settlement.amount_minor AS settlement_amount_minor,
+       settlement.currency AS settlement_currency,
+       settlement.original_minor AS settlement_original_minor,
+       hte.amount_minor AS entitlement_amount_minor, hte.currency AS entitlement_currency
      FROM bookings b
      JOIN properties p ON p.id = b.property_id
      LEFT JOIN booking_price_components bpc ON bpc.booking_id = b.id
      LEFT JOIN payments pay ON pay.booking_id = b.id
      LEFT JOIN payouts po ON po.booking_id = b.id
      LEFT JOIN host_transfer_entitlements hte ON hte.booking_id = b.id
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS count, MIN(status) AS status,
+         MIN(amount_minor) AS amount_minor, MIN(currency::text) AS currency,
+         MIN(original_host_amount_minor) AS original_minor
+       FROM cancellation_host_settlements WHERE booking_id = b.id
+     ) settlement ON TRUE
      WHERE b.id = $1`,
     [bookingId]
   );
@@ -112,6 +124,15 @@ export async function getHostBookingDetail(bookingId: string) {
     scheduledChargeDate: row.scheduled_charge_date,
   });
 
+  const payoutEvidenceMismatch = row.payment_flow_version === "separate_charges_delayed_v1" &&
+    row.entitlement_amount_minor != null && (
+      row.entitlement_amount_minor !== row.host_payout_minor ||
+      String(row.entitlement_currency).trim().toUpperCase() !== String(row.currency).trim().toUpperCase() ||
+      (row.settlement_count === 1 && (
+        row.settlement_original_minor !== row.entitlement_amount_minor ||
+        String(row.settlement_currency).trim().toUpperCase() !== String(row.entitlement_currency).trim().toUpperCase()
+      ))
+    );
   return {
     id: row.id,
     propertyId: row.property_id,
@@ -130,6 +151,19 @@ export async function getHostBookingDetail(bookingId: string) {
     guestPaymentStatus,
     payoutStatus: row.payout_status,
     entitlementStatus: row.entitlement_status,
+    payoutEvidenceMismatch,
+    recordedRetainedSettlement: row.payment_flow_version === "separate_charges_delayed_v1" &&
+      row.settlement_count === 1 ? {
+        amountMinor: row.settlement_amount_minor,
+        currency: row.settlement_currency,
+        status: row.settlement_status,
+      } : null,
+    payoutDisplayLabel: row.payment_flow_version === "separate_charges_delayed_v1"
+      ? payoutEvidenceMismatch ? "Payout needs review" : newFlowPayoutLabel({
+          entitlementStatus: row.entitlement_status,
+          settlementStatus: row.settlement_status,
+          settlementCount: row.settlement_count,
+        }) : null,
     breakdown: row.currency ? {
       currency: row.currency,
       accommodationMinor: row.accommodation_minor,

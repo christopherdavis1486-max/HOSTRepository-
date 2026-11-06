@@ -115,3 +115,44 @@ test("archived bookings are excluded by default, included with includeArchived=t
   const withArchived = await listBookingsForGuest(guestId, true);
   assert.ok(withArchived.some((t: any) => t.id === bookingId));
 });
+
+
+test("legacy discard refuses an unresolved pending payment", async () => {
+  const suffix = crypto.randomBytes(8).toString("hex");
+  const f = await createTestBooking(suffix);
+  await db.query(
+    "UPDATE bookings SET status = 'pending_payment' WHERE id = $1",
+    [f.bookingId]
+  );
+  await db.query(
+    "INSERT INTO payments (booking_id, provider, provider_payment_intent_id, status, amount_minor, currency) VALUES ($1, 'stripe', $2, 'pending', 30000, 'GBP')",
+    [f.bookingId, "pi_discard_pending_" + suffix]
+  );
+  const beforeBooking = (await db.query(
+    "SELECT * FROM bookings WHERE id = $1", [f.bookingId]
+  )).rows;
+  const beforePayment = (await db.query(
+    "SELECT * FROM payments WHERE booking_id = $1", [f.bookingId]
+  )).rows;
+  const beforeAudit = (await db.query(
+    "SELECT * FROM audit_log WHERE object_id = $1 ORDER BY id", [f.bookingId]
+  )).rows;
+
+  const { discardUnpaidBooking } = await import("../booking/discardUnpaidBooking");
+  await assert.rejects(
+    discardUnpaidBooking(f.bookingId, f.guestId),
+    (error: unknown) => error instanceof Error &&
+      "code" in error && error.code === "PAYMENT_EXISTS",
+    "An unresolved payment must block discard"
+  );
+
+  assert.deepEqual((await db.query(
+    "SELECT * FROM bookings WHERE id = $1", [f.bookingId]
+  )).rows, beforeBooking);
+  assert.deepEqual((await db.query(
+    "SELECT * FROM payments WHERE booking_id = $1", [f.bookingId]
+  )).rows, beforePayment);
+  assert.deepEqual((await db.query(
+    "SELECT * FROM audit_log WHERE object_id = $1 ORDER BY id", [f.bookingId]
+  )).rows, beforeAudit);
+});

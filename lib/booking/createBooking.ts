@@ -1,6 +1,7 @@
 import { db, withTransaction } from "../db";
 import { calculatePrice, nightsBetween, getActiveFeeConfig } from "./priceEngine";
 import { BookingError } from "./types";
+import { unpaidNewFlowCancellationEligibility } from "./unpaidNewFlowCancellationEligibility";
 import { isHotelType } from "../hotels/schemas";
 import { quoteRoom } from "../hotels/quote";
 import { isDelayedChargeBookingCreationEnabled } from "../config/featureFlags";
@@ -223,6 +224,46 @@ export async function findExpiredHoldBookingIds(): Promise<string[]> {
      WHERE status = 'pending_payment'
        AND hold_expires_at IS NOT NULL
        AND hold_expires_at <= NOW()
+       AND NOT EXISTS (
+         SELECT 1 FROM payments reserved_payment
+         WHERE reserved_payment.booking_id = bookings.id
+           AND reserved_payment.failure_code = 'legacy_intent_creation_reserved'
+       )
+       AND (
+         payment_flow_version <> 'separate_charges_delayed_v1'
+         OR (
+           NOT EXISTS (SELECT 1 FROM host_transfer_entitlements e WHERE e.booking_id = bookings.id)
+           AND NOT EXISTS (SELECT 1 FROM new_flow_refunds f WHERE f.booking_id = bookings.id)
+           AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.booking_id = bookings.id)
+           AND NOT EXISTS (SELECT 1 FROM refunds f WHERE f.booking_id = bookings.id)
+           AND NOT EXISTS (SELECT 1 FROM payouts p WHERE p.booking_id = bookings.id)
+           AND (
+             NOT EXISTS (SELECT 1 FROM payment_attempts p WHERE p.booking_id = bookings.id)
+             OR (
+               (SELECT COUNT(*) FROM payment_attempts p WHERE p.booking_id = bookings.id) = 1
+               AND EXISTS (
+                 SELECT 1 FROM payment_attempts p
+                 JOIN booking_price_components pc ON pc.booking_id = p.booking_id
+                 JOIN audit_log a ON a.object_id = p.id
+                 WHERE p.booking_id = bookings.id AND p.status = 'cancelled'
+                   AND p.claim_token IS NULL AND p.lease_expires_at IS NULL
+                   AND p.provider_payment_intent_id ~ '^pi_[A-Za-z0-9_]+$'
+                   AND p.amount_minor > 0 AND p.amount_minor = pc.guest_total_minor
+                   AND LOWER(TRIM(p.currency)) = LOWER(TRIM(pc.currency))
+                   AND a.action = 'payment_attempt_reconciled'
+                   AND a.object_type = 'payment_attempt'
+                   AND a.previous_state->>'status' IN ('pending', 'processing', 'requires_action', 'failed')
+                   AND a.new_state->>'status' = 'cancelled'
+                   AND a.new_state->>'reconciliationOutcome' = 'cancelled_unpaid'
+                   AND a.new_state->>'bookingId' = bookings.id::text
+                   AND a.new_state->>'providerPaymentIntentId' = p.provider_payment_intent_id
+                   AND a.new_state->>'amountMinor' = p.amount_minor::text
+                   AND LOWER(a.new_state->>'currency') = LOWER(TRIM(p.currency))
+               )
+             )
+           )
+         )
+       )
      ORDER BY hold_expires_at ASC, id ASC
      LIMIT 200`
   );
@@ -234,6 +275,7 @@ export async function findExpiredHoldBookingIds(): Promise<string[]> {
  *  payment: release its availability_blocks rows and mark it cancelled. */
 export async function releaseExpiredHold(bookingId: string) {
   return withTransaction(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock($1)", [hashToBigint(bookingId)]);
     const booking = await client.query(`SELECT * FROM bookings WHERE id = $1 AND status = 'pending_payment' FOR UPDATE`, [bookingId]);
     if (booking.rows.length === 0) return null;
     const b = booking.rows[0];
@@ -243,6 +285,22 @@ export async function releaseExpiredHold(bookingId: string) {
     // evaluate to the Unix epoch (1970), which is always in the past.
     if (b.hold_expires_at === null) return null;
     if (new Date(b.hold_expires_at) > new Date()) return null; // not actually expired yet
+    // Creation may have reached the provider without a saved reference.
+    // Recheck after acquiring the booking lock before releasing inventory.
+    const reservedPayment = await client.query(
+      "SELECT 1 FROM payments WHERE booking_id = $1 " +
+      "AND failure_code = 'legacy_intent_creation_reserved' LIMIT 1",
+      [bookingId]
+    );
+    if (reservedPayment.rows.length > 0) return null;
+    if (b.payment_flow_version === "separate_charges_delayed_v1") {
+      try {
+        await unpaidNewFlowCancellationEligibility(client, b, true);
+      } catch (error) {
+        if (error instanceof BookingError) return null;
+        throw error;
+      }
+    }
 
     await client.query(
       `SELECT pg_advisory_xact_lock($1)`,
@@ -266,6 +324,22 @@ export async function releaseExpiredHold(bookingId: string) {
     );
     }
     await client.query(`UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [bookingId]);
+    await client.query(
+      `INSERT INTO audit_log
+         (action, object_type, object_id, previous_state, new_state)
+       VALUES ('booking_hold_expired', 'booking', $1, $2::jsonb, $3::jsonb)`,
+      [
+        bookingId,
+        JSON.stringify({ status: b.status }),
+        JSON.stringify({
+          status: "cancelled",
+          cancelledBy: "system",
+          reason: "payment_hold_expired",
+          holdExpiresAt: b.hold_expires_at
+        })
+      ]
+    );
+
     return mapBookingRow({ ...b, status: "cancelled" });
   });
 }

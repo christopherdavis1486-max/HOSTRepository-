@@ -2201,20 +2201,6 @@
   },
   "017_security_foundation.sql": {
     "tables": {
-      "users": [
-        {
-          "name": "session_version",
-          "dataType": "integer",
-          "nullable": false,
-          "defaultExpression": "1"
-        },
-        {
-          "name": "password_changed_at",
-          "dataType": "timestamp with time zone",
-          "nullable": true,
-          "defaultExpression": null
-        }
-      ],
       "email_verification_tokens": [
         {
           "name": "id",
@@ -2290,13 +2276,36 @@
           "nullable": false,
           "defaultExpression": "now()"
         }
+      ],
+      "users": [
+        {
+          "name": "session_version",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "password_changed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
       ]
     },
-    "constraints": {},
+    "constraints": {
+      "email_verification_tokens_pkey": "PRIMARY KEY (id)",
+      "email_verification_tokens_token_hash_key": "UNIQUE (token_hash)",
+      "email_verification_tokens_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      "security_events_pkey": "PRIMARY KEY (id)",
+      "security_events_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL"
+    },
     "indexes": {
+      "email_verification_tokens_pkey": "CREATE UNIQUE INDEX email_verification_tokens_pkey ON email_verification_tokens USING btree (id)",
+      "email_verification_tokens_token_hash_key": "CREATE UNIQUE INDEX email_verification_tokens_token_hash_key ON email_verification_tokens USING btree (token_hash)",
       "email_verification_tokens_user_idx": "CREATE INDEX email_verification_tokens_user_idx ON email_verification_tokens USING btree (user_id)",
-      "security_events_user_created_idx": "CREATE INDEX security_events_user_created_idx ON security_events USING btree (user_id, created_at DESC)",
-      "security_events_type_created_idx": "CREATE INDEX security_events_type_created_idx ON security_events USING btree (event_type, created_at DESC)"
+      "security_events_pkey": "CREATE UNIQUE INDEX security_events_pkey ON security_events USING btree (id)",
+      "security_events_type_created_idx": "CREATE INDEX security_events_type_created_idx ON security_events USING btree (event_type, created_at DESC)",
+      "security_events_user_created_idx": "CREATE INDEX security_events_user_created_idx ON security_events USING btree (user_id, created_at DESC)"
     },
     "functions": {},
     "triggers": {},
@@ -2405,10 +2414,532 @@
         }
       ]
     },
+    "constraints": {
+      "auth_sessions_pkey": "PRIMARY KEY (id)",
+      "auth_sessions_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      "webauthn_credentials_credential_id_key": "UNIQUE (credential_id)",
+      "webauthn_credentials_pkey": "PRIMARY KEY (id)",
+      "webauthn_credentials_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+    },
+    "indexes": {
+      "auth_sessions_pkey": "CREATE UNIQUE INDEX auth_sessions_pkey ON auth_sessions USING btree (id)",
+      "auth_sessions_user_active_idx": "CREATE INDEX auth_sessions_user_active_idx ON auth_sessions USING btree (user_id, created_at DESC) WHERE (revoked_at IS NULL)",
+      "webauthn_credentials_credential_id_key": "CREATE UNIQUE INDEX webauthn_credentials_credential_id_key ON webauthn_credentials USING btree (credential_id)",
+      "webauthn_credentials_pkey": "CREATE UNIQUE INDEX webauthn_credentials_pkey ON webauthn_credentials USING btree (id)",
+      "webauthn_credentials_user_idx": "CREATE INDEX webauthn_credentials_user_idx ON webauthn_credentials USING btree (user_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "019_passkey_authentication.sql": {
+    "tables": {
+      "passkey_login_tokens": [
+        {
+          "name": "token_hash",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "used_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "webauthn_challenges": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "challenge",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "purpose",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "used_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "passkey_login_tokens_pkey": "PRIMARY KEY (token_hash)",
+      "passkey_login_tokens_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      "webauthn_challenges_challenge_key": "UNIQUE (challenge)",
+      "webauthn_challenges_pkey": "PRIMARY KEY (id)",
+      "webauthn_challenges_purpose_check": "CHECK ((purpose = ANY (ARRAY['registration'::text, 'authentication'::text])))",
+      "webauthn_challenges_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+    },
+    "indexes": {
+      "passkey_login_tokens_expiry_idx": "CREATE INDEX passkey_login_tokens_expiry_idx ON passkey_login_tokens USING btree (expires_at) WHERE (used_at IS NULL)",
+      "passkey_login_tokens_pkey": "CREATE UNIQUE INDEX passkey_login_tokens_pkey ON passkey_login_tokens USING btree (token_hash)",
+      "webauthn_challenges_challenge_key": "CREATE UNIQUE INDEX webauthn_challenges_challenge_key ON webauthn_challenges USING btree (challenge)",
+      "webauthn_challenges_expiry_idx": "CREATE INDEX webauthn_challenges_expiry_idx ON webauthn_challenges USING btree (expires_at) WHERE (used_at IS NULL)",
+      "webauthn_challenges_pkey": "CREATE UNIQUE INDEX webauthn_challenges_pkey ON webauthn_challenges USING btree (id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "020_account_recovery.sql": {
+    "tables": {
+      "account_recovery_codes": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "batch_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "code_hash",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "used_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "account_recovery_codes_code_hash_key": "UNIQUE (code_hash)",
+      "account_recovery_codes_pkey": "PRIMARY KEY (id)",
+      "account_recovery_codes_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+    },
+    "indexes": {
+      "account_recovery_codes_code_hash_key": "CREATE UNIQUE INDEX account_recovery_codes_code_hash_key ON account_recovery_codes USING btree (code_hash)",
+      "account_recovery_codes_pkey": "CREATE UNIQUE INDEX account_recovery_codes_pkey ON account_recovery_codes USING btree (id)",
+      "account_recovery_codes_user_active_idx": "CREATE INDEX account_recovery_codes_user_active_idx ON account_recovery_codes USING btree (user_id, created_at DESC) WHERE (used_at IS NULL)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "021_login_protection.sql": {
+    "tables": {
+      "users": [
+        {
+          "name": "failed_login_count",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "failed_login_window_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "login_locked_until",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
     "constraints": {},
     "indexes": {
-      "auth_sessions_user_active_idx": "CREATE INDEX auth_sessions_user_active_idx ON auth_sessions USING btree (user_id, created_at DESC) WHERE (revoked_at IS NULL)",
-      "webauthn_credentials_user_idx": "CREATE INDEX webauthn_credentials_user_idx ON webauthn_credentials USING btree (user_id)"
+      "users_login_locked_idx": "CREATE INDEX users_login_locked_idx ON users USING btree (login_locked_until) WHERE (login_locked_until IS NOT NULL)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "022_privacy_controls.sql": {
+    "tables": {
+      "privacy_requests": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "request_type",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "requested_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "execute_after",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "completed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "blocked_reason",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "retained_categories",
+          "dataType": "jsonb",
+          "nullable": false,
+          "defaultExpression": "'[]'::jsonb"
+        }
+      ],
+      "users": [
+        {
+          "name": "deleted_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "privacy_requests_pkey": "PRIMARY KEY (id)",
+      "privacy_requests_request_type_check": "CHECK ((request_type = ANY (ARRAY['export'::text, 'deletion'::text])))",
+      "privacy_requests_status_check": "CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'cancelled'::text, 'blocked'::text])))",
+      "privacy_requests_user_id_fkey": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    "indexes": {
+      "privacy_requests_one_pending_deletion_idx": "CREATE UNIQUE INDEX privacy_requests_one_pending_deletion_idx ON privacy_requests USING btree (user_id) WHERE ((request_type = 'deletion'::text) AND (status = ANY (ARRAY['pending'::text, 'processing'::text])))",
+      "privacy_requests_pkey": "CREATE UNIQUE INDEX privacy_requests_pkey ON privacy_requests USING btree (id)",
+      "privacy_requests_user_created_idx": "CREATE INDEX privacy_requests_user_created_idx ON privacy_requests USING btree (user_id, requested_at DESC)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "023_admin_operational_security.sql": {
+    "tables": {
+      "admin_roles": [
+        {
+          "name": "disabled_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "disabled_by",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "disabled_reason",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "admin_security_actions": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "actor_user_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "target_user_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "action",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "reason",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "admin_roles_disabled_by_fkey": "FOREIGN KEY (disabled_by) REFERENCES users(id)",
+      "admin_security_actions_action_check": "CHECK ((action = ANY (ARRAY['revoke_sessions'::text, 'unlock_login'::text])))",
+      "admin_security_actions_actor_user_id_fkey": "FOREIGN KEY (actor_user_id) REFERENCES users(id)",
+      "admin_security_actions_outcome_check": "CHECK ((outcome = ANY (ARRAY['success'::text, 'failure'::text])))",
+      "admin_security_actions_pkey": "PRIMARY KEY (id)",
+      "admin_security_actions_reason_check": "CHECK (((char_length(reason) >= 8) AND (char_length(reason) <= 500)))",
+      "admin_security_actions_target_user_id_fkey": "FOREIGN KEY (target_user_id) REFERENCES users(id)"
+    },
+    "indexes": {
+      "admin_roles_active_idx": "CREATE INDEX admin_roles_active_idx ON admin_roles USING btree (user_id) WHERE (disabled_at IS NULL)",
+      "admin_security_actions_created_idx": "CREATE INDEX admin_security_actions_created_idx ON admin_security_actions USING btree (created_at DESC)",
+      "admin_security_actions_pkey": "CREATE UNIQUE INDEX admin_security_actions_pkey ON admin_security_actions USING btree (id)",
+      "admin_security_actions_target_idx": "CREATE INDEX admin_security_actions_target_idx ON admin_security_actions USING btree (target_user_id, created_at DESC)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "024_property_compliance.sql": {
+    "tables": {
+      "properties": [
+        {
+          "name": "compliance_status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'not_started'::text"
+        },
+        {
+          "name": "compliance_submitted_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "compliance_approved_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "compliance_approved_by",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "compliance_review_note",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "property_compliance_items": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "category",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "applicability",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'required'::text"
+        },
+        {
+          "name": "owner_declared_compliant",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        },
+        {
+          "name": "evidence_url",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "evidence_reference",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "valid_until",
+          "dataType": "date",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "owner_note",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "owner_confirmed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'not_reviewed'::text"
+        },
+        {
+          "name": "reviewed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "reviewed_by",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "reviewer_note",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "properties_compliance_approved_by_fkey": "FOREIGN KEY (compliance_approved_by) REFERENCES users(id)",
+      "properties_compliance_status_check": "CHECK ((compliance_status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'submitted'::text, 'changes_required'::text, 'approved'::text, 'expired'::text])))",
+      "property_compliance_items_applicability_check": "CHECK ((applicability = ANY (ARRAY['required'::text, 'not_applicable'::text])))",
+      "property_compliance_items_category_check": "CHECK ((category = ANY (ARRAY['authority_to_list'::text, 'fire_safety'::text, 'gas_safety'::text, 'electrical_safety'::text, 'smoke_co_alarms'::text, 'public_liability_insurance'::text, 'licences_permissions'::text])))",
+      "property_compliance_items_evidence_url_check": "CHECK (((evidence_url IS NULL) OR (evidence_url ~ '^https://'::text)))",
+      "property_compliance_items_pkey": "PRIMARY KEY (id)",
+      "property_compliance_items_property_id_category_key": "UNIQUE (property_id, category)",
+      "property_compliance_items_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+      "property_compliance_items_review_status_check": "CHECK ((review_status = ANY (ARRAY['not_reviewed'::text, 'approved'::text, 'changes_required'::text])))",
+      "property_compliance_items_reviewed_by_fkey": "FOREIGN KEY (reviewed_by) REFERENCES users(id)"
+    },
+    "indexes": {
+      "properties_compliance_review_idx": "CREATE INDEX properties_compliance_review_idx ON properties USING btree (compliance_status, updated_at)",
+      "property_compliance_items_pkey": "CREATE UNIQUE INDEX property_compliance_items_pkey ON property_compliance_items USING btree (id)",
+      "property_compliance_items_property_id_category_key": "CREATE UNIQUE INDEX property_compliance_items_property_id_category_key ON property_compliance_items USING btree (property_id, category)",
+      "property_compliance_items_property_idx": "CREATE INDEX property_compliance_items_property_idx ON property_compliance_items USING btree (property_id)"
     },
     "functions": {},
     "triggers": {},
@@ -2425,7 +2956,9 @@
         }
       ]
     },
-    "constraints": {},
+    "constraints": {
+      "users_preferred_locale_supported": "CHECK ((preferred_locale = ANY (ARRAY['en'::text, 'de'::text, 'fr'::text, 'es'::text, 'it'::text, 'nl'::text])))"
+    },
     "indexes": {},
     "functions": {},
     "triggers": {},
@@ -2654,7 +3187,7 @@
     },
     "functions": {
       "invalidate_property_image_pilot_review": "CREATE OR REPLACE FUNCTION invalidate_property_image_pilot_review() RETURNS trigger LANGUAGE plpgsql AS $function$ DECLARE target_property_id UUID; BEGIN IF TG_OP = 'DELETE' THEN target_property_id := OLD.property_id; ELSE target_property_id := NEW.property_id; END IF; UPDATE properties SET pilot_review_status = 'pending', pilot_reviewed_at = NULL, pilot_reviewed_by = NULL, pilot_review_note = NULL, status = CASE WHEN status = 'published' THEN 'draft' ELSE status END, updated_at = NOW() WHERE id = target_property_id AND pilot_review_status = 'approved'; IF TG_OP = 'DELETE' THEN RETURN OLD; END IF; RETURN NEW; END; $function$",
-      "invalidate_property_pilot_review": "CREATE OR REPLACE FUNCTION invalidate_property_pilot_review() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.pilot_review_status = 'approved' AND (ROW(OLD.name, OLD.property_type, OLD.description, OLD.city, OLD.district, OLD.country_code, OLD.max_guests, OLD.bedrooms, OLD.bathrooms, OLD.nightly_price, OLD.cleaning_fee, OLD.currency, OLD.min_stay_nights, OLD.max_stay_nights, OLD.cancellation_policy_id, OLD.check_in_time, OLD.check_out_time, OLD.house_rules, OLD.address_line_1, OLD.address_line_2, OLD.postal_town, OLD.county, OLD.postcode, OLD.private_location, OLD.compliance_status) IS DISTINCT FROM ROW(NEW.name, NEW.property_type, NEW.description, NEW.city, NEW.district, NEW.country_code, NEW.max_guests, NEW.bedrooms, NEW.bathrooms, NEW.nightly_price, NEW.cleaning_fee, NEW.currency, NEW.min_stay_nights, NEW.max_stay_nights, NEW.cancellation_policy_id, NEW.check_in_time, NEW.check_out_time, NEW.house_rules, NEW.address_line_1, NEW.address_line_2, NEW.postal_town, NEW.county, NEW.postcode, NEW.private_location, NEW.compliance_status)) THEN NEW.pilot_review_status := 'pending'; NEW.pilot_reviewed_at := NULL; NEW.pilot_reviewed_by := NULL; NEW.pilot_review_note := NULL; IF OLD.status = 'published' THEN NEW.status := 'draft'; END IF; END IF; RETURN NEW; END; $function$"
+      "invalidate_property_pilot_review": "CREATE OR REPLACE FUNCTION invalidate_property_pilot_review() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.pilot_review_status = 'approved' AND ROW(OLD.name, OLD.property_type, OLD.description, OLD.city, OLD.district, OLD.country_code, OLD.max_guests, OLD.bedrooms, OLD.bathrooms, OLD.nightly_price, OLD.cleaning_fee, OLD.currency, OLD.min_stay_nights, OLD.max_stay_nights, OLD.cancellation_policy_id, OLD.check_in_time, OLD.check_out_time, OLD.house_rules, OLD.address_line_1, OLD.address_line_2, OLD.postal_town, OLD.county, OLD.postcode, OLD.private_location, OLD.compliance_status) IS DISTINCT FROM ROW(NEW.name, NEW.property_type, NEW.description, NEW.city, NEW.district, NEW.country_code, NEW.max_guests, NEW.bedrooms, NEW.bathrooms, NEW.nightly_price, NEW.cleaning_fee, NEW.currency, NEW.min_stay_nights, NEW.max_stay_nights, NEW.cancellation_policy_id, NEW.check_in_time, NEW.check_out_time, NEW.house_rules, NEW.address_line_1, NEW.address_line_2, NEW.postal_town, NEW.county, NEW.postcode, NEW.private_location, NEW.compliance_status) THEN NEW.pilot_review_status := 'pending'; NEW.pilot_reviewed_at := NULL; NEW.pilot_reviewed_by := NULL; NEW.pilot_review_note := NULL; IF OLD.status = 'published' THEN NEW.status := 'draft'; END IF; END IF; RETURN NEW; END; $function$"
     },
     "triggers": {
       "properties_invalidate_pilot_review@properties": "CREATE TRIGGER properties_invalidate_pilot_review BEFORE UPDATE OF name, property_type, description, city, district, country_code, max_guests, bedrooms, bathrooms, nightly_price, cleaning_fee, currency, min_stay_nights, max_stay_nights, cancellation_policy_id, check_in_time, check_out_time, house_rules, address_line_1, address_line_2, postal_town, county, postcode, private_location, compliance_status ON properties FOR EACH ROW EXECUTE FUNCTION invalidate_property_pilot_review()",
@@ -2676,6 +3209,88 @@
   },
   "030_calendar_sync.sql": {
     "tables": {
+      "property_calendar_events": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "feed_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "event_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "external_uid",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "starts_on",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "ends_on",
+          "dataType": "date",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "summary",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ],
+      "property_calendar_exports": [
+        {
+          "name": "property_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "export_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "rotated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
       "property_calendar_feeds": [
         {
           "name": "id",
@@ -2761,96 +3376,36 @@
           "nullable": false,
           "defaultExpression": "now()"
         }
-      ],
-      "property_calendar_events": [
-        {
-          "name": "id",
-          "dataType": "uuid",
-          "nullable": false,
-          "defaultExpression": "gen_random_uuid()"
-        },
-        {
-          "name": "feed_id",
-          "dataType": "uuid",
-          "nullable": false,
-          "defaultExpression": null
-        },
-        {
-          "name": "event_key",
-          "dataType": "text",
-          "nullable": false,
-          "defaultExpression": null
-        },
-        {
-          "name": "external_uid",
-          "dataType": "text",
-          "nullable": false,
-          "defaultExpression": null
-        },
-        {
-          "name": "starts_on",
-          "dataType": "date",
-          "nullable": false,
-          "defaultExpression": null
-        },
-        {
-          "name": "ends_on",
-          "dataType": "date",
-          "nullable": false,
-          "defaultExpression": null
-        },
-        {
-          "name": "summary",
-          "dataType": "text",
-          "nullable": true,
-          "defaultExpression": null
-        },
-        {
-          "name": "created_at",
-          "dataType": "timestamp with time zone",
-          "nullable": false,
-          "defaultExpression": "now()"
-        },
-        {
-          "name": "updated_at",
-          "dataType": "timestamp with time zone",
-          "nullable": false,
-          "defaultExpression": "now()"
-        }
-      ],
-      "property_calendar_exports": [
-        {
-          "name": "property_id",
-          "dataType": "uuid",
-          "nullable": false,
-          "defaultExpression": null
-        },
-        {
-          "name": "export_token",
-          "dataType": "uuid",
-          "nullable": false,
-          "defaultExpression": "gen_random_uuid()"
-        },
-        {
-          "name": "created_at",
-          "dataType": "timestamp with time zone",
-          "nullable": false,
-          "defaultExpression": "now()"
-        },
-        {
-          "name": "rotated_at",
-          "dataType": "timestamp with time zone",
-          "nullable": true,
-          "defaultExpression": null
-        }
       ]
     },
-    "constraints": {},
+    "constraints": {
+      "property_calendar_events_dates_check": "CHECK ((ends_on > starts_on))",
+      "property_calendar_events_feed_id_fkey": "FOREIGN KEY (feed_id) REFERENCES property_calendar_feeds(id) ON DELETE CASCADE",
+      "property_calendar_events_key_check": "CHECK (((char_length(event_key) >= 1) AND (char_length(event_key) <= 500)))",
+      "property_calendar_events_pkey": "PRIMARY KEY (id)",
+      "property_calendar_events_uid_check": "CHECK (((char_length(external_uid) >= 1) AND (char_length(external_uid) <= 500)))",
+      "property_calendar_events_unique_key": "UNIQUE (feed_id, event_key)",
+      "property_calendar_exports_export_token_key": "UNIQUE (export_token)",
+      "property_calendar_exports_pkey": "PRIMARY KEY (property_id)",
+      "property_calendar_exports_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+      "property_calendar_feeds_https_check": "CHECK ((lower(feed_url) ~~ 'https://%'::text))",
+      "property_calendar_feeds_name_check": "CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 120)))",
+      "property_calendar_feeds_pkey": "PRIMARY KEY (id)",
+      "property_calendar_feeds_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+      "property_calendar_feeds_status_check": "CHECK ((last_sync_status = ANY (ARRAY['never'::text, 'running'::text, 'success'::text, 'error'::text])))",
+      "property_calendar_feeds_unique_url": "UNIQUE (property_id, feed_url)"
+    },
     "indexes": {
+      "property_calendar_events_feed_dates_idx": "CREATE INDEX property_calendar_events_feed_dates_idx ON property_calendar_events USING btree (feed_id, starts_on, ends_on)",
+      "property_calendar_events_pkey": "CREATE UNIQUE INDEX property_calendar_events_pkey ON property_calendar_events USING btree (id)",
+      "property_calendar_events_unique_key": "CREATE UNIQUE INDEX property_calendar_events_unique_key ON property_calendar_events USING btree (feed_id, event_key)",
+      "property_calendar_exports_export_token_key": "CREATE UNIQUE INDEX property_calendar_exports_export_token_key ON property_calendar_exports USING btree (export_token)",
+      "property_calendar_exports_pkey": "CREATE UNIQUE INDEX property_calendar_exports_pkey ON property_calendar_exports USING btree (property_id)",
+      "property_calendar_exports_token_idx": "CREATE INDEX property_calendar_exports_token_idx ON property_calendar_exports USING btree (export_token)",
+      "property_calendar_feeds_pkey": "CREATE UNIQUE INDEX property_calendar_feeds_pkey ON property_calendar_feeds USING btree (id)",
       "property_calendar_feeds_property_idx": "CREATE INDEX property_calendar_feeds_property_idx ON property_calendar_feeds USING btree (property_id, is_active)",
       "property_calendar_feeds_sync_idx": "CREATE INDEX property_calendar_feeds_sync_idx ON property_calendar_feeds USING btree (is_active, last_successful_sync_at)",
-      "property_calendar_events_feed_dates_idx": "CREATE INDEX property_calendar_events_feed_dates_idx ON property_calendar_events USING btree (feed_id, starts_on, ends_on)",
-      "property_calendar_exports_token_idx": "CREATE INDEX property_calendar_exports_token_idx ON property_calendar_exports USING btree (export_token)"
+      "property_calendar_feeds_unique_url": "CREATE UNIQUE INDEX property_calendar_feeds_unique_url ON property_calendar_feeds USING btree (property_id, feed_url)"
     },
     "functions": {},
     "triggers": {},
@@ -2924,13 +3479,13 @@
       ]
     },
     "constraints": {
-      "newsletter_subscriptions_status_check": "CHECK ((status = ANY (ARRAY['subscribed'::text, 'unsubscribed'::text])))",
-      "newsletter_subscriptions_pkey": "PRIMARY KEY (id)"
+      "newsletter_subscriptions_pkey": "PRIMARY KEY (id)",
+      "newsletter_subscriptions_status_check": "CHECK ((status = ANY (ARRAY['subscribed'::text, 'unsubscribed'::text])))"
     },
     "indexes": {
-      "newsletter_subscriptions_status_idx": "CREATE INDEX newsletter_subscriptions_status_idx ON newsletter_subscriptions USING btree (status, consented_at DESC)",
+      "newsletter_subscriptions_email_unique": "CREATE UNIQUE INDEX newsletter_subscriptions_email_unique ON newsletter_subscriptions USING btree (lower(email))",
       "newsletter_subscriptions_pkey": "CREATE UNIQUE INDEX newsletter_subscriptions_pkey ON newsletter_subscriptions USING btree (id)",
-      "newsletter_subscriptions_email_unique": "CREATE UNIQUE INDEX newsletter_subscriptions_email_unique ON newsletter_subscriptions USING btree (lower(email))"
+      "newsletter_subscriptions_status_idx": "CREATE INDEX newsletter_subscriptions_status_idx ON newsletter_subscriptions USING btree (status, consented_at DESC)"
     },
     "functions": {},
     "triggers": {},
@@ -3100,30 +3655,30 @@
       ]
     },
     "constraints": {
-      "hotel_room_types_name_check": "CHECK (((length(TRIM(BOTH FROM name)) >= 1) AND (length(TRIM(BOTH FROM name)) <= 150)))",
-      "hotel_room_types_max_guests_check": "CHECK (((max_guests >= 1) AND (max_guests <= 50)))",
+      "bookings_room_property_fk": "FOREIGN KEY (property_id, room_type_id) REFERENCES hotel_room_types(property_id, id)",
+      "bookings_room_quantity_check": "CHECK ((((room_type_id IS NULL) AND (room_quantity IS NULL) AND (room_name_snapshot IS NULL)) OR ((room_type_id IS NOT NULL) AND (room_quantity IS NOT NULL) AND ((room_quantity >= 1) AND (room_quantity <= 50)) AND (room_name_snapshot IS NOT NULL))))",
+      "hotel_room_images_image_id_fkey": "FOREIGN KEY (image_id) REFERENCES property_images(id) ON DELETE CASCADE",
       "hotel_room_images_pkey": "PRIMARY KEY (room_type_id, image_id)",
-      "hotel_room_types_total_rooms_check": "CHECK (((total_rooms >= 1) AND (total_rooms <= 10000)))",
-      "hotel_room_types_nightly_price_check": "CHECK ((nightly_price > (0)::numeric))",
-      "hotel_room_types_cleaning_fee_check": "CHECK ((cleaning_fee >= (0)::numeric))",
-      "hotel_room_types_pkey": "PRIMARY KEY (id)",
-      "hotel_room_types_property_id_id_key": "UNIQUE (property_id, id)",
-      "hotel_room_types_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
-      "hotel_room_inventory_total_rooms_check": "CHECK (((total_rooms >= 0) AND (total_rooms <= 10000)))",
+      "hotel_room_images_room_type_id_fkey": "FOREIGN KEY (room_type_id) REFERENCES hotel_room_types(id) ON DELETE CASCADE",
       "hotel_room_inventory_nightly_price_check": "CHECK ((nightly_price > (0)::numeric))",
       "hotel_room_inventory_pkey": "PRIMARY KEY (room_type_id, date)",
       "hotel_room_inventory_room_type_id_fkey": "FOREIGN KEY (room_type_id) REFERENCES hotel_room_types(id)",
-      "hotel_room_images_room_type_id_fkey": "FOREIGN KEY (room_type_id) REFERENCES hotel_room_types(id) ON DELETE CASCADE",
-      "hotel_room_images_image_id_fkey": "FOREIGN KEY (image_id) REFERENCES property_images(id) ON DELETE CASCADE",
-      "bookings_room_property_fk": "FOREIGN KEY (property_id, room_type_id) REFERENCES hotel_room_types(property_id, id)",
-      "bookings_room_quantity_check": "CHECK ((((room_type_id IS NULL) AND (room_quantity IS NULL) AND (room_name_snapshot IS NULL)) OR ((room_type_id IS NOT NULL) AND (room_quantity IS NOT NULL) AND ((room_quantity >= 1) AND (room_quantity <= 50)) AND (room_name_snapshot IS NOT NULL))))"
+      "hotel_room_inventory_total_rooms_check": "CHECK (((total_rooms >= 0) AND (total_rooms <= 10000)))",
+      "hotel_room_types_cleaning_fee_check": "CHECK ((cleaning_fee >= (0)::numeric))",
+      "hotel_room_types_max_guests_check": "CHECK (((max_guests >= 1) AND (max_guests <= 50)))",
+      "hotel_room_types_name_check": "CHECK (((length(TRIM(BOTH FROM name)) >= 1) AND (length(TRIM(BOTH FROM name)) <= 150)))",
+      "hotel_room_types_nightly_price_check": "CHECK ((nightly_price > (0)::numeric))",
+      "hotel_room_types_pkey": "PRIMARY KEY (id)",
+      "hotel_room_types_property_id_fkey": "FOREIGN KEY (property_id) REFERENCES properties(id)",
+      "hotel_room_types_property_id_id_key": "UNIQUE (property_id, id)",
+      "hotel_room_types_total_rooms_check": "CHECK (((total_rooms >= 1) AND (total_rooms <= 10000)))"
     },
     "indexes": {
-      "hotel_room_types_pkey": "CREATE UNIQUE INDEX hotel_room_types_pkey ON hotel_room_types USING btree (id)",
-      "hotel_room_types_property_id_id_key": "CREATE UNIQUE INDEX hotel_room_types_property_id_id_key ON hotel_room_types USING btree (property_id, id)",
-      "hotel_room_inventory_pkey": "CREATE UNIQUE INDEX hotel_room_inventory_pkey ON hotel_room_inventory USING btree (room_type_id, date)",
+      "bookings_room_inventory_idx": "CREATE INDEX bookings_room_inventory_idx ON bookings USING btree (room_type_id, check_in, check_out) WHERE ((room_type_id IS NOT NULL) AND (status = ANY (ARRAY['pending_payment'::text, 'confirmed'::text, 'completed'::text, 'disputed'::text])))",
       "hotel_room_images_pkey": "CREATE UNIQUE INDEX hotel_room_images_pkey ON hotel_room_images USING btree (room_type_id, image_id)",
-      "bookings_room_inventory_idx": "CREATE INDEX bookings_room_inventory_idx ON bookings USING btree (room_type_id, check_in, check_out) WHERE ((room_type_id IS NOT NULL) AND (status = ANY (ARRAY['pending_payment'::text, 'confirmed'::text, 'completed'::text, 'disputed'::text])))"
+      "hotel_room_inventory_pkey": "CREATE UNIQUE INDEX hotel_room_inventory_pkey ON hotel_room_inventory USING btree (room_type_id, date)",
+      "hotel_room_types_pkey": "CREATE UNIQUE INDEX hotel_room_types_pkey ON hotel_room_types USING btree (id)",
+      "hotel_room_types_property_id_id_key": "CREATE UNIQUE INDEX hotel_room_types_property_id_id_key ON hotel_room_types USING btree (property_id, id)"
     },
     "functions": {
       "protect_cancelled_hotel_booking": "CREATE OR REPLACE FUNCTION protect_cancelled_hotel_booking() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN IF OLD.room_type_id IS NOT NULL AND OLD.status IN ('cancelled','refunded') AND NEW.status IN ('pending_payment','confirmed','completed','disputed') THEN NEW.status := OLD.status; END IF; IF OLD.room_type_id IS DISTINCT FROM NEW.room_type_id OR OLD.room_quantity IS DISTINCT FROM NEW.room_quantity OR OLD.room_name_snapshot IS DISTINCT FROM NEW.room_name_snapshot THEN RAISE EXCEPTION 'Room reservation snapshot is immutable'; END IF; RETURN NEW; END $function$"
@@ -3153,6 +3708,931 @@
     "triggers": {
       "protect_property_inventory_model@properties": "CREATE TRIGGER protect_property_inventory_model BEFORE UPDATE OF property_type ON properties FOR EACH ROW EXECUTE FUNCTION protect_property_inventory_model()"
     },
+    "extensions": []
+  },
+  "036_new_flow_refund_safety.sql": {
+    "tables": {
+      "new_flow_refunds": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payment_attempt_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_refund_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "reason",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "initiated_by",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "new_flow_refunds_amount_minor_check": "CHECK ((amount_minor > 0))",
+      "new_flow_refunds_attempt_booking_fk": "FOREIGN KEY (payment_attempt_id, booking_id) REFERENCES payment_attempts(id, booking_id)",
+      "new_flow_refunds_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "new_flow_refunds_one_per_attempt": "UNIQUE (payment_attempt_id)",
+      "new_flow_refunds_payment_attempt_id_fkey": "FOREIGN KEY (payment_attempt_id) REFERENCES payment_attempts(id)",
+      "new_flow_refunds_pkey": "PRIMARY KEY (id)",
+      "new_flow_refunds_provider_refund_id_key": "UNIQUE (provider_refund_id)",
+      "new_flow_refunds_status_check": "CHECK ((status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text])))"
+    },
+    "indexes": {
+      "idx_new_flow_refunds_booking": "CREATE INDEX idx_new_flow_refunds_booking ON new_flow_refunds USING btree (booking_id)",
+      "idx_new_flow_refunds_status": "CREATE INDEX idx_new_flow_refunds_status ON new_flow_refunds USING btree (status)",
+      "idx_payment_attempts_id_booking": "CREATE UNIQUE INDEX idx_payment_attempts_id_booking ON payment_attempts USING btree (id, booking_id)",
+      "new_flow_refunds_one_per_attempt": "CREATE UNIQUE INDEX new_flow_refunds_one_per_attempt ON new_flow_refunds USING btree (payment_attempt_id)",
+      "new_flow_refunds_pkey": "CREATE UNIQUE INDEX new_flow_refunds_pkey ON new_flow_refunds USING btree (id)",
+      "new_flow_refunds_provider_refund_id_key": "CREATE UNIQUE INDEX new_flow_refunds_provider_refund_id_key ON new_flow_refunds USING btree (provider_refund_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "037_new_flow_refund_execution_safety.sql": {
+    "tables": {
+      "new_flow_refunds": [
+        {
+          "name": "claim_token",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "lease_expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_error",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "reconciliation_required",
+          "dataType": "boolean",
+          "nullable": false,
+          "defaultExpression": "false"
+        }
+      ]
+    },
+    "constraints": {
+      "new_flow_refunds_status_check": "CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'succeeded'::text, 'failed'::text])))"
+    },
+    "indexes": {
+      "idx_new_flow_refunds_reconciliation": "CREATE INDEX idx_new_flow_refunds_reconciliation ON new_flow_refunds USING btree (created_at) WHERE (reconciliation_required = true)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "038_transfer_execution_leases.sql": {
+    "tables": {
+      "host_transfer_entitlements": [
+        {
+          "name": "execution_token",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_lease_expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ],
+      "host_transfer_reversals": [
+        {
+          "name": "execution_token",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_lease_expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {},
+    "indexes": {
+      "idx_host_reversal_execution_expiry": "CREATE INDEX idx_host_reversal_execution_expiry ON host_transfer_reversals USING btree (execution_lease_expires_at) WHERE (status = 'reversal_processing'::text)",
+      "idx_host_transfer_execution_expiry": "CREATE INDEX idx_host_transfer_execution_expiry ON host_transfer_entitlements USING btree (execution_lease_expires_at) WHERE (status = 'transfer_processing'::text)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "039_cancellation_host_settlements.sql": {
+    "tables": {
+      "cancellation_host_settlements": [
+        {
+          "name": "id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": "gen_random_uuid()"
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "entitlement_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "host_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payment_attempt_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "cancellation_audit_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "refund_id",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "original_host_amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "guest_total_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "refund_amount_minor",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "currency",
+          "dataType": "character",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "scheduled_release_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "idempotency_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'pending'::text"
+        },
+        {
+          "name": "provider_transfer_id",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_token",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "execution_lease_expires_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_error",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        }
+      ]
+    },
+    "constraints": {
+      "cancellation_host_settlements_amount_minor_check": "CHECK ((amount_minor > 0))",
+      "cancellation_host_settlements_booking_id_fkey": "FOREIGN KEY (booking_id) REFERENCES bookings(id)",
+      "cancellation_host_settlements_booking_id_key": "UNIQUE (booking_id)",
+      "cancellation_host_settlements_cancellation_audit_id_fkey": "FOREIGN KEY (cancellation_audit_id) REFERENCES audit_log(id)",
+      "cancellation_host_settlements_cancellation_audit_id_key": "UNIQUE (cancellation_audit_id)",
+      "cancellation_host_settlements_currency_check": "CHECK ((currency ~ '^[A-Z]{3}$'::text))",
+      "cancellation_host_settlements_entitlement_id_fkey": "FOREIGN KEY (entitlement_id) REFERENCES host_transfer_entitlements(id)",
+      "cancellation_host_settlements_entitlement_id_key": "UNIQUE (entitlement_id)",
+      "cancellation_host_settlements_guest_total_minor_check": "CHECK ((guest_total_minor > 0))",
+      "cancellation_host_settlements_host_id_fkey": "FOREIGN KEY (host_id) REFERENCES host_profiles(id)",
+      "cancellation_host_settlements_idempotency_key_key": "UNIQUE (idempotency_key)",
+      "cancellation_host_settlements_original_host_amount_minor_check": "CHECK ((original_host_amount_minor > 0))",
+      "cancellation_host_settlements_payment_attempt_id_fkey": "FOREIGN KEY (payment_attempt_id) REFERENCES payment_attempts(id)",
+      "cancellation_host_settlements_pkey": "PRIMARY KEY (id)",
+      "cancellation_host_settlements_provider_transfer_id_key": "UNIQUE (provider_transfer_id)",
+      "cancellation_host_settlements_refund_amount_minor_check": "CHECK ((refund_amount_minor >= 0))",
+      "cancellation_host_settlements_refund_id_fkey": "FOREIGN KEY (refund_id) REFERENCES new_flow_refunds(id)",
+      "cancellation_host_settlements_status_check": "CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'succeeded'::text, 'reconciliation_required'::text])))",
+      "cancellation_settlement_amount_bounds": "CHECK (((amount_minor <= original_host_amount_minor) AND (refund_amount_minor <= guest_total_minor)))",
+      "cancellation_settlement_entitlement_owner": "FOREIGN KEY (entitlement_id, booking_id, host_id) REFERENCES host_transfer_entitlements(id, booking_id, host_id)",
+      "cancellation_settlement_payment_booking": "FOREIGN KEY (payment_attempt_id, booking_id) REFERENCES payment_attempts(id, booking_id)",
+      "cancellation_settlement_refund_link": "CHECK ((((refund_amount_minor = 0) AND (refund_id IS NULL)) OR ((refund_amount_minor > 0) AND (refund_id IS NOT NULL))))"
+    },
+    "indexes": {
+      "cancellation_host_settlements_booking_id_key": "CREATE UNIQUE INDEX cancellation_host_settlements_booking_id_key ON cancellation_host_settlements USING btree (booking_id)",
+      "cancellation_host_settlements_cancellation_audit_id_key": "CREATE UNIQUE INDEX cancellation_host_settlements_cancellation_audit_id_key ON cancellation_host_settlements USING btree (cancellation_audit_id)",
+      "cancellation_host_settlements_entitlement_id_key": "CREATE UNIQUE INDEX cancellation_host_settlements_entitlement_id_key ON cancellation_host_settlements USING btree (entitlement_id)",
+      "cancellation_host_settlements_idempotency_key_key": "CREATE UNIQUE INDEX cancellation_host_settlements_idempotency_key_key ON cancellation_host_settlements USING btree (idempotency_key)",
+      "cancellation_host_settlements_pkey": "CREATE UNIQUE INDEX cancellation_host_settlements_pkey ON cancellation_host_settlements USING btree (id)",
+      "cancellation_host_settlements_provider_transfer_id_key": "CREATE UNIQUE INDEX cancellation_host_settlements_provider_transfer_id_key ON cancellation_host_settlements USING btree (provider_transfer_id)",
+      "idx_cancellation_settlement_due": "CREATE INDEX idx_cancellation_settlement_due ON cancellation_host_settlements USING btree (scheduled_release_at) WHERE (status = 'pending'::text)",
+      "idx_cancellation_settlement_execution_expiry": "CREATE INDEX idx_cancellation_settlement_execution_expiry ON cancellation_host_settlements USING btree (execution_lease_expires_at) WHERE (status = 'processing'::text)",
+      "idx_entitlement_id_booking_host": "CREATE UNIQUE INDEX idx_entitlement_id_booking_host ON host_transfer_entitlements USING btree (id, booking_id, host_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "040_booking_authorization_audit_lock.sql": {
+    "tables": {},
+    "constraints": {},
+    "indexes": {},
+    "functions": {
+      "lock_booking_authorization_audit": "CREATE OR REPLACE FUNCTION lock_booking_authorization_audit() RETURNS trigger LANGUAGE plpgsql AS $function$ DECLARE booking_ids uuid[] := ARRAY[]::uuid[]; BEGIN IF TG_OP <> 'INSERT' THEN IF OLD.object_type = 'booking' AND (OLD.action = 'booking_hold_expired' OR (OLD.action = 'booking_cancelled' AND OLD.new_state->>'cancellationKind' = 'paid') THEN booking_ids := array_append(booking_ids, OLD.object_id); END IF; END IF; IF TG_OP <> 'DELETE' THEN IF NEW.object_type = 'booking' AND (NEW.action = 'booking_hold_expired' OR (NEW.action = 'booking_cancelled' AND NEW.new_state->>'cancellationKind' = 'paid') THEN booking_ids := array_append(booking_ids, NEW.object_id); END IF; END IF; -- KEY SHARE conflicts with the workers' FOR UPDATE booking lock. -- Lock both old and new bookings in deterministic order on reassignment. PERFORM b.id FROM bookings b WHERE b.id = ANY(booking_ids) ORDER BY b.id FOR KEY SHARE; IF TG_OP = 'DELETE' THEN RETURN OLD; END IF; RETURN NEW; END; $function$"
+    },
+    "triggers": {
+      "trg_booking_authorization_audit_lock@audit_log": "CREATE TRIGGER trg_booking_authorization_audit_lock BEFORE INSERT OR DELETE OR UPDATE ON audit_log FOR EACH ROW EXECUTE FUNCTION lock_booking_authorization_audit()"
+    },
+    "extensions": []
+  },
+  "041_audit_log_object_lookup.sql": {
+    "tables": {},
+    "constraints": {},
+    "indexes": {
+      "idx_audit_log_object_type_action": "CREATE INDEX idx_audit_log_object_type_action ON audit_log USING btree (object_id, object_type, action)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "042_cancellation_settlement_queue_reviews.sql": {
+    "tables": {
+      "cancellation_settlement_queue_reviews": [
+        {
+          "name": "operation",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "settlement_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_reviewed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "next_review_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_failures",
+          "dataType": "smallint",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "last_outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "cancellation_settlement_queue_reviews_check": "CHECK ((next_review_at >= last_reviewed_at))",
+      "cancellation_settlement_queue_reviews_last_outcome_check": "CHECK ((last_outcome = ANY (ARRAY['eligible'::text, 'review_required'::text])))",
+      "cancellation_settlement_queue_reviews_operation_check": "CHECK ((operation = ANY (ARRAY['settlement_execute'::text, 'settlement_reconcile'::text])))",
+      "cancellation_settlement_queue_reviews_pkey": "PRIMARY KEY (operation, settlement_id)",
+      "cancellation_settlement_queue_reviews_review_failures_check": "CHECK (((review_failures >= 0) AND (review_failures <= 16)))"
+    },
+    "indexes": {
+      "cancellation_settlement_queue_reviews_pkey": "CREATE UNIQUE INDEX cancellation_settlement_queue_reviews_pkey ON cancellation_settlement_queue_reviews USING btree (operation, settlement_id)",
+      "idx_cancellation_settlement_queue_due": "CREATE INDEX idx_cancellation_settlement_queue_due ON cancellation_settlement_queue_reviews USING btree (operation, next_review_at, settlement_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "043_new_flow_payment_queue_reviews.sql": {
+    "tables": {
+      "new_flow_payment_queue_reviews": [
+        {
+          "name": "operation",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "payment_attempt_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_reviewed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "next_review_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_failures",
+          "dataType": "smallint",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "last_outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "new_flow_payment_queue_reviews_check": "CHECK ((next_review_at >= last_reviewed_at))",
+      "new_flow_payment_queue_reviews_last_outcome_check": "CHECK ((last_outcome = ANY (ARRAY['selected'::text, 'unresolved'::text, 'resolved'::text])))",
+      "new_flow_payment_queue_reviews_operation_check": "CHECK ((operation = ANY (ARRAY['payment_reconcile'::text, 'missing_refund_recover'::text])))",
+      "new_flow_payment_queue_reviews_pkey": "PRIMARY KEY (operation, payment_attempt_id)",
+      "new_flow_payment_queue_reviews_review_failures_check": "CHECK (((review_failures >= 0) AND (review_failures <= 16)))"
+    },
+    "indexes": {
+      "idx_new_flow_payment_queue_due": "CREATE INDEX idx_new_flow_payment_queue_due ON new_flow_payment_queue_reviews USING btree (operation, next_review_at, payment_attempt_id)",
+      "new_flow_payment_queue_reviews_pkey": "CREATE UNIQUE INDEX new_flow_payment_queue_reviews_pkey ON new_flow_payment_queue_reviews USING btree (operation, payment_attempt_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "044_new_flow_refund_queue_reviews.sql": {
+    "tables": {
+      "new_flow_refund_queue_reviews": [
+        {
+          "name": "operation",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "refund_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_reviewed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "next_review_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_failures",
+          "dataType": "smallint",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "last_outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "new_flow_refund_queue_reviews_check": "CHECK ((next_review_at >= last_reviewed_at))",
+      "new_flow_refund_queue_reviews_last_outcome_check": "CHECK ((last_outcome = ANY (ARRAY['selected'::text, 'unresolved'::text, 'resolved'::text])))",
+      "new_flow_refund_queue_reviews_operation_check": "CHECK ((operation = ANY (ARRAY['refund_execute'::text, 'refund_reconcile'::text])))",
+      "new_flow_refund_queue_reviews_pkey": "PRIMARY KEY (operation, refund_id)",
+      "new_flow_refund_queue_reviews_review_failures_check": "CHECK (((review_failures >= 0) AND (review_failures <= 16)))"
+    },
+    "indexes": {
+      "idx_new_flow_refund_queue_due": "CREATE INDEX idx_new_flow_refund_queue_due ON new_flow_refund_queue_reviews USING btree (operation, next_review_at, refund_id)",
+      "new_flow_refund_queue_reviews_pkey": "CREATE UNIQUE INDEX new_flow_refund_queue_reviews_pkey ON new_flow_refund_queue_reviews USING btree (operation, refund_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "045_host_transfer_queue_reviews.sql": {
+    "tables": {
+      "host_transfer_queue_reviews": [
+        {
+          "name": "operation",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "entitlement_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_reviewed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "next_review_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_failures",
+          "dataType": "smallint",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "last_outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "host_transfer_queue_reviews_check": "CHECK ((next_review_at >= last_reviewed_at))",
+      "host_transfer_queue_reviews_last_outcome_check": "CHECK ((last_outcome = ANY (ARRAY['selected'::text, 'unresolved'::text, 'resolved'::text])))",
+      "host_transfer_queue_reviews_operation_check": "CHECK ((operation = ANY (ARRAY['transfer_execute'::text, 'transfer_reconcile'::text])))",
+      "host_transfer_queue_reviews_pkey": "PRIMARY KEY (operation, entitlement_id)",
+      "host_transfer_queue_reviews_review_failures_check": "CHECK (((review_failures >= 0) AND (review_failures <= 16)))"
+    },
+    "indexes": {
+      "host_transfer_queue_reviews_pkey": "CREATE UNIQUE INDEX host_transfer_queue_reviews_pkey ON host_transfer_queue_reviews USING btree (operation, entitlement_id)",
+      "idx_host_transfer_queue_due": "CREATE INDEX idx_host_transfer_queue_due ON host_transfer_queue_reviews USING btree (operation, next_review_at, entitlement_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "046_transfer_reversal_queue_reviews.sql": {
+    "tables": {
+      "transfer_reversal_queue_reviews": [
+        {
+          "name": "operation",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "reversal_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "last_reviewed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "next_review_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "review_failures",
+          "dataType": "smallint",
+          "nullable": false,
+          "defaultExpression": "0"
+        },
+        {
+          "name": "last_outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "transfer_reversal_queue_reviews_check": "CHECK ((next_review_at >= last_reviewed_at))",
+      "transfer_reversal_queue_reviews_last_outcome_check": "CHECK ((last_outcome = ANY (ARRAY['selected'::text, 'unresolved'::text, 'resolved'::text])))",
+      "transfer_reversal_queue_reviews_operation_check": "CHECK ((operation = ANY (ARRAY['reversal_execute'::text, 'reversal_reconcile'::text])))",
+      "transfer_reversal_queue_reviews_pkey": "PRIMARY KEY (operation, reversal_id)",
+      "transfer_reversal_queue_reviews_review_failures_check": "CHECK (((review_failures >= 0) AND (review_failures <= 16)))"
+    },
+    "indexes": {
+      "idx_transfer_reversal_queue_due": "CREATE INDEX idx_transfer_reversal_queue_due ON transfer_reversal_queue_reviews USING btree (operation, next_review_at, reversal_id)",
+      "transfer_reversal_queue_reviews_pkey": "CREATE UNIQUE INDEX transfer_reversal_queue_reviews_pkey ON transfer_reversal_queue_reviews USING btree (operation, reversal_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "047_financial_runner_heartbeats.sql": {
+    "tables": {
+      "financial_runner_heartbeats": [
+        {
+          "name": "operation",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "run_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "started_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "reported_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "finished_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "outcome",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "financial_runner_heartbeats_check": "CHECK ((reported_at >= started_at))",
+      "financial_runner_heartbeats_check1": "CHECK ((((outcome = 'started'::text) AND (finished_at IS NULL)) OR ((outcome = ANY (ARRAY['returned'::text, 'threw'::text])) AND (finished_at IS NOT NULL) AND (finished_at >= started_at) AND (reported_at = finished_at))))",
+      "financial_runner_heartbeats_operation_check": "CHECK ((operation = ANY (ARRAY['settlement_execute'::text, 'settlement_reconcile'::text, 'payment_reconcile'::text, 'missing_refund_recover'::text, 'refund_execute'::text, 'refund_reconcile'::text, 'transfer_execute'::text, 'transfer_reconcile'::text, 'reversal_execute'::text, 'reversal_reconcile'::text])))",
+      "financial_runner_heartbeats_outcome_check": "CHECK ((outcome = ANY (ARRAY['started'::text, 'returned'::text, 'threw'::text])))",
+      "financial_runner_heartbeats_pkey": "PRIMARY KEY (operation)"
+    },
+    "indexes": {
+      "financial_runner_heartbeats_pkey": "CREATE UNIQUE INDEX financial_runner_heartbeats_pkey ON financial_runner_heartbeats USING btree (operation)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "048_setup_review_cases.sql": {
+    "tables": {
+      "setup_review_cases": [
+        {
+          "name": "source_audit_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "booking_id",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "status",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'open'::text"
+        },
+        {
+          "name": "assigned_to",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "version",
+          "dataType": "integer",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "updated_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "now()"
+        },
+        {
+          "name": "resolved_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "resolved_by",
+          "dataType": "uuid",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "resolution_code",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "resolution_note",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "setup_review_cases_assigned_to_fkey": "FOREIGN KEY (assigned_to) REFERENCES users(id)",
+      "setup_review_cases_check": "CHECK ((updated_at >= created_at))",
+      "setup_review_cases_check1": "CHECK (((status <> 'in_review'::text) OR (assigned_to IS NOT NULL)))",
+      "setup_review_cases_check2": "CHECK ((((status = 'resolved'::text) AND (assigned_to IS NOT NULL) AND (resolved_at IS NOT NULL) AND (resolved_at >= created_at) AND (resolved_by IS NOT NULL) AND (resolution_code IS NOT NULL) AND (resolution_note IS NOT NULL) AND ((char_length(btrim(resolution_note)) >= 8) AND (char_length(btrim(resolution_note)) <= 2000))) OR ((status <> 'resolved'::text) AND (resolved_at IS NULL) AND (resolved_by IS NULL) AND (resolution_code IS NULL) AND (resolution_note IS NULL))))",
+      "setup_review_cases_pkey": "PRIMARY KEY (source_audit_id)",
+      "setup_review_cases_resolution_code_check": "CHECK ((resolution_code = ANY (ARRAY['investigation_complete'::text, 'duplicate_case'::text, 'no_action_required'::text])))",
+      "setup_review_cases_resolved_by_fkey": "FOREIGN KEY (resolved_by) REFERENCES users(id)",
+      "setup_review_cases_source_audit_id_fkey": "FOREIGN KEY (source_audit_id) REFERENCES audit_log(id)",
+      "setup_review_cases_status_check": "CHECK ((status = ANY (ARRAY['open'::text, 'in_review'::text, 'resolved'::text])))",
+      "setup_review_cases_version_check": "CHECK ((version > 0))"
+    },
+    "indexes": {
+      "idx_setup_review_cases_booking": "CREATE INDEX idx_setup_review_cases_booking ON setup_review_cases USING btree (booking_id, created_at, source_audit_id)",
+      "idx_setup_review_cases_queue": "CREATE INDEX idx_setup_review_cases_queue ON setup_review_cases USING btree (status, updated_at, source_audit_id)",
+      "setup_review_cases_pkey": "CREATE UNIQUE INDEX setup_review_cases_pkey ON setup_review_cases USING btree (source_audit_id)"
+    },
+    "functions": {},
+    "triggers": {},
+    "extensions": []
+  },
+  "049_setup_review_digest_deliveries.sql": {
+    "tables": {
+      "setup_review_digest_deliveries": [
+        {
+          "name": "digest_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "created_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "clock_timestamp()"
+        }
+      ],
+      "setup_review_digest_delivery_attempts": [
+        {
+          "name": "attempt_token",
+          "dataType": "uuid",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "digest_key",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": null
+        },
+        {
+          "name": "state",
+          "dataType": "text",
+          "nullable": false,
+          "defaultExpression": "'sending'::text"
+        },
+        {
+          "name": "claimed_at",
+          "dataType": "timestamp with time zone",
+          "nullable": false,
+          "defaultExpression": "clock_timestamp()"
+        },
+        {
+          "name": "outcome_recorded_at",
+          "dataType": "timestamp with time zone",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "provider_receipt",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        },
+        {
+          "name": "evidence_ref",
+          "dataType": "text",
+          "nullable": true,
+          "defaultExpression": null
+        }
+      ]
+    },
+    "constraints": {
+      "setup_review_digest_deliveries_digest_key_check": "CHECK (((char_length(btrim(digest_key)) >= 1) AND (char_length(btrim(digest_key)) <= 255)))",
+      "setup_review_digest_deliveries_pkey": "PRIMARY KEY (digest_key)",
+      "setup_review_digest_delivery_attempts_check": "CHECK ((outcome_recorded_at >= claimed_at))",
+      "setup_review_digest_delivery_attempts_check1": "CHECK (((state = 'sending'::text) = (outcome_recorded_at IS NULL)))",
+      "setup_review_digest_delivery_attempts_check2": "CHECK (((state = 'sent'::text) = (provider_receipt IS NOT NULL)))",
+      "setup_review_digest_delivery_attempts_check3": "CHECK (((state <> 'retryable'::text) OR (evidence_ref IS NOT NULL)))",
+      "setup_review_digest_delivery_attempts_check4": "CHECK (((state <> 'sending'::text) OR (evidence_ref IS NULL)))",
+      "setup_review_digest_delivery_attempts_digest_key_fkey": "FOREIGN KEY (digest_key) REFERENCES setup_review_digest_deliveries(digest_key)",
+      "setup_review_digest_delivery_attempts_evidence_ref_check": "CHECK (((evidence_ref IS NULL) OR (btrim(evidence_ref) <> ''::text)))",
+      "setup_review_digest_delivery_attempts_pkey": "PRIMARY KEY (attempt_token)",
+      "setup_review_digest_delivery_attempts_provider_receipt_check": "CHECK (((provider_receipt IS NULL) OR (btrim(provider_receipt) <> ''::text)))",
+      "setup_review_digest_delivery_attempts_state_check": "CHECK ((state = ANY (ARRAY['sending'::text, 'sent'::text, 'retryable'::text, 'uncertain'::text])))"
+    },
+    "indexes": {
+      "idx_setup_review_digest_attempt_history": "CREATE INDEX idx_setup_review_digest_attempt_history ON setup_review_digest_delivery_attempts USING btree (digest_key, claimed_at, attempt_token)",
+      "idx_setup_review_digest_blocking_attempt": "CREATE UNIQUE INDEX idx_setup_review_digest_blocking_attempt ON setup_review_digest_delivery_attempts USING btree (digest_key) WHERE (state = ANY (ARRAY['sending'::text, 'uncertain'::text, 'sent'::text]))",
+      "idx_setup_review_digest_stale_claims": "CREATE INDEX idx_setup_review_digest_stale_claims ON setup_review_digest_delivery_attempts USING btree (claimed_at, attempt_token) WHERE (state = 'sending'::text)",
+      "setup_review_digest_deliveries_pkey": "CREATE UNIQUE INDEX setup_review_digest_deliveries_pkey ON setup_review_digest_deliveries USING btree (digest_key)",
+      "setup_review_digest_delivery_attempts_pkey": "CREATE UNIQUE INDEX setup_review_digest_delivery_attempts_pkey ON setup_review_digest_delivery_attempts USING btree (attempt_token)"
+    },
+    "functions": {},
+    "triggers": {},
     "extensions": []
   }
 }

@@ -159,6 +159,12 @@ export default function AdminPropertyCompliancePage() {
           >
             ← {ht("Admin security")}
           </a>
+<a
+            href="/admin/financial-report"
+            style={{ color: "#c4a98b" }}
+          >
+            ← {ht("Financial report")}
+          </a>
 
           <a
             href="/admin/listing-readiness"

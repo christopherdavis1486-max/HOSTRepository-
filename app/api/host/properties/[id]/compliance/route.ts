@@ -28,7 +28,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const session = await requireSession();
     await resolveHostPropertyAccess(session, id);
     const parsed = ownerComplianceSchema.safeParse(await request.json());
-    if (!parsed.success) return NextResponse.json(validationErrorResponse(parsed.error), { status: 400, headers });
+    if (!parsed.success) {
+      const response = validationErrorResponse(parsed.error);
+      return NextResponse.json({
+        ...response,
+        error: {
+          ...response.error,
+          issues: parsed.error.issues.map(issue => ({
+            path: issue.path,
+            message: issue.message
+          }))
+        }
+      }, { status: 400, headers });
+    }
     const result = await saveOwnerCompliance(id, session.user.id, parsed.data.items, parsed.data.submit);
     return NextResponse.json({ success: true, ...result }, { headers });
   } catch (error) {

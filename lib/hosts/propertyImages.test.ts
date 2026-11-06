@@ -139,10 +139,7 @@ test(
       uploadRoute,
       /maximumSizeInBytes:\s*10 \* 1024 \* 1024/
     );
-    assert.match(
-      uploadRoute,
-      /properties\/\$\{propertyId\}/
-    );
+    assert.match(uploadRoute, /INVALID_UPLOAD_PATH/);
   }
 );
 

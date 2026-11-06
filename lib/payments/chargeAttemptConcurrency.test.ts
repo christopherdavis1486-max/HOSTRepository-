@@ -32,13 +32,25 @@ import { db } from "../db";
 let mockPaymentIntentCreate: any;
 let attemptScheduledCharge: typeof import("./scheduledCharges").attemptScheduledCharge;
 
+
+function completeSuccessFixture(result: any, params: any) {
+  if (!result?.status) return result;
+  return {
+    customer: params.customer, amount: params.amount,
+    amount_received: result.status === "succeeded" ? params.amount : 0,
+    amount_capturable: 0,
+    currency: params.currency, metadata: { ...params.metadata },
+    ...result,
+  };
+}
+
 before(async () => {
   const { stripe: realStripe } = await import("./stripeClient");
   mock.module("./stripeClient", {
     namedExports: {
       stripe: {
         webhooks: realStripe.webhooks, // pure, local HMAC verification — no network call, safe to keep real
-        paymentIntents: { create: async (...args: any[]) => mockPaymentIntentCreate(...args) },
+        paymentIntents: { create: async (...args: any[]) => completeSuccessFixture(await mockPaymentIntentCreate(...args), args[0]) },
       },
     },
   });
@@ -168,34 +180,27 @@ test("A SLOW FIRST STRIPE CALL STILL PREVENTS THE SECOND: the lease is held for 
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
 
-test("OWNER CRASH FOLLOWED BY LEASE EXPIRY REUSES THE SAME ATTEMPT AND KEY", async () => {
+test("owner crash and lease expiry require reconciliation without replaying creation", async () => {
+  const original = process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
   process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = "true";
-  const suffix = crypto.randomBytes(4).toString("hex");
-  const bookingId = await createNewFlowBookingWithPaymentMethod(suffix);
-
-  // Simulate a worker that claimed an attempt and then genuinely
-  // crashed before ever calling Stripe or recording any outcome — a
-  // real 'pending' attempt with an ALREADY-EXPIRED lease, exactly what
-  // migration 015's lease_expires_at is for.
-  const preCrashKey = crypto.createHash("sha256").update(`payment-attempt:${bookingId}:1`).digest("hex");
-  const preCrashToken = crypto.randomUUID();
-  await db.query(
-    `INSERT INTO payment_attempts (booking_id, attempt_number, status, amount_minor, currency, idempotency_key, claim_token, lease_expires_at)
-     VALUES ($1, 1, 'pending', 25500, 'GBP', $2, $3, NOW() - INTERVAL '1 minute')`,
-    [bookingId, preCrashKey, preCrashToken]
-  );
-
-  let capturedKey: string | undefined;
-  mockPaymentIntentCreate = async (_params: any, opts: any) => { capturedKey = opts.idempotencyKey; return { id: `pi_test_${suffix}`, status: "succeeded" }; };
-
-  const result = await attemptScheduledCharge(bookingId, 25500, "GBP");
-  assert.equal(result.outcome, "succeeded", "a new worker must be able to reclaim an attempt whose lease has genuinely expired");
-  assert.equal(capturedKey, preCrashKey, "the reclaiming worker must reuse the exact same idempotency key the crashed worker had already reserved");
-
-  const attempts = await db.query(`SELECT COUNT(*) FROM payment_attempts WHERE booking_id = $1`, [bookingId]);
-  assert.equal(Number(attempts.rows[0].count), 1, "reclaiming after a crash must never create a second attempt row");
-
-  delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
+  try {
+    const bookingId = await createNewFlowBookingWithPaymentMethod(crypto.randomBytes(8).toString("hex"));
+    await db.query(
+      "INSERT INTO payment_attempts (booking_id, attempt_number, status, amount_minor, currency, idempotency_key, claim_token, lease_expires_at) VALUES ($1, 1, 'pending', 25500, 'GBP', $2, $3, NOW() - INTERVAL '1 minute')",
+      [bookingId, crypto.randomUUID(), crypto.randomUUID()]
+    );
+    const before = (await db.query("SELECT * FROM payment_attempts WHERE booking_id = $1", [bookingId])).rows;
+    let calls = 0;
+    mockPaymentIntentCreate = async () => { calls++; throw new Error("Expired attempt must not execute"); };
+    const result = await attemptScheduledCharge(bookingId, 25500, "GBP");
+    assert.equal(result.attempted, false);
+    assert.match(result.reason ?? "", /requires reconciliation/);
+    assert.equal(calls, 0);
+    assert.deepEqual((await db.query("SELECT * FROM payment_attempts WHERE booking_id = $1", [bookingId])).rows, before);
+  } finally {
+    if (original === undefined) delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
+    else process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = original;
+  }
 });
 
 test("A LATE FAILED RESULT CANNOT OVERWRITE SUCCESS: a stale worker's belated decline is safely rejected once the attempt already succeeded", async () => {
@@ -279,7 +284,7 @@ test("SUCCESS CREATES EXACTLY ONE CONFIRMATION AND ONE ENTITLEMENT, even from a 
 
   const payload = JSON.stringify({
     id: `evt_final_${suffix}`, object: "event", type: "payment_intent.succeeded",
-    data: { object: { id: `pi_test_${suffix}`, object: "payment_intent", metadata: { booking_id: bookingId, payment_attempt_id: attempt.rows[0].id, payment_flow_version: "separate_charges_delayed_v1" } } },
+    data: { object: { id: `pi_test_${suffix}`, object: "payment_intent", status: "succeeded", customer: "cus_test_fake", amount: 25500, amount_capturable: 0, amount_received: 25500, currency: "gbp", metadata: { booking_id: bookingId, payment_attempt_id: attempt.rows[0].id, payment_flow_version: "separate_charges_delayed_v1" } } },
   });
   await handleStripeWebhook(payload, signEvent(payload));
 
@@ -315,7 +320,7 @@ test("NO UNIQUE VIOLATION: three genuinely concurrent callers on a fresh booking
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
 
-test("NO RETRY BEFORE next_retry_at: a fresh caller shortly after a decline is refused, no second Stripe call is made", async () => {
+test("unresolved decline blocks an immediate second charge", async () => {
   process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = "true";
   const suffix = crypto.randomBytes(4).toString("hex");
   const bookingId = await createNewFlowBookingWithPaymentMethod(suffix);
@@ -330,12 +335,12 @@ test("NO RETRY BEFORE next_retry_at: a fresh caller shortly after a decline is r
   };
 
   const first = await attemptScheduledCharge(bookingId, 25500, "GBP");
-  assert.equal(first.outcome, "failed");
+  assert.equal(first.outcome, "processing");
   assert.equal(genuineCount, 1);
 
   const second = await attemptScheduledCharge(bookingId, 25500, "GBP");
   assert.equal(second.attempted, false, "a caller arriving before next_retry_at must be safely refused, not attempt a duplicate charge");
-  assert.match(second.reason ?? "", /awaiting its scheduled retry/);
+  assert.match(second.reason ?? "", /requires reconciliation/);
   assert.equal(genuineCount, 1, "no second genuine Stripe call must occur before next_retry_at arrives");
 
   const attempts = await db.query(`SELECT COUNT(*) FROM payment_attempts WHERE booking_id = $1`, [bookingId]);
@@ -344,7 +349,7 @@ test("NO RETRY BEFORE next_retry_at: a fresh caller shortly after a decline is r
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
 
-test("ONE LEGITIMATE RETRY AFTER next_retry_at: once the scheduled retry time genuinely arrives, a new attempt is correctly created", async () => {
+test("moving retry time into the past cannot replay an unresolved decline", async () => {
   process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = "true";
   const suffix = crypto.randomBytes(4).toString("hex");
   const bookingId = await createNewFlowBookingWithPaymentMethod(suffix);
@@ -361,11 +366,12 @@ test("ONE LEGITIMATE RETRY AFTER next_retry_at: once the scheduled retry time ge
 
   mockPaymentIntentCreate = async () => ({ id: `pi_test_retry_${suffix}`, status: "succeeded" });
   const retryResult = await attemptScheduledCharge(bookingId, 25500, "GBP");
-  assert.equal(retryResult.outcome, "succeeded", "a genuinely due retry must be permitted and must succeed normally");
+  assert.equal(retryResult.attempted, false);
+  assert.match(retryResult.reason ?? "", /requires reconciliation/);
 
   const attempts = await db.query(`SELECT attempt_number, status FROM payment_attempts WHERE booking_id = $1 ORDER BY attempt_number`, [bookingId]);
-  assert.equal(attempts.rows.length, 2, "the legitimate retry must be attempt #2, a genuinely new attempt row");
-  assert.equal(attempts.rows[1].status, "succeeded");
+  assert.equal(attempts.rows.length, 1);
+  assert.equal(attempts.rows[0].status, "processing");
 
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
@@ -419,25 +425,23 @@ test("REQUIRES_ACTION IS NEVER AUTOMATICALLY RETRIED: a subsequent call refuses 
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
 
-test("PROCESSING RECONCILES THE ORIGINAL PAYMENTINTENT: a subsequent call (after the lease naturally clears) reuses the same attempt and idempotency key, not a new one", async () => {
+test("processing attempt with a cleared lease requires separate provider reconciliation", async () => {
+  const original = process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
   process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = "true";
-  const suffix = crypto.randomBytes(4).toString("hex");
-  const bookingId = await createNewFlowBookingWithPaymentMethod(suffix);
-
-  let capturedKeys: string[] = [];
-  mockPaymentIntentCreate = async (_params: any, opts: any) => { capturedKeys.push(opts.idempotencyKey); return { id: `pi_test_${suffix}`, status: "processing" }; };
-
-  await attemptScheduledCharge(bookingId, 25500, "GBP");
-  // The lease is cleared by recordChargeOutcome once the first call's
-  // own outcome (processing) is recorded — a later, genuinely separate
-  // reconciliation call is correctly free to claim it again.
-  await attemptScheduledCharge(bookingId, 25500, "GBP");
-
-  assert.equal(capturedKeys.length, 2, "a processing attempt IS genuinely reconciled by calling create() again with the same key once the prior lease has cleared");
-  assert.equal(capturedKeys[0], capturedKeys[1], "both calls must use the exact same idempotency key — this is the original PaymentIntent being reconciled, not a new one");
-
-  const attempts = await db.query(`SELECT COUNT(*) FROM payment_attempts WHERE booking_id = $1`, [bookingId]);
-  assert.equal(Number(attempts.rows[0].count), 1, "reconciling a processing attempt must never create a second attempt row");
-
-  delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
+  try {
+    const bookingId = await createNewFlowBookingWithPaymentMethod(crypto.randomBytes(8).toString("hex"));
+    let calls = 0;
+    mockPaymentIntentCreate = async () => { calls++; return { id: "pi_unresolved_" + bookingId.replace(/-/g, ""), status: "processing" }; };
+    await attemptScheduledCharge(bookingId, 25500, "GBP");
+    const before = (await db.query("SELECT * FROM payment_attempts WHERE booking_id = $1", [bookingId])).rows;
+    assert.equal(before[0].lease_expires_at, null);
+    const result = await attemptScheduledCharge(bookingId, 25500, "GBP");
+    assert.equal(result.attempted, false);
+    assert.match(result.reason ?? "", /requires reconciliation/);
+    assert.equal(calls, 1);
+    assert.deepEqual((await db.query("SELECT * FROM payment_attempts WHERE booking_id = $1", [bookingId])).rows, before);
+  } finally {
+    if (original === undefined) delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
+    else process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = original;
+  }
 });

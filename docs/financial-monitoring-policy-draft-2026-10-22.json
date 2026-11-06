@@ -1,0 +1,101 @@
+{
+  "status": "draft_not_executable",
+  "scope": "monitoring_policy_decisions_only",
+  "preparedOn": "2026-10-22",
+  "environment": "unselected",
+  "evidence": {
+    "repositoryCron": {
+      "path": "/api/cron/sweep",
+      "schedule": "0 3 * * *"
+    },
+    "monitoredRunnerSchedule": "not established by inspected configuration",
+    "externalSchedulers": "not inspected"
+  },
+  "decisions": {
+    "collectionIntervalMs": null,
+    "maxSnapshotAgeMs": null,
+    "maxHeartbeatAgeMs": null,
+    "operations": {
+      "settlement_execute": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "settlement_reconcile": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "payment_reconcile": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "missing_refund_recover": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "refund_execute": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "refund_reconcile": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "transfer_execute": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "transfer_reconcile": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "reversal_execute": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      },
+      "reversal_reconcile": {
+        "expectedState": "unknown",
+        "invocationIntervalMs": null,
+        "maximumExpectedRunMs": null,
+        "schedulingAllowanceMs": null,
+        "dueReviewAgeMs": null,
+        "scheduleOwner": null
+      }
+    }
+  }
+}

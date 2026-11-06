@@ -68,9 +68,9 @@ export async function sendBookingConfirmedMessage(bookingId: string) {
   await notifyUser(info.hostUserId, "host_new_booking", info.ctx);
 }
 
-export async function sendBookingCancelledMessage(bookingId: string, refundAmountFormatted?: string) {
+export async function sendBookingCancelledMessage(bookingId: string, refundAmountFormatted?: string, refundStatus?: "requested" | "initiated" | "needs_review") {
   const info = await bookingContext(bookingId);
   if (!info) return;
-  await sendSystemMessage(bookingId, "booking_cancelled", { ...info.ctx, refundAmount: refundAmountFormatted }, info.guestId);
+  await sendSystemMessage(bookingId, "booking_cancelled", { ...info.ctx, refundAmount: refundAmountFormatted, refundStatus }, info.guestId);
   await notifyUser(info.hostUserId, "host_booking_cancelled", info.ctx);
 }

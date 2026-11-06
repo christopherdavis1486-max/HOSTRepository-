@@ -41,3 +41,50 @@ export function isAutomatedOffSessionChargingEnabled(): boolean {
 export function isHostTransferExecutionEnabled(): boolean {
   return isEnabled("ENABLE_HOST_TRANSFER_EXECUTION");
 }
+
+
+/** Independent gate for Stripe transfer reversals. Defaults OFF. */
+export function isTransferReversalExecutionEnabled(): boolean {
+  return isEnabled("ENABLE_TRANSFER_REVERSAL_EXECUTION");
+}
+
+/** Independent gate for new-flow Stripe refunds. Defaults OFF. */
+export function isNewFlowRefundExecutionEnabled(): boolean {
+  return isEnabled("ENABLE_NEW_FLOW_REFUND_EXECUTION");
+}
+
+/** Independent gate for recording verified refund reconciliation. Defaults OFF. */
+export function isNewFlowRefundReconciliationEnabled(): boolean {
+  return isEnabled("ENABLE_NEW_FLOW_REFUND_RECONCILIATION");
+}
+
+/** Independent gate for verified host transfer recovery. Defaults OFF. */
+export function isHostTransferReconciliationEnabled(): boolean {
+  return isEnabled("ENABLE_HOST_TRANSFER_RECONCILIATION");
+}
+
+/** Independent gate for verified transfer reversal recovery. Defaults OFF. */
+export function isTransferReversalReconciliationEnabled(): boolean {
+  return isEnabled("ENABLE_TRANSFER_REVERSAL_RECONCILIATION");
+}
+
+/** Independent gate for verified new-flow payment reconciliation. Defaults OFF. */
+export function isNewFlowPaymentReconciliationEnabled(): boolean {
+  return isEnabled("ENABLE_NEW_FLOW_PAYMENT_RECONCILIATION");
+}
+
+/** Independent gate for retained cancellation payouts. Defaults OFF. */
+export function isCancellationHostSettlementExecutionEnabled(): boolean {
+  return isEnabled("ENABLE_CANCELLATION_HOST_SETTLEMENT_EXECUTION");
+}
+
+/** Independent gate for verified retained payout recovery. Defaults OFF. */
+export function isCancellationHostSettlementReconciliationEnabled(): boolean {
+  return isEnabled("ENABLE_CANCELLATION_HOST_SETTLEMENT_RECONCILIATION");
+}
+
+
+/** Independent gate for verified missing late-payment refund reservations. Defaults OFF. */
+export function isMissingLatePaymentRefundRecoveryEnabled(): boolean {
+  return isEnabled("ENABLE_MISSING_LATE_PAYMENT_REFUND_RECOVERY");
+}

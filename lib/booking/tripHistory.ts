@@ -1,3 +1,4 @@
+import { deriveNewFlowRefundDisplay, newFlowRefundDisplaySql } from "../payments/newFlowRefundDisplay";
 import { db } from "../db";
 import { BookingError } from "./types";
 import { deriveGuestPaymentStatus, GRACE_PERIOD_HOURS } from "../payments/scheduledCharges";
@@ -35,6 +36,7 @@ export async function listBookingsForGuest(guestId: string, includeArchived = fa
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.name AS property_name, p.city, p.district, p.slug,
        bpc.guest_total_minor, bpc.currency,
+       ${newFlowRefundDisplaySql} AS refund_display_evidence,
        pay.status AS payment_status,
        latest_attempt.status AS latest_attempt_status
      FROM bookings b
@@ -61,6 +63,7 @@ export async function getBookingDetail(bookingId: string) {
        b.*, p.name AS property_name, p.city, p.district, p.country_code, p.check_in_time, p.check_out_time, p.house_rules,
        bpc.currency, bpc.accommodation_minor, bpc.cleaning_minor, bpc.guest_service_fee_minor, bpc.taxes_minor,
        bpc.guest_total_minor, bpc.host_payout_minor,
+       ${newFlowRefundDisplaySql} AS refund_display_evidence,
        pay.status AS payment_status, pay.provider_payment_intent_id,
        hp.display_name AS host_name,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method
@@ -87,7 +90,15 @@ export async function getBookingDetail(bookingId: string) {
   }
 
   const refunds = await db.query(
-    `SELECT amount_minor, currency, reason, status, created_at FROM refunds WHERE booking_id = $1 ORDER BY created_at DESC`,
+    result.rows[0].payment_flow_version === "separate_charges_delayed_v1"
+      ? `SELECT r.amount_minor, r.currency, r.reason, r.created_at,
+           r.status, r.reconciliation_required, r.provider_refund_id,
+           p.status AS payment_status, p.amount_minor AS payment_amount_minor,
+           p.currency AS payment_currency
+         FROM new_flow_refunds r
+         LEFT JOIN payment_attempts p ON p.id = r.payment_attempt_id AND p.booking_id = r.booking_id
+         WHERE r.booking_id = $1 ORDER BY r.created_at DESC, r.id DESC`
+      : `SELECT amount_minor, currency, reason, status, created_at FROM refunds WHERE booking_id = $1 ORDER BY created_at DESC`,
     [bookingId]
   );
 
@@ -97,7 +108,8 @@ export async function getBookingDetail(bookingId: string) {
       amountMinor: refund.amount_minor,
       currency: refund.currency,
       reason: refund.reason,
-      status: refund.status,
+      status: result.rows[0].payment_flow_version === "separate_charges_delayed_v1"
+        ? deriveNewFlowRefundDisplay([refund]) : refund.status,
       createdAt: refund.created_at,
     })),
   };
@@ -136,7 +148,7 @@ function mapTripRow(row: any) {
     ? new Date(new Date(row.grace_period_started_at).getTime() + GRACE_PERIOD_HOURS * 3600 * 1000)
     : null;
   const guestPaymentStatus = isNewFlow
-    ? deriveGuestPaymentStatus({
+    ? deriveNewFlowRefundDisplay(row.refund_display_evidence ?? []) ?? deriveGuestPaymentStatus({
         hasPaymentMethod: !!row.has_payment_method,
         scheduledChargeDate,
         latestAttemptStatus: row.latest_attempt_status ?? null,
@@ -191,7 +203,7 @@ function mapDetailRow(row: any, latestAttempt: { status: string; failure_code: s
     const gracePeriodExpiresAt = row.grace_period_started_at
       ? new Date(new Date(row.grace_period_started_at).getTime() + GRACE_PERIOD_HOURS * 3600 * 1000)
       : null;
-    guestPaymentStatus = deriveGuestPaymentStatus({
+    guestPaymentStatus = deriveNewFlowRefundDisplay(row.refund_display_evidence ?? []) ?? deriveGuestPaymentStatus({
       hasPaymentMethod: !!row.has_payment_method,
       scheduledChargeDate,
       latestAttemptStatus: latestAttempt?.status ?? null,

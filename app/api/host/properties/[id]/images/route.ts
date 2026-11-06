@@ -13,7 +13,10 @@ import {
 } from "@/lib/hosts/propertyImages";
 
 const registerUploadSchema = z.object({
-  blobUrl: z.string().url("Blob URL must be valid."),
+  blobUrl: z.string().url("Blob URL must be valid.").regex(
+    /^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.public\.blob\.vercel-storage\.com\/[^\s?#\\]+$/i,
+    "Image URL must be a public HTTPS Vercel Blob URL."
+  ),
 });
 
 const imageActionSchema = z.discriminatedUnion("action", [
@@ -102,9 +105,16 @@ export async function POST(
     }
 
     const details = await head(parsed.data.blobUrl);
-    const expectedPrefix = `properties/${propertyId}`;
+    if (!/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.public\.blob\.vercel-storage\.com\/[^\s?#\\]+$/i.test(details.url)) {
+      throw new PropertyImageError(
+        "INVALID_UPLOAD_URL",
+        "Image URL must be a public HTTPS Vercel Blob URL.",
+        400
+      );
+    }
+    const expectedPrefix = `properties/${propertyId}/`;
 
-    if (!details.pathname.startsWith(expectedPrefix)) {
+    if (!details.pathname.startsWith(expectedPrefix) || details.pathname.length === expectedPrefix.length) {
       throw new PropertyImageError(
         "INVALID_UPLOAD_PATH",
         "The uploaded image does not belong to this property.",

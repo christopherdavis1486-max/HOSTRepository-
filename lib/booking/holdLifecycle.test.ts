@@ -24,6 +24,16 @@ let createBooking: typeof import("./createBooking").createBooking;
 let findExpiredHoldBookingIds: typeof import("./createBooking").findExpiredHoldBookingIds;
 let releaseExpiredHold: typeof import("./createBooking").releaseExpiredHold;
 
+function completePaymentFixture(result: any, params: any) {
+  if (!result?.status) return result;
+  return {
+    customer: params.customer, amount: params.amount,
+    amount_received: result.status === "succeeded" ? params.amount : 0,
+    amount_capturable: 0, currency: params.currency,
+    metadata: { ...params.metadata }, ...result,
+  };
+}
+
 before(async () => {
   const { stripe: realStripe } = await import("../payments/stripeClient");
   mock.module("../payments/stripeClient", {
@@ -31,7 +41,7 @@ before(async () => {
       stripe: {
         webhooks: realStripe.webhooks, // pure, local HMAC verification — no network call, safe to keep real
         setupIntents: { retrieve: async (...args: any[]) => mockSetupIntentRetrieve(...args) },
-        paymentIntents: { create: async (...args: any[]) => mockPaymentIntentCreate(...args) },
+        paymentIntents: { create: async (...args: any[]) => completePaymentFixture(await mockPaymentIntentCreate(...args), args[0]) },
       },
     },
   });
@@ -112,9 +122,13 @@ test("SURVIVES ORDINARY SWEEP: a long-lead booking whose SetupIntent genuinely s
   await db.query(`UPDATE bookings SET hold_expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [booking.id]);
 
   await db.query(`UPDATE bookings SET stripe_customer_id = 'cus_test_fake', stripe_setup_intent_id = $2 WHERE id = $1`, [booking.id, `seti_test_${suffix}`]);
-  mockSetupIntentRetrieve = async () => ({ status: "succeeded", payment_method: `pm_test_${suffix}` });
+  mockSetupIntentRetrieve = async () => ({
+    id: "seti_test_" + suffix, object: "setup_intent", status: "succeeded",
+    customer: "cus_test_fake", payment_method: "pm_test_" + suffix,
+    metadata: { booking_id: booking.id }, usage: "off_session",
+  });
 
-  await onSetupIntentSucceeded({ metadata: { booking_id: booking.id } } as any);
+  await onSetupIntentSucceeded({ id: "seti_test_" + suffix, metadata: { booking_id: booking.id } } as any);
 
   const afterRow = await db.query(`SELECT hold_expires_at, status FROM bookings WHERE id = $1`, [booking.id]);
   assert.equal(afterRow.rows[0].hold_expires_at, null, "hold_expires_at must be cleared once the payment method is genuinely saved for a long-lead booking");
@@ -138,8 +152,12 @@ test("REMAINS RESERVED: inventory stays booked and the booking survives repeated
 
   const booking = await createBooking({ propertyId, guestId, checkIn, checkOut, guests: 1, guestName: "HL Guest3", guestEmail: "hl3@test.host", idempotencyKey: crypto.randomUUID() });
   await db.query(`UPDATE bookings SET stripe_customer_id = 'cus_test_fake', stripe_setup_intent_id = $2 WHERE id = $1`, [booking.id, `seti_test_${suffix}`]);
-  mockSetupIntentRetrieve = async () => ({ status: "succeeded", payment_method: `pm_test_${suffix}` });
-  await onSetupIntentSucceeded({ metadata: { booking_id: booking.id } } as any);
+  mockSetupIntentRetrieve = async () => ({
+    id: "seti_test_" + suffix, object: "setup_intent", status: "succeeded",
+    customer: "cus_test_fake", payment_method: "pm_test_" + suffix,
+    metadata: { booking_id: booking.id }, usage: "off_session",
+  });
+  await onSetupIntentSucceeded({ id: "seti_test_" + suffix, metadata: { booking_id: booking.id } } as any);
 
   // Run the ordinary sweep several times, simulating several days of
   // real cron executions passing while the booking correctly waits.
@@ -159,24 +177,51 @@ test("BECOMES CHARGEABLE: once scheduled_charge_date arrives, the booking is gen
   process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
   const suffix = crypto.randomBytes(4).toString("hex");
   const { propertyId, guestId } = await setupPublishedProperty(suffix);
-  const checkIn = isoDaysFromNow(61); // just over the 60-day threshold — a genuinely deferred booking
-  const checkOut = isoDaysFromNow(63);
+  const checkIn = isoDaysFromNow(62); // just over the 60-day threshold — a genuinely deferred booking
+  const checkOut = isoDaysFromNow(64);
 
   const booking = await createBooking({ propertyId, guestId, checkIn, checkOut, guests: 1, guestName: "HL Guest4", guestEmail: "hl4@test.host", idempotencyKey: crypto.randomUUID() });
   await db.query(`UPDATE bookings SET stripe_customer_id = 'cus_test_fake', stripe_setup_intent_id = $2 WHERE id = $1`, [booking.id, `seti_test_${suffix}`]);
-  mockSetupIntentRetrieve = async () => ({ status: "succeeded", payment_method: `pm_test_${suffix}` });
-  await onSetupIntentSucceeded({ metadata: { booking_id: booking.id } } as any);
+  mockSetupIntentRetrieve = async () => ({
+    id: "seti_test_" + suffix, object: "setup_intent", status: "succeeded",
+    customer: "cus_test_fake", payment_method: "pm_test_" + suffix,
+    metadata: { booking_id: booking.id }, usage: "off_session",
+  });
+  await onSetupIntentSucceeded({ id: "seti_test_" + suffix, metadata: { booking_id: booking.id } } as any);
 
+  // Isolate the date boundary from other tests' persisted queue fixtures.
+  async function findFixtureDue() {
+    const originalQuery = db.query;
+    let scopedReads = 0;
+    (db as any).query = function (...args: any[]) {
+      if (typeof args[0] === 'string' &&
+          args[0].includes('SELECT b.id FROM bookings b') &&
+          args[0].includes('b.scheduled_charge_date <= NOW()')) {
+        assert.equal(args.length, 1);
+        assert.equal(args[0].split('LIMIT 200').length - 1, 1);
+        args = [args[0].replace('LIMIT 200', 'AND b.id = $1 LIMIT 200'), [booking.id]];
+        scopedReads++;
+      }
+      return (originalQuery as any).apply(db, args);
+    };
+    try {
+      const ids = await findBookingsDueForScheduledCharge();
+      assert.equal(scopedReads, 1, 'Must execute the actual selector query');
+      return ids;
+    } finally {
+      db.query = originalQuery;
+    }
+  }
   // Not yet due — the real scheduled_charge_date computed at creation is
-  // ~1 day from now (checkIn 61 days out, threshold 60 days).
-  let due = await findBookingsDueForScheduledCharge();
+  // remains in the future (checkIn 62 calendar days out, threshold 60 whole days).
+  let due = await findFixtureDue();
   assert.equal(due.includes(booking.id), false, "must not be chargeable before its own scheduled date");
 
   // Advance time by moving the persisted date into the past — the
   // simplest, most direct way to prove the boundary without waiting a
   // real day.
   await db.query(`UPDATE bookings SET scheduled_charge_date = NOW() - INTERVAL '1 hour' WHERE id = $1`, [booking.id]);
-  due = await findBookingsDueForScheduledCharge();
+  due = await findFixtureDue();
   assert.equal(due.includes(booking.id), true, "must become chargeable once its scheduled date has genuinely arrived");
 
   delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
@@ -204,7 +249,13 @@ test("SUCCESSFUL SCHEDULED CHARGE CONFIRMS THE BOOKING", async () => {
   const attempt = await db.query(`SELECT id FROM payment_attempts WHERE booking_id = $1`, [booking.id]);
   const payload = JSON.stringify({
     id: `evt_scheduled_${suffix}`, object: "event", type: "payment_intent.succeeded",
-    data: { object: { id: `pi_test_${suffix}`, object: "payment_intent", metadata: { booking_id: booking.id, payment_attempt_id: attempt.rows[0].id, payment_flow_version: "separate_charges_delayed_v1" } } },
+    data: { object: {
+      id: `pi_test_${suffix}`, object: "payment_intent", status: "succeeded",
+      customer: "cus_test_fake", amount: bookingRow.rows[0].guest_total_minor,
+      amount_received: bookingRow.rows[0].guest_total_minor, amount_capturable: 0,
+      currency: bookingRow.rows[0].currency.trim().toLowerCase(),
+      metadata: { booking_id: booking.id, payment_attempt_id: attempt.rows[0].id, payment_flow_version: "separate_charges_delayed_v1" }
+    } },
   });
   await handleStripeWebhook(payload, signEvent(payload));
 
@@ -235,7 +286,7 @@ test("FAILED CHARGE DOES NOT IMMEDIATELY RELEASE INVENTORY: a decline extends th
   };
   const bookingRow = await db.query(`SELECT * FROM booking_price_components WHERE booking_id = $1`, [booking.id]);
   const result = await attemptScheduledCharge(booking.id, bookingRow.rows[0].guest_total_minor, bookingRow.rows[0].currency);
-  assert.equal(result.outcome, "failed");
+  assert.equal(result.outcome, "processing");
 
   // The deadline is created with PostgreSQL NOW(); verify it using the
   // same clock rather than assuming the Node and database clocks agree.
@@ -263,7 +314,7 @@ test("FAILED CHARGE DOES NOT IMMEDIATELY RELEASE INVENTORY: a decline extends th
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;
 });
 
-test("GRACE-PERIOD EXPIRY CANCELS THE BOOKING AND RELEASES INVENTORY", async () => {
+test("GRACE-PERIOD EXPIRY CANNOT RELEASE INVENTORY WHILE PAYMENT REMAINS UNRESOLVED", async () => {
   const { attemptScheduledCharge } = await import("../payments/scheduledCharges");
   process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING = "true";
   process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
@@ -301,12 +352,14 @@ test("GRACE-PERIOD EXPIRY CANCELS THE BOOKING AND RELEASES INVENTORY", async () 
 
   const { findExpiredHoldBookingIds, releaseExpiredHold } = await import("./createBooking");
   const due = await findExpiredHoldBookingIds();
-  assert.ok(due.includes(booking.id), "must now be found as expired once the real grace period has genuinely passed");
+  assert.equal(due.includes(booking.id), false, "unresolved payment must be excluded from the bounded expiry batch");
 
   const released = await releaseExpiredHold(booking.id);
-  assert.equal(released!.status, "cancelled");
+  assert.equal(released, null);
+  const state = (await db.query("SELECT status FROM bookings WHERE id = $1", [booking.id])).rows[0];
+  assert.equal(state.status, "pending_payment");
   const inventory = await inventoryStatus(propertyId, checkIn, checkOut);
-  assert.ok(inventory.every((s) => s === "available"), "inventory must be released once the grace period genuinely expires with no recovery");
+  assert.ok(inventory.every((s) => s === "booked"), "unresolved payment must preserve reserved inventory until reconciliation");
 
   delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
   delete process.env.ENABLE_AUTOMATED_OFFSESSION_CHARGING;

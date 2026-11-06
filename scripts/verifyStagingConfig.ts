@@ -1,3 +1,5 @@
+import { sessionConnectionUrl } from "../lib/db/sessionConnection";
+
 type Level = "ERROR" | "WARNING" | "OK";
 type Finding = { level: Level; name: string; detail: string };
 
@@ -42,10 +44,23 @@ if (databaseUrl && /localhost|127\.0\.0\.1/i.test(databaseUrl)) {
   add("ERROR", "DATABASE_URL", "Staging must not point to a local database.");
 }
 
+requireValue("DATABASE_URL_UNPOOLED");
+try {
+  sessionConnectionUrl({
+    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED,
+  });
+  add("OK", "DATABASE_URL_UNPOOLED", "Session-lock connection configuration validated; connectivity not tested.");
+} catch {
+  add("ERROR", "DATABASE_URL_UNPOOLED", "Requires a direct PostgreSQL URL targeting the same database, endpoint and role as DATABASE_URL.");
+}
+
 requirePrefix("STRIPE_SECRET_KEY", "sk_test_");
 requirePrefix("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "pk_test_");
 requirePrefix("STRIPE_WEBHOOK_SECRET", "whsec_");
 requirePrefix("STRIPE_V2_WEBHOOK_SECRET", "whsec_");
+
+requireValue("BLOB_READ_WRITE_TOKEN");
 
 requireValue("AUTH_SECRET", 32);
 requireValue("CRON_SECRET", 32);
@@ -61,9 +76,27 @@ if (value("SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT") !== "true") {
   add("ERROR", "SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT", "Must be exactly true for staging.");
 } else add("OK", "SECURITY_REQUIRE_DISTRIBUTED_RATE_LIMIT", "Fail-closed distributed limiting enabled.");
 
-for (const flag of ["ENABLE_DELAYED_CHARGE_BOOKINGS", "ENABLE_AUTOMATED_OFFSESSION_CHARGING", "ENABLE_HOST_TRANSFER_EXECUTION"]) {
-  if (value(flag) === "true") add("ERROR", flag, "Must remain false while Funds Segregation approval and hold-period design are unresolved.");
-  else add("OK", flag, "Safely disabled.");
+const stagingFinancialFlags = [
+  "ENABLE_DELAYED_CHARGE_BOOKINGS",
+  "ENABLE_AUTOMATED_OFFSESSION_CHARGING",
+  "ENABLE_HOST_TRANSFER_EXECUTION",
+  "ENABLE_TRANSFER_REVERSAL_EXECUTION",
+  "ENABLE_NEW_FLOW_REFUND_EXECUTION",
+  "ENABLE_NEW_FLOW_REFUND_RECONCILIATION",
+  "ENABLE_HOST_TRANSFER_RECONCILIATION",
+  "ENABLE_TRANSFER_REVERSAL_RECONCILIATION",
+  "ENABLE_NEW_FLOW_PAYMENT_RECONCILIATION",
+  "ENABLE_CANCELLATION_HOST_SETTLEMENT_EXECUTION",
+  "ENABLE_CANCELLATION_HOST_SETTLEMENT_RECONCILIATION",
+  "ENABLE_MISSING_LATE_PAYMENT_REFUND_RECOVERY"
+];
+
+for (const flag of stagingFinancialFlags) {
+  if (value(flag) === "true") {
+    add("ERROR", flag, "Must remain disabled during staging readiness validation.");
+  } else {
+    add("OK", flag, "Safely disabled.");
+  }
 }
 
 if (value("HOST_TAX_TREATMENT") !== "unconfigured") {

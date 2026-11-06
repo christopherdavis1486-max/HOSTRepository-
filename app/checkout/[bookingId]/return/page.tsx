@@ -30,15 +30,41 @@ export default function CheckoutReturnPage({ params }: { params: Promise<{ booki
 
   useEffect(() => {
     if (!bookingId) return;
+    let active = true;
+    const controller = new AbortController();
     const poll = () => {
-      fetch(`/api/bookings/${bookingId}`, { credentials: "include" })
-        .then((r) => r.json())
-        .then((data) => { if (data.success) setBooking(data.booking); })
-        .catch(() => {});
+      fetch(`/api/bookings/${bookingId}`, {
+        credentials: "include",
+        signal: controller.signal,
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error("Booking request failed");
+          return r.json();
+        })
+        .then((data) => {
+          if (
+            active &&
+            data?.success === true &&
+            data.booking &&
+            data.booking.id === bookingId &&
+            typeof data.booking.status === "string"
+          ) {
+            setBooking(data.booking);
+          }
+        })
+        .catch(() => {
+          // Keep retrying within the existing bounded polling window.
+          // Never display response bodies or infer a payment outcome.
+        });
     };
     poll();
     pollingRef.current = setInterval(() => { poll(); setAttempts((a) => a + 1); }, 2000);
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+    return () => {
+      active = false;
+      controller.abort();
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    };
   }, [bookingId]);
 
   useEffect(() => {
@@ -110,7 +136,27 @@ export default function CheckoutReturnPage({ params }: { params: Promise<{ booki
       <CustomerNav />
 
       <div className="wrap">
-        {!booking && <div className="state-block" role="status" aria-live="polite">{gt("confirmingPayment")}</div>}
+        {!booking && attempts <= 15 && (
+          <div className="state-block" role="status" aria-live="polite">
+            {gt("confirmingPayment")}
+          </div>
+        )}
+
+        {!booking && attempts > 15 && (
+          <div role="status" aria-live="polite">
+            <div className="eyebrow">Unable to check booking</div>
+            <h1 className="display">We couldn't load your booking</h1>
+            <p className="policy-note" style={{ textAlign: "center" }}>
+              We couldn't verify your booking or payment status. Open My Trips
+              to check your booking. If asked, sign in with the account used
+              to book. Check your trip status before trying to pay again.
+              If your card shows a charge, contact HOST so we can check it.
+            </p>
+            <div className="actions">
+              <a href="/trips" className="btn-primary">Open My Trips</a>
+            </div>
+          </div>
+        )}
 
         {booking && booking.status === "pending_payment" && !timedOut && !isScheduledPayment && !needsPaymentAttention && (
           <>
@@ -141,7 +187,7 @@ export default function CheckoutReturnPage({ params }: { params: Promise<{ booki
             <h1 className="display">{gt("cardNotCharged")}</h1>
             <p className="policy-note" style={{ textAlign: "center" }}>
               {booking.paymentRecovery?.failureMessage ?? gt("attemptDeclined")}
-              {booking.paymentRecovery?.nextRetryAt && <> HOST will retry automatically on {new Date(booking.paymentRecovery.nextRetryAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.</>}
+              {" Payment needs review before another charge can be attempted."}
             </p>
             <div className="actions">
               <a href={`/checkout/${bookingId}`} className="btn-primary">{gt("updatePayment")}</a>

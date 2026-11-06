@@ -3,25 +3,13 @@ import { db } from "@/lib/db";
 import { requireSession, AuthError } from "@/lib/auth/session";
 import { resolveBookingAccess } from "@/lib/auth/bookingAccess";
 import { calculateCancellation } from "@/lib/booking/cancellationEngine";
+import { paidNewFlowCancellationEligibility } from "@/lib/booking/paidNewFlowCancellationEligibility";
+import { BookingError } from "@/lib/booking/types";
+import { unpaidNewFlowCancellationEligibility } from "@/lib/booking/unpaidNewFlowCancellationEligibility";
 
-/**
- * NEW — the read-only cancellation preview the batch brief asked for.
- * Reuses calculateCancellation() DIRECTLY — the exact same function
- * lib/booking/cancelBooking.ts calls for the real, authoritative
- * cancellation — imported, not reimplemented. Same policy construction
- * too: `{ id: "snapshot", name: "snapshot", rules: booking.cancellation_policy_snapshot }`,
- * copied verbatim from cancelBooking.ts's own code rather than
- * approximated, so a quote can never drift from what actually happens
- * when the guest confirms.
- *
- * Read-only, guaranteed structurally, not just by convention: this
- * function contains zero UPDATE/INSERT statements, no call to
- * initiateRefund, no call to cancelBooking. It cannot modify anything
- * even in principle.
- *
- * Ownership enforced via the same resolveBookingAccess() every other
- * booking-scoped route already uses — 404 for a nonexistent booking,
- * 403 for a booking that exists but isn't the caller's.
+/** Authenticated cancellation preview using shared financial eligibility.
+ * Reads booking/payment state only; cancellation locks and rechecks before writing.
+ * A later state change can invalidate a previously eligible preview.
  */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +19,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     await resolveBookingAccess(session, id); // throws 404/403 as appropriate — identical check used everywhere else
 
     const result = await db.query(
-      `SELECT b.status, b.check_in, b.cancellation_policy_snapshot, bpc.guest_total_minor, bpc.host_payout_minor, bpc.currency
+      `SELECT b.id, b.host_id, b.status, b.payment_flow_version, b.check_in, b.cancellation_policy_snapshot,
+              bpc.guest_total_minor, bpc.host_payout_minor, bpc.currency,
+              EXISTS (SELECT 1 FROM payment_attempts pa WHERE pa.booking_id = b.id) AS has_attempt,
+              EXISTS (SELECT 1 FROM host_transfer_entitlements hte WHERE hte.booking_id = b.id) AS has_entitlement
        FROM bookings b
        JOIN booking_price_components bpc ON bpc.booking_id = b.id
        WHERE b.id = $1`,
@@ -45,21 +36,45 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     // Same eligibility check as cancelBooking.ts's own code, copied
     // verbatim — a quote must never claim a booking is cancellable if
     // the real cancel endpoint would then reject it.
-    const cancellable = ["confirmed", "pending_payment"].includes(b.status);
+    const newFlow = b.payment_flow_version === "separate_charges_delayed_v1";
+    let paidEligibility: Awaited<ReturnType<typeof paidNewFlowCancellationEligibility>> | null = null;
+    if (newFlow && b.status === "confirmed") {
+      try {
+        paidEligibility = await paidNewFlowCancellationEligibility(db, b);
+      } catch (error) {
+        if (!(error instanceof BookingError) || error.code !== "NOT_CANCELLABLE") throw error;
+      }
+    }
+    let unpaidEligible = false;
+    if (newFlow && b.status === "pending_payment") {
+      try {
+        await unpaidNewFlowCancellationEligibility(db, b);
+        unpaidEligible = true;
+      } catch (error) {
+        if (!(error instanceof BookingError) || error.code !== "NOT_CANCELLABLE") throw error;
+      }
+    }
+    const cancellable = newFlow
+      ? paidEligibility !== null || unpaidEligible
+      : ["confirmed", "pending_payment"].includes(b.status);
     if (!cancellable) {
       return NextResponse.json({
         success: true,
         quote: {
           bookingId: id,
           eligible: false,
-          reason: `Bookings with status '${b.status}' cannot be cancelled.`,
+          reason: newFlow
+            ? "This booking requires cancellation with payment reconciliation or is no longer pending."
+            : `Bookings with status '${b.status}' cannot be cancelled.`,
           currency: b.currency,
         },
       });
     }
 
     const policy = { id: "snapshot", name: "snapshot", rules: b.cancellation_policy_snapshot };
-    const outcome = calculateCancellation(policy, b.check_in, b.guest_total_minor, b.host_payout_minor);
+    const outcome = paidEligibility?.outcome ?? (newFlow
+      ? { refundPercent: 0, refundableMinor: 0, hostRetainedMinor: 0 }
+      : calculateCancellation(policy, b.check_in, b.guest_total_minor, b.host_payout_minor));
 
     return NextResponse.json({
       success: true,

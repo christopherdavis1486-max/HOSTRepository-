@@ -50,6 +50,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: error.message } }, { status: error.status });
     }
     console.error("[HOST payments/setup-intent]", error);
-    return NextResponse.json({ success: false, error: { code: "SETUP_INTENT_FAILED", message: (error as Error).message } }, { status: 400 });
+    return NextResponse.json({ success: false, error: { code: "SETUP_INTENT_FAILED", message: "We couldn't complete payment setup. Check your trip status and contact HOST before trying again." } }, { status: 400 });
   }
 }

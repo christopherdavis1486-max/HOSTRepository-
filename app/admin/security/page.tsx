@@ -39,6 +39,7 @@ export default function AdminSecurityPage() {
         <nav aria-label="Admin review navigation" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 20 }}>
           <a href="/admin/property-compliance" style={{ ...button, textDecoration: "none" }}>{ht("Compliance review")}</a>
           <a href="/admin/listing-readiness" style={{ ...button, textDecoration: "none" }}>{ht("Pilot listing review")}</a>
+<a href="/admin/financial-report" style={{ ...button, textDecoration: "none" }}>{ht("Financial report")}</a>
         </nav>
         <h1 style={{ fontFamily: "Georgia, serif", fontSize: 42, marginBottom: 10 }}>{ht("Admin security")}</h1><p style={{ color: "#c4a98b" }}>Restricted to a verified super administrator with a registered passkey.</p>
         {data && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginTop: 24 }}>{Object.entries(data.summary).map(([key,value]) => <div key={key} style={{ border: "1px solid #342c20", padding: 16 }}><strong style={{ display: "block", color: "#d49a3f", fontSize: 26 }}>{value}</strong><span style={{ color: "#c4a98b" }}>{ht(key.replace(/_/g, " "))}</span></div>)}</div>}

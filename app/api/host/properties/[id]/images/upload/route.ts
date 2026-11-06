@@ -28,12 +28,25 @@ export async function POST(
     const response = await handleUpload({
       request,
       body,
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (pathname) => {
         const session = await requireSession();
         await resolveHostPropertyAccess(session, propertyId);
 
         if (!session.user?.id) {
           throw new AuthError("Authentication required.", 401);
+        }
+
+        const expectedPrefix = `properties/${propertyId}/`;
+        if (
+          typeof pathname !== "string" ||
+          !pathname.startsWith(expectedPrefix) ||
+          pathname.length === expectedPrefix.length
+        ) {
+          throw new PropertyImageError(
+            "INVALID_UPLOAD_PATH",
+            "The uploaded image does not belong to this property.",
+            400
+          );
         }
 
         const tokenPayload: UploadTokenPayload = {
@@ -49,7 +62,6 @@ export async function POST(
           ],
           maximumSizeInBytes: 10 * 1024 * 1024,
           addRandomSuffix: true,
-          pathname: `properties/${propertyId}`,
           tokenPayload: JSON.stringify(tokenPayload),
         };
       },
@@ -85,7 +97,32 @@ export async function POST(
           );
         }
 
+        if (!/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.public\.blob\.vercel-storage\.com\/[^\s?#\\]+$/i.test(blob.url)) {
+          throw new PropertyImageError(
+            "INVALID_UPLOAD_URL",
+            "Image URL must be a public HTTPS Vercel Blob URL.",
+            400
+          );
+        }
         const details = await head(blob.url);
+        if (!/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.public\.blob\.vercel-storage\.com\/[^\s?#\\]+$/i.test(details.url)) {
+          throw new PropertyImageError(
+            "INVALID_UPLOAD_URL",
+            "Image URL must be a public HTTPS Vercel Blob URL.",
+            400
+          );
+        }
+        const expectedPrefix = `properties/${propertyId}/`;
+        if (
+          !details.pathname.startsWith(expectedPrefix) ||
+          details.pathname.length === expectedPrefix.length
+        ) {
+          throw new PropertyImageError(
+            "INVALID_UPLOAD_PATH",
+            "The uploaded image does not belong to this property.",
+            400
+          );
+        }
 
         await registerUploadedPropertyImage(
           payload.propertyId,

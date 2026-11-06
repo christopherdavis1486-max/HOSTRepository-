@@ -23,6 +23,9 @@ type BookingDetail = {
   guestName: string; guestEmail: string; paymentFlowVersion: string;
   paymentStatus: string | null; guestPaymentStatus: string | null;
   payoutStatus: string | null; entitlementStatus: string | null;
+  payoutDisplayLabel: string | null;
+  payoutEvidenceMismatch: boolean;
+  recordedRetainedSettlement: { amountMinor: number; currency: string; status: string } | null;
   breakdown: {
     currency: string; accommodationMinor: number; cleaningMinor: number; guestServiceFeeMinor: number;
     taxesMinor: number; guestTotalMinor: number; hostCommissionMinor: number; hostPayoutMinor: number;
@@ -60,17 +63,10 @@ export default function HostBookingDetailPage({ params }: { params: Promise<{ id
   const effectivelyPaid = isNewFlow ? booking?.guestPaymentStatus === "paid" : booking?.paymentStatus === "paid";
   let payoutLabel = "—";
   if (booking) {
-    if (booking.status === "cancelled" || booking.status === "refunded") payoutLabel = "Not payable — booking refunded";
-    else if (isNewFlow) {
-      // The real payout mechanism for a new-flow booking is
-      // host_transfer_entitlements, not the legacy payouts table (which
-      // this architecture never writes to at all).
-      if (booking.entitlementStatus === "transfer_created") payoutLabel = "Payout sent";
-      else if (booking.entitlementStatus === "transfer_claimed") payoutLabel = "Payout in progress";
-      else if (booking.entitlementStatus === "transfer_failed") payoutLabel = "Payout failed";
-      else if (booking.entitlementStatus === "cancelled_before_transfer") payoutLabel = "Payout cancelled";
-      else if (booking.entitlementStatus === "entitled" || booking.entitlementStatus === "release_due") payoutLabel = "Payout pending";
-      else if (!effectivelyPaid) payoutLabel = "Awaiting payment";
+    if (isNewFlow) {
+      payoutLabel = booking.payoutDisplayLabel ?? "Payout status needs review";
+    } else if (booking.status === "cancelled" || booking.status === "refunded") {
+      payoutLabel = "Not payable ? booking cancelled";
     }
     else if (booking.payoutStatus === "paid") payoutLabel = "Payout paid";
     else if (booking.payoutStatus === "in_transit") payoutLabel = "Payout in transit";
@@ -179,13 +175,23 @@ export default function HostBookingDetailPage({ params }: { params: Promise<{ id
                 <div className="row"><span className="label">{ht("Taxes")}</span><span>{hCurrency(booking.breakdown.taxesMinor, booking.breakdown.currency)}</span></div>
                 <div className="row subtotal"><span className="label">{ht("Guest total")}</span><span>{hCurrency(booking.breakdown.guestTotalMinor, booking.breakdown.currency)}</span></div>
                 <div className="row"><span className="label">{ht("HOST commission")}</span><span>{hCurrency(booking.breakdown.hostCommissionMinor, booking.breakdown.currency)}</span></div>
-                <div className="row host-amount total"><span className="label">{ht("Your payout amount")}</span><span>{hCurrency(booking.breakdown.hostPayoutMinor, booking.breakdown.currency)}</span></div>
+                <div className="row host-amount total"><span className="label">{ht(isNewFlow ? "Original host amount (price breakdown)" : "Your payout amount")}</span><span>{hCurrency(booking.breakdown.hostPayoutMinor, booking.breakdown.currency)}</span></div>
               </div>
             )}
 
             <div className="card">
               <h2>{ht("Payout")}</h2>
               <div className="row"><span className="label">{ht("Status")}</span><span>{payoutLabel}</span></div>
+              {isNewFlow && booking.recordedRetainedSettlement && (
+                <>
+                  <div className="row"><span className="label">Recorded retained amount</span>
+                    <span>{hCurrency(booking.recordedRetainedSettlement.amountMinor, booking.recordedRetainedSettlement.currency)}</span></div>
+                  <p>This recorded amount remains subject to the settlement status above.</p>
+                </>
+              )}
+              {isNewFlow && booking.payoutEvidenceMismatch && (
+                <p role="alert">Stored financial records differ. The payout requires review.</p>
+              )}
             </div>
 
             <div className="card" style={{ padding: 0, background: "transparent", border: "none" }}>

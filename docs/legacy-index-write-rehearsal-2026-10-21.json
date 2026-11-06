@@ -1,0 +1,612 @@
+{
+  "scope": "disposable_logged_table_index_write_comparison",
+  "observedAt": "2026-10-21T18:17:26.127Z",
+  "database": "host_index_rehearsal_34451b2a3c14bc85",
+  "scales": [
+    10000,
+    100000
+  ],
+  "cases": [
+    {
+      "count": 10000,
+      "table": "refunds",
+      "variant": "baseline_before",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 6.283399999999972,
+          "amountUpdateMs": 6.86990000000003,
+          "bookingUpdateMs": 8.47769999999997,
+          "commitMs": 5.592399999999998,
+          "totalMs": 27.38839999999999
+        },
+        {
+          "insertMs": 6.038600000000031,
+          "amountUpdateMs": 6.290400000000034,
+          "bookingUpdateMs": 8.342800000000011,
+          "commitMs": 3.9770999999999503,
+          "totalMs": 24.869999999999948
+        },
+        {
+          "insertMs": 6.158200000000079,
+          "amountUpdateMs": 6.268599999999992,
+          "bookingUpdateMs": 8.335900000000038,
+          "commitMs": 3.9160000000000537,
+          "totalMs": 24.88530000000003
+        }
+      ],
+      "medians": {
+        "insertMs": 6.158200000000079,
+        "amountUpdateMs": 6.290400000000034,
+        "bookingUpdateMs": 8.342800000000011,
+        "commitMs": 3.9770999999999503,
+        "totalMs": 24.88530000000003
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 10000,
+      "table": "refunds",
+      "variant": "indexed",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 7.155399999999986,
+          "amountUpdateMs": 7.866899999999987,
+          "bookingUpdateMs": 9.047900000000027,
+          "commitMs": 4.409199999999942,
+          "totalMs": 28.59159999999997
+        },
+        {
+          "insertMs": 8.047199999999975,
+          "amountUpdateMs": 8.184000000000083,
+          "bookingUpdateMs": 10.474399999999946,
+          "commitMs": 4.268199999999979,
+          "totalMs": 31.11519999999996
+        },
+        {
+          "insertMs": 7.95920000000001,
+          "amountUpdateMs": 8.057300000000055,
+          "bookingUpdateMs": 10.703499999999963,
+          "commitMs": 4.4623000000000275,
+          "totalMs": 31.31750000000011
+        }
+      ],
+      "medians": {
+        "insertMs": 7.95920000000001,
+        "amountUpdateMs": 8.057300000000055,
+        "bookingUpdateMs": 10.474399999999946,
+        "commitMs": 4.409199999999942,
+        "totalMs": 31.11519999999996
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 10000,
+      "table": "refunds",
+      "variant": "baseline_after",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 6.171299999999974,
+          "amountUpdateMs": 7.312800000000038,
+          "bookingUpdateMs": 9.199299999999994,
+          "commitMs": 4.259199999999964,
+          "totalMs": 27.13130000000001
+        },
+        {
+          "insertMs": 6.84069999999997,
+          "amountUpdateMs": 8.113100000000031,
+          "bookingUpdateMs": 9.355200000000082,
+          "commitMs": 4.635300000000029,
+          "totalMs": 29.116899999999987
+        },
+        {
+          "insertMs": 6.640700000000038,
+          "amountUpdateMs": 7.836100000000101,
+          "bookingUpdateMs": 9.071700000000078,
+          "commitMs": 1.4814999999999827,
+          "totalMs": 25.204700000000003
+        }
+      ],
+      "medians": {
+        "insertMs": 6.640700000000038,
+        "amountUpdateMs": 7.836100000000101,
+        "bookingUpdateMs": 9.199299999999994,
+        "commitMs": 4.259199999999964,
+        "totalMs": 27.13130000000001
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 10000,
+      "table": "payouts",
+      "variant": "baseline_before",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 6.980000000000018,
+          "amountUpdateMs": 9.000999999999976,
+          "bookingUpdateMs": 9.457400000000007,
+          "commitMs": 2.9347000000000207,
+          "totalMs": 28.5154
+        },
+        {
+          "insertMs": 8.277199999999993,
+          "amountUpdateMs": 8.213999999999942,
+          "bookingUpdateMs": 9.94119999999998,
+          "commitMs": 2.3432999999999993,
+          "totalMs": 28.873199999999997
+        },
+        {
+          "insertMs": 7.524599999999964,
+          "amountUpdateMs": 8.933399999999892,
+          "bookingUpdateMs": 10.021199999999908,
+          "commitMs": 4.948799999999892,
+          "totalMs": 31.549999999999955
+        }
+      ],
+      "medians": {
+        "insertMs": 7.524599999999964,
+        "amountUpdateMs": 8.933399999999892,
+        "bookingUpdateMs": 9.94119999999998,
+        "commitMs": 2.9347000000000207,
+        "totalMs": 28.873199999999997
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 10000,
+      "table": "payouts",
+      "variant": "indexed",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 9.335800000000063,
+          "amountUpdateMs": 9.012699999999995,
+          "bookingUpdateMs": 10.866999999999962,
+          "commitMs": 4.2176999999999225,
+          "totalMs": 33.64200000000005
+        },
+        {
+          "insertMs": 8.720199999999977,
+          "amountUpdateMs": 8.942400000000134,
+          "bookingUpdateMs": 11.387300000000096,
+          "commitMs": 4.448699999999917,
+          "totalMs": 33.97850000000017
+        },
+        {
+          "insertMs": 8.332499999999982,
+          "amountUpdateMs": 10.316499999999905,
+          "bookingUpdateMs": 10.79060000000004,
+          "commitMs": 8.595800000000054,
+          "totalMs": 38.182399999999916
+        }
+      ],
+      "medians": {
+        "insertMs": 8.720199999999977,
+        "amountUpdateMs": 9.012699999999995,
+        "bookingUpdateMs": 10.866999999999962,
+        "commitMs": 4.448699999999917,
+        "totalMs": 33.97850000000017
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 10000,
+      "table": "payouts",
+      "variant": "baseline_after",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 8.20270000000005,
+          "amountUpdateMs": 8.923300000000154,
+          "bookingUpdateMs": 11.13350000000014,
+          "commitMs": 9.548299999999927,
+          "totalMs": 38.05859999999984
+        },
+        {
+          "insertMs": 8.730999999999995,
+          "amountUpdateMs": 8.34940000000006,
+          "bookingUpdateMs": 10.745099999999866,
+          "commitMs": 3.8308999999999287,
+          "totalMs": 31.82510000000002
+        },
+        {
+          "insertMs": 7.746499999999969,
+          "amountUpdateMs": 9.107300000000123,
+          "bookingUpdateMs": 10.45230000000015,
+          "commitMs": 6.95900000000006,
+          "totalMs": 34.38090000000011
+        }
+      ],
+      "medians": {
+        "insertMs": 8.20270000000005,
+        "amountUpdateMs": 8.923300000000154,
+        "bookingUpdateMs": 10.745099999999866,
+        "commitMs": 6.95900000000006,
+        "totalMs": 34.38090000000011
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 100000,
+      "table": "refunds",
+      "variant": "baseline_before",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 7.022200000000339,
+          "amountUpdateMs": 18.98090000000002,
+          "bookingUpdateMs": 20.353999999999814,
+          "commitMs": 4.212300000000141,
+          "totalMs": 50.80420000000004
+        },
+        {
+          "insertMs": 7.278699999999844,
+          "amountUpdateMs": 17.467999999999847,
+          "bookingUpdateMs": 20.273400000000038,
+          "commitMs": 4.152000000000044,
+          "totalMs": 49.38079999999991
+        },
+        {
+          "insertMs": 6.477200000000266,
+          "amountUpdateMs": 16.13070000000016,
+          "bookingUpdateMs": 17.972899999999754,
+          "commitMs": 6.190900000000056,
+          "totalMs": 46.927900000000136
+        }
+      ],
+      "medians": {
+        "insertMs": 7.022200000000339,
+        "amountUpdateMs": 17.467999999999847,
+        "bookingUpdateMs": 20.273400000000038,
+        "commitMs": 4.212300000000141,
+        "totalMs": 49.38079999999991
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 100000,
+      "table": "refunds",
+      "variant": "indexed",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 10.97589999999991,
+          "amountUpdateMs": 17.52430000000004,
+          "bookingUpdateMs": 18.15560000000005,
+          "commitMs": 6.454299999999876,
+          "totalMs": 53.34960000000001
+        },
+        {
+          "insertMs": 8.522399999999834,
+          "amountUpdateMs": 17.984600000000228,
+          "bookingUpdateMs": 19.383299999999963,
+          "commitMs": 4.826900000000023,
+          "totalMs": 50.897199999999884
+        },
+        {
+          "insertMs": 9.042699999999968,
+          "amountUpdateMs": 28.110799999999927,
+          "bookingUpdateMs": 46.455099999999675,
+          "commitMs": 5.100600000000213,
+          "totalMs": 88.87189999999964
+        }
+      ],
+      "medians": {
+        "insertMs": 9.042699999999968,
+        "amountUpdateMs": 17.984600000000228,
+        "bookingUpdateMs": 19.383299999999963,
+        "commitMs": 5.100600000000213,
+        "totalMs": 53.34960000000001
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 100000,
+      "table": "refunds",
+      "variant": "baseline_after",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 18.678800000000138,
+          "amountUpdateMs": 49.04020000000037,
+          "bookingUpdateMs": 50.55799999999999,
+          "commitMs": 46.925800000000436,
+          "totalMs": 165.52559999999994
+        },
+        {
+          "insertMs": 17.293899999999667,
+          "amountUpdateMs": 45.75759999999991,
+          "bookingUpdateMs": 47.357200000000375,
+          "commitMs": 45.3792999999996,
+          "totalMs": 156.13410000000022
+        },
+        {
+          "insertMs": 18.867400000001,
+          "amountUpdateMs": 42.219999999999345,
+          "bookingUpdateMs": 49.671400000001086,
+          "commitMs": 38.52280000000064,
+          "totalMs": 149.65679999999884
+        }
+      ],
+      "medians": {
+        "insertMs": 18.678800000000138,
+        "amountUpdateMs": 45.75759999999991,
+        "bookingUpdateMs": 49.671400000001086,
+        "commitMs": 45.3792999999996,
+        "totalMs": 156.13410000000022
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 100000,
+      "table": "payouts",
+      "variant": "baseline_before",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 20.204499999999825,
+          "amountUpdateMs": 49.143700000002354,
+          "bookingUpdateMs": 48.848799999999756,
+          "commitMs": 2.0015999999995984,
+          "totalMs": 120.4387999999999
+        },
+        {
+          "insertMs": 21.639000000002852,
+          "amountUpdateMs": 45.32900000000154,
+          "bookingUpdateMs": 54.347900000000664,
+          "commitMs": 46.25260000000344,
+          "totalMs": 167.89530000000013
+        },
+        {
+          "insertMs": 21.1362999999983,
+          "amountUpdateMs": 50.853800000000774,
+          "bookingUpdateMs": 53.72719999999754,
+          "commitMs": 46.95890000000145,
+          "totalMs": 172.946899999999
+        }
+      ],
+      "medians": {
+        "insertMs": 21.1362999999983,
+        "amountUpdateMs": 49.143700000002354,
+        "bookingUpdateMs": 53.72719999999754,
+        "commitMs": 46.25260000000344,
+        "totalMs": 167.89530000000013
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 100000,
+      "table": "payouts",
+      "variant": "indexed",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 24.059400000001915,
+          "amountUpdateMs": 51.07840000000215,
+          "bookingUpdateMs": 55.94629999999961,
+          "commitMs": 134.55389999999898,
+          "totalMs": 265.83160000000134
+        },
+        {
+          "insertMs": 21.213400000000547,
+          "amountUpdateMs": 46.692800000000716,
+          "bookingUpdateMs": 67.72750000000087,
+          "commitMs": 48.112600000000384,
+          "totalMs": 183.97060000000056
+        },
+        {
+          "insertMs": 23.913300000000163,
+          "amountUpdateMs": 60.6984999999986,
+          "bookingUpdateMs": 95.70860000000175,
+          "commitMs": 14.559999999997672,
+          "totalMs": 195.1872000000003
+        }
+      ],
+      "medians": {
+        "insertMs": 23.913300000000163,
+        "amountUpdateMs": 51.07840000000215,
+        "bookingUpdateMs": 67.72750000000087,
+        "commitMs": 48.112600000000384,
+        "totalMs": 195.1872000000003
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    },
+    {
+      "count": 100000,
+      "table": "payouts",
+      "variant": "baseline_after",
+      "batchRows": 1000,
+      "samples": [
+        {
+          "insertMs": 16.58980000000156,
+          "amountUpdateMs": 37.897500000002765,
+          "bookingUpdateMs": 42.72680000000037,
+          "commitMs": 2.713400000000547,
+          "totalMs": 100.12359999999899
+        },
+        {
+          "insertMs": 16.491399999998976,
+          "amountUpdateMs": 40.185600000000704,
+          "bookingUpdateMs": 44.19770000000062,
+          "commitMs": 47.26400000000285,
+          "totalMs": 148.46849999999904
+        },
+        {
+          "insertMs": 15.424600000002101,
+          "amountUpdateMs": 43.05910000000222,
+          "bookingUpdateMs": 55.17280000000028,
+          "commitMs": 50.08729999999923,
+          "totalMs": 164.14820000000327
+        }
+      ],
+      "medians": {
+        "insertMs": 16.491399999998976,
+        "amountUpdateMs": 40.185600000000704,
+        "bookingUpdateMs": 44.19770000000062,
+        "commitMs": 47.26400000000285,
+        "totalMs": 148.46849999999904
+      },
+      "assertions": "index presence, insert/update values, committed row counts and cleanup passed"
+    }
+  ],
+  "sourceSchemas": [
+    {
+      "table": "refunds",
+      "columns": [
+        {
+          "attname": "id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "booking_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "payment_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "provider_refund_id",
+          "type": "text",
+          "attnotnull": false
+        },
+        {
+          "attname": "amount_minor",
+          "type": "integer",
+          "attnotnull": true
+        },
+        {
+          "attname": "currency",
+          "type": "character(3)",
+          "attnotnull": true
+        },
+        {
+          "attname": "reason",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "initiated_by",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "status",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "created_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        },
+        {
+          "attname": "updated_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "refunds_pkey",
+          "indexdef": "CREATE UNIQUE INDEX refunds_pkey ON public.refunds USING btree (id)"
+        }
+      ]
+    },
+    {
+      "table": "payouts",
+      "columns": [
+        {
+          "attname": "id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "host_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "booking_id",
+          "type": "uuid",
+          "attnotnull": true
+        },
+        {
+          "attname": "provider_transfer_id",
+          "type": "text",
+          "attnotnull": false
+        },
+        {
+          "attname": "provider_payout_id",
+          "type": "text",
+          "attnotnull": false
+        },
+        {
+          "attname": "amount_minor",
+          "type": "integer",
+          "attnotnull": true
+        },
+        {
+          "attname": "currency",
+          "type": "character(3)",
+          "attnotnull": true
+        },
+        {
+          "attname": "status",
+          "type": "text",
+          "attnotnull": true
+        },
+        {
+          "attname": "scheduled_release_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        },
+        {
+          "attname": "released_at",
+          "type": "timestamp with time zone",
+          "attnotnull": false
+        },
+        {
+          "attname": "created_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        },
+        {
+          "attname": "updated_at",
+          "type": "timestamp with time zone",
+          "attnotnull": true
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "payouts_pkey",
+          "indexdef": "CREATE UNIQUE INDEX payouts_pkey ON public.payouts USING btree (id)"
+        },
+        {
+          "indexname": "payouts_status_release_idx",
+          "indexdef": "CREATE INDEX payouts_status_release_idx ON public.payouts USING btree (status, scheduled_release_at)"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Synthetic logged tables retain column types, NOT NULL and existing indexes; defaults, checks, foreign keys and triggers omitted.",
+    "Fixed baseline/index/baseline order, warm local server; three timed samples after one warmup.",
+    "Each transaction inserts 1000 rows, updates their amount, then changes their indexed booking IDs and commits.",
+    "Updates target freshly inserted rows; this does not reproduce arbitrary production update patterns.",
+    "Cleanup deletes occur outside timing; dead tuples/index bloat may accumulate between samples.",
+    "No concurrent workload, replication measurement or isolated WAL attribution; no production capacity claim."
+  ],
+  "server": {
+    "version": "PostgreSQL 16.15, compiled by Visual C++ build 1944, 64-bit",
+    "synchronous_commit": "on"
+  },
+  "writeBatchRows": 1000,
+  "disposableDatabaseRemoved": true
+}

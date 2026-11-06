@@ -5,6 +5,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useSession } from "next-auth/react";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
 
 type State =
@@ -15,6 +16,7 @@ type State =
 
 export default function HostOnboardingConnectAccountPage() {
   const { ht } = useHostI18n();
+  const { update } = useSession();
 
   const [state, setState] =
     useState<State>("ready");
@@ -71,6 +73,17 @@ export default function HostOnboardingConnectAccountPage() {
         .catch(() => ({
           success: false,
         }));
+
+      // The local host profile may exist even if Stripe setup failed.
+      // Refresh from server-derived roles; never submit client role claims.
+      try {
+        const refreshed = await update();
+        if (!refreshed?.user) throw new Error("Session refresh unavailable");
+      } catch {
+        setState("error");
+        setErrorMessage(ht("Your session could not be refreshed. Sign in again before continuing host setup."));
+        return;
+      }
 
       if (!data.success) {
         if (

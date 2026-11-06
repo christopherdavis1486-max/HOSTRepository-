@@ -28,13 +28,25 @@ let findBookingsDueForScheduledCharge: typeof import("./scheduledCharges").findB
 let findExpiredHoldBookingIds: typeof import("../booking/createBooking").findExpiredHoldBookingIds;
 let releaseExpiredHold: typeof import("../booking/createBooking").releaseExpiredHold;
 
+
+function completeSuccessFixture(result: any, params: any) {
+  if (!result?.status) return result;
+  return {
+    customer: params.customer, amount: params.amount,
+    amount_received: result.status === "succeeded" ? params.amount : 0,
+    amount_capturable: 0,
+    currency: params.currency, metadata: { ...params.metadata },
+    ...result,
+  };
+}
+
 before(async () => {
   const { stripe: realStripe } = await import("./stripeClient");
   mock.module("./stripeClient", {
     namedExports: {
       stripe: {
         webhooks: realStripe.webhooks, // pure, local HMAC verification — no network call, safe to keep real
-        paymentIntents: { create: async (...args: any[]) => mockPaymentIntentCreate(...args) },
+        paymentIntents: { create: async (...args: any[]) => completeSuccessFixture(await mockPaymentIntentCreate(...args), args[0]) },
       },
     },
   });
@@ -98,7 +110,7 @@ test("FIRST FAILURE AT T0: establishes a real, fixed grace_period_started_at and
   mockPaymentIntentCreate = mockDecline(suffix);
   const bookingRow = await db.query(`SELECT * FROM booking_price_components WHERE booking_id = $1`, [bookingId]);
   const result = await attemptScheduledCharge(bookingId, bookingRow.rows[0].guest_total_minor, bookingRow.rows[0].currency);
-  assert.equal(result.outcome, "failed");
+  assert.equal(result.outcome, "processing");
 
   const after = await db.query(`SELECT grace_period_started_at, hold_expires_at FROM bookings WHERE id = $1`, [bookingId]);
   assert.ok(after.rows[0].grace_period_started_at, "T0 must establish a real grace_period_started_at");
@@ -181,12 +193,12 @@ test("NO RETRY AFTER EXPIRY: a booking past its fixed grace deadline is never se
   assert.equal(due.includes(bookingId), false, "a booking past its own fixed grace deadline must never be retried again — that is the expiry sweep's job now, not this one's");
 });
 
-test("STILL RETRIABLE BEFORE EXPIRY: a booking within its grace period (e.g. at T+48h) IS still correctly selected for a genuine retry", async () => {
+test("FIRST CHARGE BEFORE EXPIRY: a booking within its grace period with no payment attempt is selected", async () => {
   const suffix = crypto.randomBytes(4).toString("hex");
   const { bookingId } = await createDueBookingWithGrace(suffix, 48); // 24 hours still remain
 
   const due = await findBookingsDueForScheduledCharge();
-  assert.equal(due.includes(bookingId), true, "a booking still genuinely within its grace window must remain retriable");
+  assert.equal(due.includes(bookingId), true, "a booking within its grace window with no prior attempt remains eligible for its first charge");
 });
 
 test("SUCCESS DURING GRACE CONFIRMS THE BOOKING AND PREVENTS CANCELLATION", async () => {
@@ -204,7 +216,7 @@ test("SUCCESS DURING GRACE CONFIRMS THE BOOKING AND PREVENTS CANCELLATION", asyn
   const attempt = await db.query(`SELECT id FROM payment_attempts WHERE booking_id = $1 ORDER BY attempt_number DESC LIMIT 1`, [bookingId]);
   const payload = JSON.stringify({
     id: `evt_grace_success_${suffix}`, object: "event", type: "payment_intent.succeeded",
-    data: { object: { id: `pi_test_${suffix}`, object: "payment_intent", metadata: { booking_id: bookingId, payment_attempt_id: attempt.rows[0].id, payment_flow_version: "separate_charges_delayed_v1" } } },
+    data: { object: { id: `pi_test_${suffix}`, object: "payment_intent", status: "succeeded", customer: "cus_test_fake", amount: bookingRow.rows[0].guest_total_minor, amount_capturable: 0, amount_received: bookingRow.rows[0].guest_total_minor, currency: bookingRow.rows[0].currency.toLowerCase(), metadata: { booking_id: bookingId, payment_attempt_id: attempt.rows[0].id, payment_flow_version: "separate_charges_delayed_v1" } } },
   });
   await handleStripeWebhook(payload, signEvent(payload));
 

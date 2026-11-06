@@ -1,0 +1,694 @@
+{
+  "observedAt": "2026-10-21T16:41:15.655Z",
+  "scope": "synthetic_settlement_queue_advisory_contention",
+  "scales": [
+    100
+  ],
+  "fixtureLimitations": [
+    "Two local sessions; 100 simplified temporary fixtures; one host per booking.",
+    "Real review and eligibility; application checkout routed to fixture client.",
+    "Holder acquires the real database-wide operation advisory key.",
+    "No financial workers, provider calls or persistent fixture writes.",
+    "Four fixed-order samples per scenario including warmup; no throughput or latency guarantee.",
+    "Measures advisory-key contention, not row-lock conflicts or sustained concurrent traffic."
+  ],
+  "sourceScriptSha256": "b1f6d2260256d540b11f03a07c3de51435098b9127872d3b8c52c9a65154c320",
+  "fixtureDescription": "Real settlement eligibility; 50 percent paid cancellations with verified refunds; mixed retained-amount mismatches and pending refunds; bounded candidate window before eligibility filtering",
+  "indexes": [
+    {
+      "table": "host_profiles",
+      "indexes": [
+        {
+          "indexname": "host_profiles_pkey",
+          "indexdef": "CREATE UNIQUE INDEX host_profiles_pkey ON public.host_profiles USING btree (id)"
+        },
+        {
+          "indexname": "host_profiles_user_id_key",
+          "indexdef": "CREATE UNIQUE INDEX host_profiles_user_id_key ON public.host_profiles USING btree (user_id)"
+        }
+      ]
+    },
+    {
+      "table": "host_transfer_reversals",
+      "indexes": [
+        {
+          "indexname": "host_transfer_reversals_idempotency_key_key",
+          "indexdef": "CREATE UNIQUE INDEX host_transfer_reversals_idempotency_key_key ON public.host_transfer_reversals USING btree (idempotency_key)"
+        },
+        {
+          "indexname": "host_transfer_reversals_pkey",
+          "indexdef": "CREATE UNIQUE INDEX host_transfer_reversals_pkey ON public.host_transfer_reversals USING btree (id)"
+        },
+        {
+          "indexname": "idx_host_reversal_execution_expiry",
+          "indexdef": "CREATE INDEX idx_host_reversal_execution_expiry ON public.host_transfer_reversals USING btree (execution_lease_expires_at) WHERE (status = 'reversal_processing'::text)"
+        },
+        {
+          "indexname": "idx_host_transfer_reversals_entitlement",
+          "indexdef": "CREATE INDEX idx_host_transfer_reversals_entitlement ON public.host_transfer_reversals USING btree (entitlement_id)"
+        }
+      ]
+    },
+    {
+      "table": "bookings",
+      "indexes": [
+        {
+          "indexname": "bookings_guest_archived_idx",
+          "indexdef": "CREATE INDEX bookings_guest_archived_idx ON public.bookings USING btree (guest_id, archived_at)"
+        },
+        {
+          "indexname": "bookings_guest_idx",
+          "indexdef": "CREATE INDEX bookings_guest_idx ON public.bookings USING btree (guest_id)"
+        },
+        {
+          "indexname": "bookings_host_idx",
+          "indexdef": "CREATE INDEX bookings_host_idx ON public.bookings USING btree (host_id)"
+        },
+        {
+          "indexname": "bookings_idempotency_key_key",
+          "indexdef": "CREATE UNIQUE INDEX bookings_idempotency_key_key ON public.bookings USING btree (idempotency_key)"
+        },
+        {
+          "indexname": "bookings_pkey",
+          "indexdef": "CREATE UNIQUE INDEX bookings_pkey ON public.bookings USING btree (id)"
+        },
+        {
+          "indexname": "bookings_property_dates_idx",
+          "indexdef": "CREATE INDEX bookings_property_dates_idx ON public.bookings USING btree (property_id, check_in, check_out)"
+        },
+        {
+          "indexname": "bookings_room_inventory_idx",
+          "indexdef": "CREATE INDEX bookings_room_inventory_idx ON public.bookings USING btree (room_type_id, check_in, check_out) WHERE ((room_type_id IS NOT NULL) AND (status = ANY (ARRAY['pending_payment'::text, 'confirmed'::text, 'completed'::text, 'disputed'::text])))"
+        },
+        {
+          "indexname": "bookings_status_idx",
+          "indexdef": "CREATE INDEX bookings_status_idx ON public.bookings USING btree (status)"
+        },
+        {
+          "indexname": "idx_bookings_scheduled_charge_date",
+          "indexdef": "CREATE INDEX idx_bookings_scheduled_charge_date ON public.bookings USING btree (scheduled_charge_date) WHERE (scheduled_charge_date IS NOT NULL)"
+        }
+      ]
+    },
+    {
+      "table": "payment_attempts",
+      "indexes": [
+        {
+          "indexname": "idx_payment_attempts_booking",
+          "indexdef": "CREATE INDEX idx_payment_attempts_booking ON public.payment_attempts USING btree (booking_id)"
+        },
+        {
+          "indexname": "idx_payment_attempts_id_booking",
+          "indexdef": "CREATE UNIQUE INDEX idx_payment_attempts_id_booking ON public.payment_attempts USING btree (id, booking_id)"
+        },
+        {
+          "indexname": "idx_payment_attempts_status",
+          "indexdef": "CREATE INDEX idx_payment_attempts_status ON public.payment_attempts USING btree (status)"
+        },
+        {
+          "indexname": "payment_attempts_booking_id_attempt_number_key",
+          "indexdef": "CREATE UNIQUE INDEX payment_attempts_booking_id_attempt_number_key ON public.payment_attempts USING btree (booking_id, attempt_number)"
+        },
+        {
+          "indexname": "payment_attempts_idempotency_key_key",
+          "indexdef": "CREATE UNIQUE INDEX payment_attempts_idempotency_key_key ON public.payment_attempts USING btree (idempotency_key)"
+        },
+        {
+          "indexname": "payment_attempts_pkey",
+          "indexdef": "CREATE UNIQUE INDEX payment_attempts_pkey ON public.payment_attempts USING btree (id)"
+        }
+      ]
+    },
+    {
+      "table": "booking_price_components",
+      "indexes": [
+        {
+          "indexname": "booking_price_components_booking_id_key",
+          "indexdef": "CREATE UNIQUE INDEX booking_price_components_booking_id_key ON public.booking_price_components USING btree (booking_id)"
+        },
+        {
+          "indexname": "booking_price_components_pkey",
+          "indexdef": "CREATE UNIQUE INDEX booking_price_components_pkey ON public.booking_price_components USING btree (id)"
+        }
+      ]
+    },
+    {
+      "table": "audit_log",
+      "indexes": [
+        {
+          "indexname": "audit_log_pkey",
+          "indexdef": "CREATE UNIQUE INDEX audit_log_pkey ON public.audit_log USING btree (id)"
+        },
+        {
+          "indexname": "idx_audit_log_object_type_action",
+          "indexdef": "CREATE INDEX idx_audit_log_object_type_action ON public.audit_log USING btree (object_id, object_type, action)"
+        }
+      ]
+    },
+    {
+      "table": "new_flow_refunds",
+      "indexes": [
+        {
+          "indexname": "idx_new_flow_refunds_booking",
+          "indexdef": "CREATE INDEX idx_new_flow_refunds_booking ON public.new_flow_refunds USING btree (booking_id)"
+        },
+        {
+          "indexname": "idx_new_flow_refunds_reconciliation",
+          "indexdef": "CREATE INDEX idx_new_flow_refunds_reconciliation ON public.new_flow_refunds USING btree (created_at) WHERE (reconciliation_required = true)"
+        },
+        {
+          "indexname": "idx_new_flow_refunds_status",
+          "indexdef": "CREATE INDEX idx_new_flow_refunds_status ON public.new_flow_refunds USING btree (status)"
+        },
+        {
+          "indexname": "new_flow_refunds_one_per_attempt",
+          "indexdef": "CREATE UNIQUE INDEX new_flow_refunds_one_per_attempt ON public.new_flow_refunds USING btree (payment_attempt_id)"
+        },
+        {
+          "indexname": "new_flow_refunds_pkey",
+          "indexdef": "CREATE UNIQUE INDEX new_flow_refunds_pkey ON public.new_flow_refunds USING btree (id)"
+        },
+        {
+          "indexname": "new_flow_refunds_provider_refund_id_key",
+          "indexdef": "CREATE UNIQUE INDEX new_flow_refunds_provider_refund_id_key ON public.new_flow_refunds USING btree (provider_refund_id)"
+        }
+      ]
+    },
+    {
+      "table": "host_transfer_entitlements",
+      "indexes": [
+        {
+          "indexname": "host_transfer_entitlements_booking_id_key",
+          "indexdef": "CREATE UNIQUE INDEX host_transfer_entitlements_booking_id_key ON public.host_transfer_entitlements USING btree (booking_id)"
+        },
+        {
+          "indexname": "host_transfer_entitlements_idempotency_key_key",
+          "indexdef": "CREATE UNIQUE INDEX host_transfer_entitlements_idempotency_key_key ON public.host_transfer_entitlements USING btree (idempotency_key)"
+        },
+        {
+          "indexname": "host_transfer_entitlements_pkey",
+          "indexdef": "CREATE UNIQUE INDEX host_transfer_entitlements_pkey ON public.host_transfer_entitlements USING btree (id)"
+        },
+        {
+          "indexname": "host_transfer_entitlements_provider_transfer_id_key",
+          "indexdef": "CREATE UNIQUE INDEX host_transfer_entitlements_provider_transfer_id_key ON public.host_transfer_entitlements USING btree (provider_transfer_id)"
+        },
+        {
+          "indexname": "idx_entitlement_id_booking_host",
+          "indexdef": "CREATE UNIQUE INDEX idx_entitlement_id_booking_host ON public.host_transfer_entitlements USING btree (id, booking_id, host_id)"
+        },
+        {
+          "indexname": "idx_host_transfer_entitlements_release",
+          "indexdef": "CREATE INDEX idx_host_transfer_entitlements_release ON public.host_transfer_entitlements USING btree (scheduled_release_at)"
+        },
+        {
+          "indexname": "idx_host_transfer_entitlements_status",
+          "indexdef": "CREATE INDEX idx_host_transfer_entitlements_status ON public.host_transfer_entitlements USING btree (status)"
+        },
+        {
+          "indexname": "idx_host_transfer_execution_expiry",
+          "indexdef": "CREATE INDEX idx_host_transfer_execution_expiry ON public.host_transfer_entitlements USING btree (execution_lease_expires_at) WHERE (status = 'transfer_processing'::text)"
+        }
+      ]
+    },
+    {
+      "table": "cancellation_host_settlements",
+      "indexes": [
+        {
+          "indexname": "cancellation_host_settlements_booking_id_key",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_host_settlements_booking_id_key ON public.cancellation_host_settlements USING btree (booking_id)"
+        },
+        {
+          "indexname": "cancellation_host_settlements_cancellation_audit_id_key",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_host_settlements_cancellation_audit_id_key ON public.cancellation_host_settlements USING btree (cancellation_audit_id)"
+        },
+        {
+          "indexname": "cancellation_host_settlements_entitlement_id_key",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_host_settlements_entitlement_id_key ON public.cancellation_host_settlements USING btree (entitlement_id)"
+        },
+        {
+          "indexname": "cancellation_host_settlements_idempotency_key_key",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_host_settlements_idempotency_key_key ON public.cancellation_host_settlements USING btree (idempotency_key)"
+        },
+        {
+          "indexname": "cancellation_host_settlements_pkey",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_host_settlements_pkey ON public.cancellation_host_settlements USING btree (id)"
+        },
+        {
+          "indexname": "cancellation_host_settlements_provider_transfer_id_key",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_host_settlements_provider_transfer_id_key ON public.cancellation_host_settlements USING btree (provider_transfer_id)"
+        },
+        {
+          "indexname": "idx_cancellation_settlement_due",
+          "indexdef": "CREATE INDEX idx_cancellation_settlement_due ON public.cancellation_host_settlements USING btree (scheduled_release_at) WHERE (status = 'pending'::text)"
+        },
+        {
+          "indexname": "idx_cancellation_settlement_execution_expiry",
+          "indexdef": "CREATE INDEX idx_cancellation_settlement_execution_expiry ON public.cancellation_host_settlements USING btree (execution_lease_expires_at) WHERE (status = 'processing'::text)"
+        }
+      ]
+    },
+    {
+      "table": "payments",
+      "indexes": [
+        {
+          "indexname": "payments_booking_id_key",
+          "indexdef": "CREATE UNIQUE INDEX payments_booking_id_key ON public.payments USING btree (booking_id)"
+        },
+        {
+          "indexname": "payments_pkey",
+          "indexdef": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)"
+        },
+        {
+          "indexname": "payments_provider_payment_intent_id_key",
+          "indexdef": "CREATE UNIQUE INDEX payments_provider_payment_intent_id_key ON public.payments USING btree (provider_payment_intent_id)"
+        }
+      ]
+    },
+    {
+      "table": "refunds",
+      "indexes": [
+        {
+          "indexname": "refunds_pkey",
+          "indexdef": "CREATE UNIQUE INDEX refunds_pkey ON public.refunds USING btree (id)"
+        }
+      ]
+    },
+    {
+      "table": "payouts",
+      "indexes": [
+        {
+          "indexname": "payouts_pkey",
+          "indexdef": "CREATE UNIQUE INDEX payouts_pkey ON public.payouts USING btree (id)"
+        },
+        {
+          "indexname": "payouts_status_release_idx",
+          "indexdef": "CREATE INDEX payouts_status_release_idx ON public.payouts USING btree (status, scheduled_release_at)"
+        }
+      ]
+    },
+    {
+      "table": "cancellation_settlement_queue_reviews",
+      "indexes": [
+        {
+          "indexname": "cancellation_settlement_queue_reviews_pkey",
+          "indexdef": "CREATE UNIQUE INDEX cancellation_settlement_queue_reviews_pkey ON public.cancellation_settlement_queue_reviews USING btree (operation, settlement_id)"
+        },
+        {
+          "indexname": "idx_cancellation_settlement_queue_due",
+          "indexdef": "CREATE INDEX idx_cancellation_settlement_queue_due ON public.cancellation_settlement_queue_reviews USING btree (operation, next_review_at, settlement_id)"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "count": 100,
+      "operation": "settlement_execute",
+      "conflict": "same_operation",
+      "heldOperation": "settlement_execute",
+      "samplesMs": [
+        1.4974999999999454,
+        2.6420000000000528,
+        0.9601000000000113
+      ],
+      "medianMs": 1.4974999999999454,
+      "phases": [
+        {
+          "queueWrite": {
+            "queries": 0,
+            "ms": 0
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.4114999999999327
+          },
+          "discovery": {
+            "queries": 0,
+            "ms": 0
+          },
+          "eligibility": {
+            "queries": 0,
+            "ms": 0
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.4096000000000686
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.4653000000000702
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 0,
+            "ms": 0
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.5251999999998134
+          },
+          "discovery": {
+            "queries": 0,
+            "ms": 0
+          },
+          "eligibility": {
+            "queries": 0,
+            "ms": 0
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.837800000000243
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 1.0824999999999818
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 0,
+            "ms": 0
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.17450000000008004
+          },
+          "discovery": {
+            "queries": 0,
+            "ms": 0
+          },
+          "eligibility": {
+            "queries": 0,
+            "ms": 0
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.2538999999999305
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.4417000000000826
+          }
+        }
+      ],
+      "assertions": "held-lock behavior, operation independence, release recovery and financial immutability passed"
+    },
+    {
+      "count": 100,
+      "operation": "settlement_execute",
+      "conflict": "other_operation",
+      "heldOperation": "settlement_reconcile",
+      "samplesMs": [
+        132.69930000000022,
+        191.48270000000002,
+        268.4007999999999
+      ],
+      "medianMs": 191.48270000000002,
+      "phases": [
+        {
+          "queueWrite": {
+            "queries": 25,
+            "ms": 8.570900000001075
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.15799999999990177
+          },
+          "discovery": {
+            "queries": 1,
+            "ms": 0.8182000000001608
+          },
+          "eligibility": {
+            "queries": 75,
+            "ms": 121.1952999999994
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.2312000000001717
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.29020000000036816
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 25,
+            "ms": 13.146400000001904
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.44000000000005457
+          },
+          "discovery": {
+            "queries": 1,
+            "ms": 1.631199999999808
+          },
+          "eligibility": {
+            "queries": 75,
+            "ms": 172.66450000000032
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.641399999999976
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.6762000000003354
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 25,
+            "ms": 17.8109000000004
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.5548000000003412
+          },
+          "discovery": {
+            "queries": 1,
+            "ms": 2.540599999999813
+          },
+          "eligibility": {
+            "queries": 75,
+            "ms": 242.9233999999983
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.9779999999996107
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.6783999999997832
+          }
+        }
+      ],
+      "assertions": "held-lock behavior, operation independence, release recovery and financial immutability passed"
+    },
+    {
+      "count": 100,
+      "operation": "settlement_reconcile",
+      "conflict": "same_operation",
+      "heldOperation": "settlement_reconcile",
+      "samplesMs": [
+        1.2509000000000015,
+        0.9429000000000087,
+        1.2256999999999607
+      ],
+      "medianMs": 1.2256999999999607,
+      "phases": [
+        {
+          "queueWrite": {
+            "queries": 0,
+            "ms": 0
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.45529999999962456
+          },
+          "discovery": {
+            "queries": 0,
+            "ms": 0
+          },
+          "eligibility": {
+            "queries": 0,
+            "ms": 0
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.291599999999562
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.4179999999996653
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 0,
+            "ms": 0
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.1488999999992302
+          },
+          "discovery": {
+            "queries": 0,
+            "ms": 0
+          },
+          "eligibility": {
+            "queries": 0,
+            "ms": 0
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.2853999999997541
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.3809000000010201
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 0,
+            "ms": 0
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.22190000000045984
+          },
+          "discovery": {
+            "queries": 0,
+            "ms": 0
+          },
+          "eligibility": {
+            "queries": 0,
+            "ms": 0
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.2887000000000626
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.5567000000000917
+          }
+        }
+      ],
+      "assertions": "held-lock behavior, operation independence, release recovery and financial immutability passed"
+    },
+    {
+      "count": 100,
+      "operation": "settlement_reconcile",
+      "conflict": "other_operation",
+      "heldOperation": "settlement_execute",
+      "samplesMs": [
+        204.00650000000041,
+        309.4190000000008,
+        206.4352000000008
+      ],
+      "medianMs": 206.4352000000008,
+      "phases": [
+        {
+          "queueWrite": {
+            "queries": 25,
+            "ms": 10.460800000005293
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.15390000000024884
+          },
+          "discovery": {
+            "queries": 1,
+            "ms": 0.8966000000000349
+          },
+          "eligibility": {
+            "queries": 75,
+            "ms": 190.08909999999833
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.24829999999928987
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.34169999999903666
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 25,
+            "ms": 18.927700000000186
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.2363999999997759
+          },
+          "discovery": {
+            "queries": 1,
+            "ms": 4.0682000000006155
+          },
+          "eligibility": {
+            "queries": 75,
+            "ms": 282.30359999999837
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.3249000000005253
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.38259999999991123
+          }
+        },
+        {
+          "queueWrite": {
+            "queries": 25,
+            "ms": 10.515399999999318
+          },
+          "advisoryLock": {
+            "queries": 1,
+            "ms": 0.28369999999995343
+          },
+          "discovery": {
+            "queries": 1,
+            "ms": 1.0942000000004555
+          },
+          "eligibility": {
+            "queries": 75,
+            "ms": 191.65850000000046
+          },
+          "settings": {
+            "queries": 2,
+            "ms": 0.582100000000537
+          },
+          "transaction": {
+            "queries": 2,
+            "ms": 0.4772000000002663
+          }
+        }
+      ],
+      "assertions": "held-lock behavior, operation independence, release recovery and financial immutability passed"
+    }
+  ],
+  "databaseVersion": "PostgreSQL 16.15, compiled by Visual C++ build 1944, 64-bit",
+  "implementationHashes": [
+    {
+      "path": "lib/payouts/selectCancellationSettlementJobs.ts",
+      "sha256": "825631ecd66f994d405fad1dbf1d396ba4c291233bee1ad4f3c49b5ecde64975"
+    },
+    {
+      "path": "lib/payouts/reviewCancellationSettlementQueue.ts",
+      "sha256": "01a0896786824f3035325cd644f7d896387433b5df588eb17bf72e41a891c7d6"
+    },
+    {
+      "path": "lib/payouts/cancellationSettlementEligibility.ts",
+      "sha256": "3e9b646882a74759b848bc7a125504749fa3a251e7fd5e64bb67eac0ee479915"
+    }
+  ],
+  "measurement": "Real queue-review function and eligibility; application checkout routed to one isolated temporary-table client"
+}

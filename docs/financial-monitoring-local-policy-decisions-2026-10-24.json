@@ -1,0 +1,119 @@
+{
+  "status": "decisions_only_not_executable",
+  "preparedOn": "2026-10-24",
+  "environment": "local",
+  "database": "host_test",
+  "databaseHostScope": "loopback only",
+  "operator": "Gary Christopher Davies",
+  "monitoringMode": "manual",
+  "collectionIntervalMs": null,
+  "maxSnapshotAgeMs": null,
+  "maxHeartbeatAgeMs": null,
+  "operations": {
+    "settlement_execute": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "settlement_reconcile": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "payment_reconcile": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "missing_refund_recover": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "refund_execute": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "refund_reconcile": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "transfer_execute": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "transfer_reconcile": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "reversal_execute": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    },
+    "reversal_reconcile": {
+      "expectedState": "paused",
+      "reason": "Operator intends no routine invocation between deliberate mocked tests",
+      "invocationIntervalMs": null,
+      "maximumExpectedRunMs": null,
+      "schedulingAllowanceMs": null,
+      "dueReviewAgeMs": null,
+      "scheduleOwner": "Gary Christopher Davies"
+    }
+  },
+  "evidence": {
+    "operatorIntent": "Confirmed in conversation on 24 October 2026",
+    "repositorySearch": "Found monitored wrappers and daily sweep; no automatic schedule for these ten operations established",
+    "windowsScheduledTasks": "not inspected",
+    "runningProcesses": "not inspected",
+    "externalSchedulers": "not inspected"
+  },
+  "limitations": [
+    "Paused is a monitoring expectation, not a worker-disabling control",
+    "Existing financial gates and environment settings are unchanged",
+    "Mocked tests retain their own fixture policies",
+    "No claim that all financial activity or scheduled charges are disabled",
+    "Staging and production policy remain undecided",
+    "Freshness thresholds must be selected before creating an executable policy"
+  ]
+}

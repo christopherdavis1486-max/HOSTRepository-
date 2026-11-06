@@ -1131,7 +1131,7 @@ export default function NewPropertyPage() {
                 }}
               >
                 {ht(
-                  "Saved as a draft — you can publish it once you're ready."
+                  "Saved as a draft. Complete the listing requirements and obtain property compliance and HOST pilot approval before publishing."
                 )}
               </span>
             </div>

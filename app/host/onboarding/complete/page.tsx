@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useHostI18n } from "@/lib/i18n/useHostI18n";
 
@@ -23,12 +23,21 @@ type Status = "checking" | "active" | "pending" | "not_connected" | "unauthentic
 
 export default function HostOnboardingCompletePage() {
   const { ht } = useHostI18n();
-  const { update } = useSession();
+  const { update, status: sessionStatus } = useSession();
+  const statusCheckStarted = useRef(false);
   const [status, setStatus] = useState<Status>("checking");
-  const [resuming, setResuming] = useState(false);
-  const [resumeError, setResumeError] = useState<string | null>(null);
+
 
   useEffect(() => {
+    if (sessionStatus === "loading") return;
+    if (sessionStatus === "unauthenticated") {
+      setStatus("unauthenticated");
+      return;
+    }
+    // Session updates can change the update function reference.
+    // Keep one refresh/status sequence per authenticated page mount.
+    if (statusCheckStarted.current) return;
+    statusCheckStarted.current = true;
     update()
       .then(() => fetch("/api/hosts/onboarding/status", { credentials: "include" }))
       .then((r) => r.json())
@@ -40,26 +49,8 @@ export default function HostOnboardingCompletePage() {
         setStatus(data.status as Status);
       })
       .catch(() => setStatus("error"));
-  }, [update]);
+  }, [update, sessionStatus]);
 
-  const handleResume = async () => {
-    setResuming(true);
-    setResumeError(null);
-    try {
-      const res = await fetch("/api/hosts/onboarding/connect-account", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ country: "GB" }), // UK-first default — see lib/hosts/onboarding.ts's own documented rationale; only actually used if Stripe needs to create a brand-new account, which a "resume" flow rarely does
-      });
-      const data = await res.json();
-      if (!data.success) { setResumeError(data.error?.message ?? "Couldn't continue onboarding."); setResuming(false); return; }
-      window.location.href = data.onboardingUrl;
-    } catch {
-      setResumeError("Something went wrong reaching the server. Please try again.");
-      setResuming(false);
-    }
-  };
 
   return (
     <div className="page-root">
@@ -104,7 +95,7 @@ export default function HostOnboardingCompletePage() {
         {status === "active" && (
           <>
             <h1 className="display">{ht("Your payout account is connected.")}</h1>
-            <p>{ht("You're ready to receive bookings and payouts.")}</p>
+            <p>{ht("Stripe account setup is complete. Your listing must also meet HOST's publication requirements before guests can book. Payouts remain subject to booking eligibility and payment processing.")}</p>
             <a href="/host/dashboard" className="btn-primary">{ht("Continue")}</a>
           </>
         )}
@@ -113,10 +104,9 @@ export default function HostOnboardingCompletePage() {
           <>
             <h1 className="display">{ht("A few more details are needed.")}</h1>
             <p>{ht("Stripe still needs some information before your payout account is fully active.")}</p>
-            {resumeError && <div className="error-box">{resumeError}</div>}
-            <button className="btn-primary" onClick={handleResume} disabled={resuming}>
-              {resuming ? ht("Redirecting…") : ht("Continue Stripe setup")}
-            </button>
+            <a className="btn-primary" href="/host/onboarding/connect-account">
+              {ht("Continue Stripe setup")}
+            </a>
           </>
         )}
 

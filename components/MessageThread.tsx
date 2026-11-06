@@ -133,7 +133,7 @@ export function MessageThread({ bookingId, viewerRole }: { bookingId: string; vi
 
       {sendError && <div className="msg-error">{sendError}</div>}
       <form className="msg-form" onSubmit={handleSend}>
-        <textarea
+        <textarea name="message" aria-label={ht("Write a message?")}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={ht("Write a message…")}

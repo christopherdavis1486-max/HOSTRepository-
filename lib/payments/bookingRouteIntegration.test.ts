@@ -15,6 +15,9 @@ let bookingDetailGET: typeof import("../../app/api/bookings/[id]/route").GET;
 let mockSession: { user: { id: string; hostProfileId: string | null; roles: string[]; sessionId: string; sessionVersion: number } } | null = null;
 
 before(async () => {
+  mock.module("../notifications/emailProvider", {
+    namedExports: { sendEmail: async () => {} },
+  });
   mock.module("next-auth", { namedExports: { getServerSession: async () => mockSession } });
   mock.module("./stripeClient", {
     namedExports: {
@@ -34,6 +37,15 @@ before(async () => {
   if (Number(check.rows[0].count) === 0) throw new Error("No active fee_configs row — run scripts/seedFeeConfig.ts first");
 });
 after(async () => { await db.end(); });
+
+function routeSetupEvidence(bookingId: string, customerId: string, setupId: string) {
+  return {
+    id: setupId, object: "setup_intent", status: "requires_payment_method",
+    customer: customerId, usage: "off_session",
+    metadata: { booking_id: bookingId },
+    client_secret: setupId + "_secret_fixture",
+  };
+}
 
 async function setupPublishedProperty(suffix: string) {
   const hostUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`b10-host-${suffix}@test.host`]);
@@ -142,7 +154,7 @@ test("B: with the flag ON, POST /api/bookings creates separate_charges_delayed_v
   let paymentIntentCalled = false;
   mockPaymentIntentCreate = async () => { paymentIntentCalled = true; return { id: "should_never_happen" }; };
   mockCustomerCreate = async () => ({ id: `cus_test_${suffix}` });
-  mockSetupIntentCreate = async () => ({ id: `seti_test_${suffix}`, client_secret: `seti_test_${suffix}_secret` });
+  mockSetupIntentCreate = async () => routeSetupEvidence(bookingData.booking.id, "cus_test_" + suffix, "seti_test_" + suffix);
 
   const setupReq = new NextRequest("http://localhost/api/payments/setup-intent", { method: "POST", body: JSON.stringify({ bookingId: bookingData.booking.id }) });
   const setupRes = await setupIntentPOST(setupReq);
@@ -247,11 +259,23 @@ test("C: calling /api/payments/setup-intent twice for the same booking does not 
   let customerCreateCount = 0;
   let setupIntentCreateCount = 0;
   mockCustomerCreate = async () => { customerCreateCount++; return { id: `cus_test_${suffix}` }; };
-  mockSetupIntentCreate = async () => { setupIntentCreateCount++; return { id: `seti_test_${suffix}`, client_secret: "s" }; };
+  mockSetupIntentCreate = async () => {
+    setupIntentCreateCount++;
+    return routeSetupEvidence(bookingData.booking.id, "cus_test_" + suffix, "seti_test_" + suffix);
+  };
+  mockSetupIntentRetrieve = async () =>
+    routeSetupEvidence(bookingData.booking.id, "cus_test_" + suffix, "seti_test_" + suffix);
 
   const makeReq = () => new NextRequest("http://localhost/api/payments/setup-intent", { method: "POST", body: JSON.stringify({ bookingId: bookingData.booking.id }) });
-  await setupIntentPOST(makeReq());
-  await setupIntentPOST(makeReq());
+  const firstSetup = await setupIntentPOST(makeReq());
+  const firstSetupData = await firstSetup.json();
+  const secondSetup = await setupIntentPOST(makeReq());
+  const secondSetupData = await secondSetup.json();
+  assert.equal(firstSetup.status, 200);
+  assert.equal(secondSetup.status, 200);
+  assert.equal(firstSetupData.success, true);
+  assert.equal(secondSetupData.success, true);
+  assert.equal(secondSetupData.clientSecret, firstSetupData.clientSecret);
 
   assert.equal(customerCreateCount, 1, "the second call must reuse the already-saved Stripe Customer, not create a duplicate");
   assert.equal(setupIntentCreateCount, 1, "the second call must reuse the already-saved SetupIntent, not create a duplicate");
@@ -282,4 +306,61 @@ test("GET /api/bookings/[id] exposes paymentFlowVersion explicitly, so the clien
   const detailRes = await bookingDetailGET(new NextRequest(`http://localhost/api/bookings/${bookingData.booking.id}`), { params: Promise.resolve({ id: bookingData.booking.id }) });
   const detailData = await detailRes.json();
   assert.equal(detailData.booking.paymentFlowVersion, "destination_charge_legacy");
+});
+
+test("Setup route safety: uncertain creation retains ownership and returns safe guidance", async () => {
+  const previousGate = process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+  process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "true";
+  try {
+    const suffix = crypto.randomBytes(8).toString("hex");
+    const { propertyId, guestId, sessionId } = await setupPublishedProperty(suffix);
+    mockSession = { user: {
+      id: guestId, hostProfileId: null, roles: ["guest"],
+      sessionId, sessionVersion: 1,
+    } };
+    const booking = (await db.query(
+      "INSERT INTO bookings (property_id,guest_id,host_id,check_in,check_out,guests,status,guest_name,guest_email,cancellation_policy_snapshot,payment_flow_version,stripe_customer_id) " +
+      "SELECT id,$2,host_id,'2027-06-01','2027-06-03',1,'pending_payment','Route Guest','route@test.host','[]','separate_charges_delayed_v1',$3 FROM properties WHERE id = $1 RETURNING id",
+      [propertyId, guestId, "cus_route_" + suffix]
+    )).rows[0];
+    let creates = 0;
+    mockCustomerCreate = async () => { throw new Error("Unexpected customer creation"); };
+    mockPaymentIntentCreate = async () => { throw new Error("Unexpected payment creation"); };
+    mockSetupIntentCreate = async () => {
+      creates++;
+      throw new Error("fixture_provider_internal_detail_" + suffix);
+    };
+    const request = () => new NextRequest("http://localhost/api/payments/setup-intent", {
+      method: "POST", body: JSON.stringify({ bookingId: booking.id }),
+    });
+    const first = await setupIntentPOST(request());
+    const firstData = await first.json();
+    const second = await setupIntentPOST(request());
+    const secondData = await second.json();
+
+    assert.equal(creates, 1, "Uncertain response must not authorize another creation");
+    for (const response of [first, second]) assert.equal(response.status, 400);
+    const rows = (await db.query(
+      "SELECT action FROM audit_log WHERE object_type = 'booking' AND object_id = $1",
+      [booking.id]
+    )).rows;
+    assert.equal(rows.filter(row => row.action === "setup_intent_creation_reserved").length, 1);
+    assert.equal(rows.filter(row => row.action === "setup_intent_creation_completed").length, 0);
+    assert.equal((await db.query(
+      "SELECT stripe_setup_intent_id FROM bookings WHERE id = $1", [booking.id]
+    )).rows[0].stripe_setup_intent_id, null);
+
+    for (const data of [firstData, secondData]) {
+      assert.equal(data.success, false);
+      assert.equal(data.error.code, "SETUP_INTENT_FAILED");
+      assert.equal(data.clientSecret, undefined);
+      assert.equal(data.error.message,
+        "We couldn't complete payment setup. Check your trip status and contact HOST before trying again.");
+      assert.doesNotMatch(JSON.stringify(data), /fixture_provider_internal_detail|creation_reserved|cus_route_/);
+    }
+  } finally {
+    mockSession = null;
+    if (previousGate === undefined) delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+    else process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = previousGate;
+  }
 });

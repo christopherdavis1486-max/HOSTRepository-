@@ -2,6 +2,7 @@ import { withTransaction } from "../db";
 import { hashToBigint } from "../utils/advisoryLock";
 import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 import { BookingError } from "./types";
+import { unpaidNewFlowCancellationEligibility } from "./unpaidNewFlowCancellationEligibility";
 
 export type DiscardEligibility = {
   status: string;
@@ -26,9 +27,10 @@ export function assertDiscardableUnpaidBooking(booking: DiscardEligibility) {
  */
 export async function discardUnpaidBooking(bookingId: string, guestId: string) {
   return withTransaction(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock($1)", [hashToBigint(bookingId)]);
     const result = await client.query(
       `SELECT b.*,
-          EXISTS (SELECT 1 FROM payments p WHERE p.booking_id = b.id AND p.status IN ('paid','refunded','partially_refunded','disputed')) AS has_legacy_payment,
+          EXISTS (SELECT 1 FROM payments p WHERE p.booking_id = b.id) AS has_legacy_payment,
           EXISTS (SELECT 1 FROM payment_attempts pa WHERE pa.booking_id = b.id AND pa.status = 'succeeded') AS has_successful_attempt,
           EXISTS (SELECT 1 FROM host_transfer_entitlements hte WHERE hte.booking_id = b.id) AS has_entitlement
        FROM bookings b
@@ -38,7 +40,17 @@ export async function discardUnpaidBooking(bookingId: string, guestId: string) {
     );
     if (!result.rows[0]) throw new BookingError("BOOKING_NOT_FOUND", "Booking does not exist");
     const booking = result.rows[0];
+    // Refresh after the booking lock: payment creation may have committed
+    // while this transaction waited for ownership.
+    const currentPayment = await client.query(
+      "SELECT EXISTS (SELECT 1 FROM payments WHERE booking_id = $1) AS present",
+      [bookingId]
+    );
+    booking.has_legacy_payment = currentPayment.rows[0].present;
     assertDiscardableUnpaidBooking(booking);
+    if (booking.payment_flow_version === "separate_charges_delayed_v1") {
+      await unpaidNewFlowCancellationEligibility(client, booking, true);
+    }
 
     await client.query(
       `SELECT pg_advisory_xact_lock($1)`,

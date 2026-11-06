@@ -5,13 +5,14 @@ import vm from "node:vm";
 import { stripTypeScriptTypes } from "node:module";
 
 // Execute the actual middleware with isolated adapters, without network or secrets.
-function harness(distributed = false, production = false) {
+function harness(distributed = false, production = false, outage = false) {
   const counts = new Map<string, number>();
   class FakeRatelimit {
     options: any;
     constructor(options: any) { this.options = options; }
     static slidingWindow(maximum: number) { return maximum; }
     async limit(ip: string) {
+      if (outage) throw new Error("fixture Redis unavailable");
       const key = this.options.prefix + ":" + ip;
       const count = (counts.get(key) ?? 0) + 1;
       counts.set(key, count);
@@ -110,4 +111,27 @@ test("ordinary API rate-limit responses keep their existing shape", async () => 
   const rejected = await request("/api/auth/register");
   assert.equal(rejected.status, 429);
   assert.equal(rejected.body.url, undefined);
+});
+
+for (const [group, route] of [
+  ["authentication", "/api/auth/callback/credentials"],
+  ["financial", "/api/payments/intent"],
+  ["booking activity", root + "/messages"],
+  ["AI", "/api/ai/concierge"],
+  ["contact", "/api/contact"],
+  ["newsletter", "/api/newsletter"],
+]) {
+  test("Redis outage blocks " + group + " without local fallback", async () => {
+    const request = harness(true, true, true);
+    await assert.rejects(
+      () => request(route),
+      /fixture Redis unavailable/,
+    );
+  });
+}
+
+test("Redis outage does not block an ordinary page", async () => {
+  const response = await harness(true, true, true)("/account", "GET");
+  assert.equal(response.status, 200);
+  assert.ok(response.headers.get("Content-Security-Policy"));
 });

@@ -25,8 +25,9 @@ export async function lockHotel(client: Queryable, propertyId: string) {
     throw new BookingError("NOT_A_HOTEL", "Room management requires a Hotel or Aparthotel listing");
 }
 
-// Pending holds continue to count until the existing expiry sweep cancels them.
-// This prevents a late Stripe webhook confirming stock already sold to another guest.
+// Expired pending holds no longer consume room inventory.
+// The database rejects late confirmation of an expired hotel hold; the webhook
+// handles its payment through the late-payment refund path.
 export async function roomNights(client: Queryable, roomTypeId: string, checkIn: string, checkOut: string) {
   const result = await client.query(`SELECT to_char(d.date,'YYYY-MM-DD') AS date,
       COALESCE(i.total_rooms,r.total_rooms)::int AS capacity,

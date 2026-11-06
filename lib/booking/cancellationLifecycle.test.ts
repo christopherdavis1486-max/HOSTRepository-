@@ -1,4 +1,4 @@
-import { test, before, after } from "node:test";
+import { test, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import { db } from "../db";
@@ -41,6 +41,15 @@ async function createTestPropertyAndGuest(suffix: string) {
   const guestUser = await db.query(`INSERT INTO users (email, password_hash, status) VALUES ($1, 'x', 'active') RETURNING id`, [`cancel-e2e-guest-${suffix}@test.host`]);
   return { propertyId: property.rows[0].id as string, guestId: guestUser.rows[0].id as string };
 }
+
+const originalDelayedBookingFlag = process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+beforeEach(() => {
+  process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = "false";
+});
+afterEach(() => {
+  if (originalDelayedBookingFlag === undefined) delete process.env.ENABLE_DELAYED_CHARGE_BOOKINGS;
+  else process.env.ENABLE_DELAYED_CHARGE_BOOKINGS = originalDelayedBookingFlag;
+});
 
 before(async () => {
   const check = await db.query(`SELECT COUNT(*) FROM fee_configs WHERE active = TRUE`);
