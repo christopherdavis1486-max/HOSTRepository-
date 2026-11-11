@@ -24,7 +24,7 @@ function localLimit(key: string, limit: number, windowMs: number) {
 }
 function clientIp(request: NextRequest) { return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? request.headers.get("x-real-ip") ?? "unknown"; }
 
-const AUTH_PATHS = ["/api/auth/register", "/api/auth/password-reset/request", "/api/auth/password-reset/confirm", "/api/auth/email-verification/confirm", "/api/auth/recovery-code", "/api/auth/callback/credentials", "/api/account/recovery-codes", "/api/account/password", "/api/account/privacy"];
+const AUTH_PATHS = ["/api/auth/register", "/api/auth/password-reset/request", "/api/auth/password-reset/confirm", "/api/auth/email-verification/request", "/api/auth/email-verification/confirm", "/api/auth/recovery-code", "/api/auth/callback/credentials", "/api/account/recovery-codes", "/api/account/password", "/api/account/privacy"];
 const FINANCIAL_PATHS = ["/api/payments/", "/api/bookings", "/api/admin/refunds", "/api/admin/security/actions"];
 // These non-financial booking actions must not consume the payment/cancellation allowance.
 // Other booking mutations retain financial protection, including unknown future actions.
