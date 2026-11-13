@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/buildWithStagingPreflight.cjs",
     "start": "next start",
     "staging:preflight": "node --import tsx --env-file=.env.staging.local scripts/verifyStagingConfig.ts",
     "seed": "tsx --env-file=.env.local scripts/seedFeeConfig.ts",
