@@ -14,6 +14,7 @@ function harness(options: {
   accessStatus?: number;
   payload?: string;
   headFails?: boolean;
+  missingBlobToken?: boolean;
   requestedPath?: string;
 } = {}) {
   const events: string[] = [];
@@ -34,8 +35,9 @@ function harness(options: {
   };
   const adapters: Record<string, any> = {
     "@vercel/blob": {
-      head: async (url: string) => {
+      head: async (url: string, headOptions: any) => {
         events.push("head");
+        assert.equal(headOptions?.token, "fixture-read-write-token");
         assert.equal(url, "https://fixture.public.blob.vercel-storage.com/callback.webp");
         if (options.headFails) throw new Error("Mock Blob failure");
         return details;
@@ -93,6 +95,14 @@ function harness(options: {
   vm.runInNewContext(compiled, {
     module, exports: module.exports,
     console: { error() {} },
+    process: {
+      env: {
+        BLOB_READ_WRITE_TOKEN: options.missingBlobToken
+          ? undefined : "fixture-read-write-token",
+        BLOB_STORE_ID: "store_previewdisabled",
+        VERCEL_OIDC_TOKEN: "fixture-oidc-token"
+      }
+    },
     require(name: string) {
       assert.ok(Object.prototype.hasOwnProperty.call(adapters, name), "Unexpected import: " + name);
       return adapters[name];
@@ -214,4 +224,16 @@ test("upload callback rejects an untrusted metadata URL", async () => {
   assert.equal(result.status, 400);
   assert.equal(result.body.error.code, "INVALID_UPLOAD_URL");
   assert.deepEqual(h.events, ["head"]);
+});
+
+test("callback without read-write credential fails before lookup or registration", async () => {
+  const h = harness({
+    mode: "complete",
+    missingBlobToken: true,
+    payload: JSON.stringify({ propertyId, userId: "fixture-user" })
+  });
+  const response = await h.run();
+  assert.equal(response.status, 500);
+  assert.equal(response.body.error.code, "PROPERTY_IMAGE_UPLOAD_FAILED");
+  assert.deepEqual(h.events, []);
 });

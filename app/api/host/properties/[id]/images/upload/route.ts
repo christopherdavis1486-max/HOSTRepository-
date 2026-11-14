@@ -104,7 +104,11 @@ export async function POST(
             400
           );
         }
-        const details = await head(blob.url);
+        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+        if (!blobToken) {
+          throw new Error("BLOB_READ_WRITE_TOKEN is not configured.");
+        }
+        const details = await head(blob.url, { token: blobToken });
         if (!/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.public\.blob\.vercel-storage\.com\/[^\s?#\\]+$/i.test(details.url)) {
           throw new PropertyImageError(
             "INVALID_UPLOAD_URL",
