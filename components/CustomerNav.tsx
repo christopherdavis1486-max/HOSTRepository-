@@ -8,6 +8,7 @@ import { useI18n } from "./I18nProvider";
 type SessionState = {
   signedIn: boolean;
   isHost: boolean;
+  isAdmin: boolean;
 };
 
 export function CustomerNav() {
@@ -28,12 +29,16 @@ export function CustomerNav() {
           isHost:
             Array.isArray(session?.user?.roles) &&
             session.user.roles.includes("host"),
+          isAdmin:
+            Array.isArray(session?.user?.roles) &&
+            session.user.roles.includes("admin"),
         })
       )
       .catch(() =>
         setSessionState({
           signedIn: false,
           isHost: false,
+          isAdmin: false,
         })
       );
   }, []);
@@ -225,6 +230,15 @@ export function CustomerNav() {
                 className="customer-link primary"
               >
                 {t("hostWorkspace")}
+              </a>
+            )}
+
+            {sessionState.isAdmin && (
+              <a
+                href="/admin/listing-readiness"
+                className="customer-link"
+              >
+                Admin
               </a>
             )}
 

@@ -15,6 +15,7 @@ import { DESTINATIONS } from "@/lib/destinations";
 type HomeSessionState = {
   signedIn: boolean;
   isHost: boolean;
+  isAdmin: boolean;
 };
 
 export default function HomePage() {
@@ -39,12 +40,16 @@ export default function HomePage() {
           isHost:
             Array.isArray(session?.user?.roles) &&
             session.user.roles.includes("host"),
+          isAdmin:
+            Array.isArray(session?.user?.roles) &&
+            session.user.roles.includes("admin"),
         }),
       )
       .catch(() =>
         setSessionState({
           signedIn: false,
           isHost: false,
+          isAdmin: false,
         }),
       );
   }, []);
@@ -547,6 +552,15 @@ export default function HomePage() {
                   className="nav-link primary"
                 >
                   {t("hostWorkspace")}
+                </a>
+              )}
+
+              {sessionState.isAdmin && (
+                <a
+                  href="/admin/listing-readiness"
+                  className="nav-link"
+                >
+                  Admin
                 </a>
               )}
 
