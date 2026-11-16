@@ -63,7 +63,7 @@ export function HotelBookingPanel({propertyId,currency,rooms,selectedRoomId,onSe
  const [quoteCheck,setQuoteCheck]=useState<{key:string;error:string}|null>(null);
  const refreshActive=refreshTarget===feedbackKey;
  const refreshFailure=calendarError || (quoteCheck?.key===feedbackKey?quoteCheck.error:"");
- const refreshPending=refreshActive&&!refreshFailure&&(!calendarReady || (!!checkIn&&!!checkOut&&quoteCheck?.key!==feedbackKey));
+ const refreshPending=refreshActive&&!refreshFailure&&((!!calendarRange&&!calendarReady) || (!!checkIn&&!!checkOut&&quoteCheck?.key!==feedbackKey));
  const refreshFeedback=refreshActive?(refreshFailure?"Unable to refresh availability: "+refreshFailure:refreshPending?"Refreshing…":"Availability updated"):"";
  function refreshAvailability() {
   const next=refresh+1;
