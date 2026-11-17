@@ -147,11 +147,15 @@ export async function cancelBookingAndRefund(input: CancelBookingInput) {
   }
   // Notify regardless of whether a refund applied — a 0%-refund
   // cancellation still needs to tell the guest their booking is cancelled.
-  const refundAmountFormatted = result.outcome.refundableMinor > 0
+  const hasRefundAction = Boolean(result.refundInitiated) ||
+    ("refundRequested" in result && result.refundRequested === true);
+  const refundAmountFormatted = hasRefundAction && result.outcome.refundableMinor > 0
     ? `${(result.outcome.refundableMinor / 100).toFixed(2)} ${result.refundInitiated?.currency ?? ("currency" in result ? result.currency : "")}`.trim()
     : undefined;
-  const refundStatus = refundError
-    ? "needs_review" as const
+  const refundStatus = !hasRefundAction
+    ? undefined
+    : refundError
+      ? "needs_review" as const
     : "refundRequested" in result && result.refundRequested
       ? "requested" as const : "initiated" as const;
   let notificationError: string | null = null;
