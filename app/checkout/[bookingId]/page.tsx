@@ -64,6 +64,10 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
       .then((data) => {
         if (!data.success) { setError(data.error?.message ?? gt("bookingLoadError")); return; }
         setBookingSummary(data.booking);
+        if (data.booking.checkoutHoldExpired === true) {
+          setError("Your room reservation hold has expired. Return to the hotel page and choose your rooms and dates again. Availability and prices will be checked again.");
+          return;
+        }
         setPaymentFlowVersion(data.booking.paymentFlowVersion);
         setScheduledChargeDate(data.booking.scheduledChargeDate ?? null);
       })
@@ -90,7 +94,10 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
   const stateRootStyle = { minHeight: "100vh", background: "#14120E", color: "#F2ECDE", fontFamily: "'Space Grotesk', system-ui, sans-serif" };
   const stateContentStyle = { maxWidth: 560, margin: "0 auto", padding: "80px 28px" };
 
-  if (error) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state error" role="alert" style={{ ...stateContentStyle, color: "#E0796B" }}>{error}</div></div>;
+  if (error) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state error" role="alert" style={{ ...stateContentStyle, color: "#E0796B" }}>
+    <p>{error}</p>
+    <a href="/trips" style={{ color: "#C9974B" }}>Back to My Trips</a>
+  </div></div>;
   if (!clientSecret || !bookingId || !paymentFlowVersion || !bookingSummary) return <div className="checkout-root" style={stateRootStyle}><CustomerNav /><div className="checkout-state" role="status" aria-live="polite" style={{ ...stateContentStyle, color: "#A79E8C" }}>{gt("loadingCheckout")}</div></div>;
 
   const isDelayedCharge = paymentFlowVersion === "separate_charges_delayed_v1";

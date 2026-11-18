@@ -25,6 +25,8 @@ import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
  */
 
 type BookingDetail = {
+  canDiscardUnpaid: boolean;
+  checkoutHoldExpired: boolean;
   roomName: string | null; roomQuantity: number | null;
   id: string; propertyName: string; city: string; district: string | null;
   checkIn: string; checkOut: string; guests: number; status: string; archived: boolean; paymentStatus: string | null;
@@ -147,7 +149,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const cancellable = booking && booking.status === "confirmed";
-  const discardable = booking && booking.status === "pending_payment";
+  const discardable = booking?.canDiscardUnpaid === true;
   const archivable = booking && !booking.archived && ["cancelled", "completed", "refunded"].includes(booking.status);
   const reviewable = booking && booking.status === "completed";
 
@@ -287,6 +289,17 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
             <div className="row"><span className="label">{gt("paymentStatus")}</span><span>{formatStatus(booking.paymentFlowVersion === "separate_charges_delayed_v1" ? booking.guestPaymentStatus : booking.paymentStatus)}</span></div>
           </div>
 
+          {booking.checkoutHoldExpired && (
+            <div className="card" role="status">
+              <h2>Reservation hold expired</h2>
+              <p className="policy-note">
+                These rooms are no longer reserved for you. Return to the hotel page
+                and choose your rooms and dates again. Availability and prices will
+                be checked again.
+              </p>
+            </div>
+          )}
+
           {booking.guestPaymentStatus === "payment_grace_period" && booking.paymentRecovery && (
             <div className="card recovery-card" role="alert">
               <h2>{gt("paymentAttention")}</h2>
@@ -303,7 +316,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
 
-          {booking.guestPaymentStatus === "payment_method_required" && (
+          {!booking.checkoutHoldExpired && booking.guestPaymentStatus === "payment_method_required" && (
             <div className="card">
               <h2>{gt("completePaymentSetup")}</h2>
               <p className="policy-note" style={{ marginBottom: 14 }}>
@@ -373,7 +386,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
           {(discardable || archivable) && (
             <div className="history-tools">
               <h2>{gt("tripHistory")}</h2>
-              <p>{discardable ? "Use this only for an abandoned unpaid test or checkout. No booking or financial record is deleted." : "Hide this finished booking from My Trips. Its record is kept."}</p>
+              <p>{discardable ? "Remove this abandoned unpaid booking from My Trips. Its booking and financial records are retained." : "Hide this finished booking from My Trips. Its record is kept."}</p>
               <button className="btn-danger-outline" onClick={() => manageHistory(discardable ? "discard" : "archive")} disabled={historyAction !== null}>
                 {historyAction ? "Updating…" : discardable ? "Discard unpaid booking" : "Remove from My Trips"}
               </button>

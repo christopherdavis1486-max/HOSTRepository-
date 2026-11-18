@@ -1,6 +1,8 @@
 import { deriveNewFlowRefundDisplay, newFlowRefundDisplaySql } from "../payments/newFlowRefundDisplay";
 import { db } from "../db";
 import { BookingError } from "./types";
+import { assertDiscardableUnpaidBooking } from "./discardUnpaidBooking";
+import { unpaidNewFlowCancellationEligibility } from "./unpaidNewFlowCancellationEligibility";
 import { deriveGuestPaymentStatus, GRACE_PERIOD_HOURS } from "../payments/scheduledCharges";
 
 /** Statuses eligible for "remove from My Trips" (§5-6). Deliberately
@@ -60,7 +62,14 @@ export async function listBookingsForGuest(guestId: string, includeArchived = fa
 export async function getBookingDetail(bookingId: string) {
   const result = await db.query(
     `SELECT
-       b.*, p.name AS property_name, p.city, p.district, p.country_code, p.check_in_time, p.check_out_time, p.house_rules,
+       b.*,
+       (b.status = 'pending_payment' AND b.room_type_id IS NOT NULL
+        AND b.hold_expires_at IS NOT NULL
+        AND b.hold_expires_at <= clock_timestamp()) AS checkout_hold_expired,
+       EXISTS (SELECT 1 FROM payments WHERE booking_id = b.id) AS has_legacy_payment,
+       EXISTS (SELECT 1 FROM payment_attempts WHERE booking_id = b.id AND status = 'succeeded') AS has_successful_attempt,
+       EXISTS (SELECT 1 FROM host_transfer_entitlements WHERE booking_id = b.id) AS has_entitlement,
+       p.name AS property_name, p.city, p.district, p.country_code, p.check_in_time, p.check_out_time, p.house_rules,
        bpc.currency, bpc.accommodation_minor, bpc.cleaning_minor, bpc.guest_service_fee_minor, bpc.taxes_minor,
        bpc.guest_total_minor, bpc.host_payout_minor,
        ${newFlowRefundDisplaySql} AS refund_display_evidence,
@@ -76,6 +85,18 @@ export async function getBookingDetail(bookingId: string) {
     [bookingId]
   );
   if (result.rows.length === 0) throw new BookingError("BOOKING_NOT_FOUND", "Booking does not exist");
+
+  // Presentation eligibility only; the write endpoint rechecks under locks.
+  let canDiscardUnpaid = false;
+  try {
+    assertDiscardableUnpaidBooking(result.rows[0]);
+    if (result.rows[0].payment_flow_version === "separate_charges_delayed_v1") {
+      await unpaidNewFlowCancellationEligibility(db, result.rows[0]);
+    }
+    canDiscardUnpaid = true;
+  } catch (error) {
+    if (!(error instanceof BookingError)) throw error;
+  }
 
   // Only queried for new-flow bookings — legacy bookings never have any
   // payment_attempts rows at all (they use the legacy `payments` table
@@ -104,6 +125,8 @@ export async function getBookingDetail(bookingId: string) {
 
   return {
     ...mapDetailRow(result.rows[0], latestAttempt),
+    canDiscardUnpaid,
+    checkoutHoldExpired: result.rows[0].checkout_hold_expired === true,
     refunds: refunds.rows.map((refund) => ({
       amountMinor: refund.amount_minor,
       currency: refund.currency,
