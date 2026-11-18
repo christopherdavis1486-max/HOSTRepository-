@@ -35,6 +35,9 @@ export async function listBookingsForGuest(guestId: string, includeArchived = fa
     `SELECT
        b.id, b.room_type_id, b.room_quantity, b.room_name_snapshot, b.property_id, b.check_in, b.check_out, b.guests, b.status, b.archived_at, b.created_at,
        b.payment_flow_version, b.scheduled_charge_date, b.grace_period_started_at,
+       (b.status = 'pending_payment' AND b.room_type_id IS NOT NULL
+        AND b.hold_expires_at IS NOT NULL
+        AND b.hold_expires_at <= clock_timestamp()) AS checkout_hold_expired,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.name AS property_name, p.city, p.district, p.slug,
        bpc.guest_total_minor, bpc.currency,
@@ -197,6 +200,7 @@ function mapTripRow(row: any) {
     paymentStatus: row.payment_status,
     paymentFlowVersion: row.payment_flow_version,
     guestPaymentStatus,
+    checkoutHoldExpired: row.checkout_hold_expired === true,
     totalMinor: row.guest_total_minor,
     currency: row.currency,
     archived: row.archived_at != null,

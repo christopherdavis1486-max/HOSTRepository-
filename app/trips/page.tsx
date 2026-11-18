@@ -25,6 +25,7 @@ type Trip = {
   city: string; district: string | null; checkIn: string; checkOut: string;
   roomName: string | null; roomQuantity: number | null;
   guests: number; status: string; paymentStatus: string | null;
+  checkoutHoldExpired: boolean;
   paymentFlowVersion: string; guestPaymentStatus: string | null;
   totalMinor: number | null; currency: string | null;
 };
@@ -48,7 +49,7 @@ export default function TripsPage() {
       .catch(() => setState("error"));
   }, []);
 
-  const { upcoming, past, cancelled } = groupTrips(trips);
+  const { upcoming, past, cancelled, expired } = groupTrips(trips);
 
   const renderGroup = (label: string, group: Trip[]) => (
     group.length > 0 && (
@@ -57,8 +58,9 @@ export default function TripsPage() {
         <div className="trip-list">
           {group.map((t) => {
             const paymentState = t.paymentFlowVersion === "separate_charges_delayed_v1" ? t.guestPaymentStatus : t.paymentStatus;
-            const needsPaymentMethod = paymentState === "payment_method_required";
-            const needsAttention = paymentState === "payment_grace_period" || paymentState === "failed" || paymentState === "payment_failed";
+            const holdExpired = t.status === "pending_payment" && t.checkoutHoldExpired === true;
+            const needsPaymentMethod = !holdExpired && paymentState === "payment_method_required";
+            const needsAttention = !holdExpired && (paymentState === "payment_grace_period" || paymentState === "failed" || paymentState === "payment_failed");
             return (
             <a href={`/trips/${t.id}`} key={t.id} className={`trip-card ${needsAttention ? "needs-attention" : ""}`}>
               <div>
@@ -68,7 +70,7 @@ export default function TripsPage() {
                 <div className="trip-dates">{formatDate(t.checkIn)} → {formatDate(t.checkOut)} · {t.guests} {t.guests === 1 ? gt("guest") : gt("guests")}</div>
               </div>
               <div className="trip-meta">
-                <div className={`trip-status ${needsAttention ? "attention" : ""}`}>{formatStatus(t.status)} · {formatStatus(paymentState)}</div>
+                <div className={`trip-status ${needsAttention ? "attention" : ""}`}>{holdExpired ? "Reservation hold expired" : formatStatus(t.status)} · {formatStatus(paymentState)}</div>
                 {t.totalMinor != null && <div className="trip-total">{formatCurrency(t.totalMinor, t.currency)}</div>}
                 <div className="trip-action">{needsPaymentMethod ? gt("resumePayment") : needsAttention ? gt("reviewPayment") : gt("viewTrip")} →</div>
               </div>
@@ -154,6 +156,7 @@ export default function TripsPage() {
 
           <div className="wrap">
             {renderGroup(gt("upcoming"), upcoming)}
+            {renderGroup("Reservation expired", expired)}
             {renderGroup(gt("past"), past)}
             {renderGroup(gt("cancelledRefunded"), cancelled)}
           </div>
