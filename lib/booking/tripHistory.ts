@@ -1,5 +1,6 @@
 import { deriveNewFlowRefundDisplay, newFlowRefundDisplaySql } from "../payments/newFlowRefundDisplay";
 import { db } from "../db";
+import { isSetupSubmissionEligible } from "../payments/setupSubmissionEligibility";
 import { BookingError } from "./types";
 import { assertDiscardableUnpaidBooking } from "./discardUnpaidBooking";
 import { unpaidNewFlowCancellationEligibility } from "./unpaidNewFlowCancellationEligibility";
@@ -72,6 +73,19 @@ export async function getBookingDetail(bookingId: string) {
        EXISTS (SELECT 1 FROM payments WHERE booking_id = b.id) AS has_legacy_payment,
        EXISTS (SELECT 1 FROM payment_attempts WHERE booking_id = b.id AND status = 'succeeded') AS has_successful_attempt,
        EXISTS (SELECT 1 FROM host_transfer_entitlements WHERE booking_id = b.id) AS has_entitlement,
+       (b.hold_expires_at IS NULL OR b.hold_expires_at > clock_timestamp()) AS setup_hold_active,
+       EXISTS (SELECT 1 FROM payment_attempts WHERE booking_id = b.id) AS has_any_payment_attempt,
+       EXISTS (
+         SELECT 1 FROM audit_log r
+         WHERE r.object_id = b.id AND r.object_type = 'booking'
+           AND r.action = 'setup_intent_creation_reserved'
+           AND NOT EXISTS (
+             SELECT 1 FROM audit_log c
+             WHERE c.object_id = r.object_id AND c.object_type = 'booking'
+               AND c.action = 'setup_intent_creation_completed'
+               AND c.new_state->>'creationId' = r.id::text
+           )
+       ) AS has_unresolved_setup_creation,
        p.name AS property_name, p.city, p.district, p.country_code, p.check_in_time, p.check_out_time, p.house_rules,
        bpc.currency, bpc.accommodation_minor, bpc.cleaning_minor, bpc.guest_service_fee_minor, bpc.taxes_minor,
        bpc.guest_total_minor, bpc.host_payout_minor,
@@ -128,6 +142,7 @@ export async function getBookingDetail(bookingId: string) {
 
   return {
     ...mapDetailRow(result.rows[0], latestAttempt),
+    canSubmitPaymentSetup: isSetupSubmissionEligible(result.rows[0]),
     canDiscardUnpaid,
     checkoutHoldExpired: result.rows[0].checkout_hold_expired === true,
     refunds: refunds.rows.map((refund) => ({

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { checkSetupCheckoutSubmission } from "@/lib/presentation/setupSubmission";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
 import { LOCALE_TAGS } from "@/lib/i18n/config";
@@ -17,6 +18,7 @@ export default function SetupIntentForm({ bookingId, returnUrl, chargeIsDeferred
   const { locale, gt } = useGuestI18n();
   const stripe = useStripe();
   const elements = useElements();
+  const submissionInFlight = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elementReady, setElementReady] = useState(false);
@@ -24,22 +26,32 @@ export default function SetupIntentForm({ bookingId, returnUrl, chargeIsDeferred
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements || !elementReady || elementLoadError) return;
+    if (!stripe || !elements || !elementReady || elementLoadError ||
+        submissionInFlight.current) return;
 
+    submissionInFlight.current = true;
     setSubmitting(true);
     setErrorMessage(null);
 
-    // confirmSetup, not confirmPayment — this saves the payment method.
-    // The server then decides, from the persisted scheduled-charge date,
-    // whether the off-session charge is due immediately or later. The
-    // client never marks the booking paid and never makes that decision.
-    const { error } = await stripe.confirmSetup({
-      elements,
-      confirmParams: { return_url: returnUrl },
-    });
+    try {
+      const eligibility = await checkSetupCheckoutSubmission(bookingId);
+      if (!eligibility.allowed) {
+        setErrorMessage(eligibility.message);
+        return;
+      }
 
-    if (error) {
-      setErrorMessage(error.message ?? gt("savePaymentFailed"));
+      // This saves a card; only the server decides whether a charge is due.
+      const { error } = await stripe.confirmSetup({
+        elements,
+        confirmParams: { return_url: returnUrl },
+      });
+      if (error) {
+        setErrorMessage(error.message ?? gt("savePaymentFailed"));
+      }
+    } catch {
+      setErrorMessage("We couldn't verify the card setup outcome. Check My Trips before trying again.");
+    } finally {
+      submissionInFlight.current = false;
       setSubmitting(false);
     }
   };
@@ -73,7 +85,10 @@ export default function SetupIntentForm({ bookingId, returnUrl, chargeIsDeferred
         </div>
       )}
       {errorMessage && (
-        <div role="alert" style={{ color: "#E0796B", fontSize: 14, marginTop: 12 }}>{errorMessage}</div>
+        <div role="alert" style={{ color: "#E0796B", fontSize: 14, marginTop: 12 }}>
+          {errorMessage}
+          <a href="/trips" style={{ display: "block", marginTop: 10, color: "#C9974B" }}>Back to My Trips</a>
+        </div>
       )}
       <button
         type="submit"
