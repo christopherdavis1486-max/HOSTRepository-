@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useGuestI18n } from "@/lib/i18n/useGuestI18n";
+import { checkLegacyCheckoutSubmission } from "@/lib/presentation/checkoutSubmission";
 
 /**
  * This is the piece that was entirely missing before the Stripe Sandbox
@@ -21,16 +22,25 @@ export default function CheckoutForm({ bookingId, returnUrl, isTestMode }: { boo
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
+  const submissionInFlight = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elementReady, setElementReady] = useState(false);
   const [elementLoadError, setElementLoadError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements || !elementReady || elementLoadError) return;
+    if (!stripe || !elements || !elementReady || elementLoadError || submissionInFlight.current) return;
 
+    submissionInFlight.current = true;
     setSubmitting(true);
     setErrorMessage(null);
+
+    try {
+      const eligibility = await checkLegacyCheckoutSubmission(bookingId);
+      if (!eligibility.allowed) {
+        setErrorMessage(eligibility.message);
+        return;
+      }
 
     // confirmPayment redirects to returnUrl on success/3DS completion.
     // The booking is NOT marked paid here, on the client — only the
@@ -46,6 +56,11 @@ export default function CheckoutForm({ bookingId, returnUrl, isTestMode }: { boo
     // before this line would run.
     if (error) {
       setErrorMessage(error.message ?? gt("paymentFailed"));
+    }
+    } catch {
+      setErrorMessage("We couldn't verify the payment outcome. Check My Trips before trying again.");
+    } finally {
+      submissionInFlight.current = false;
       setSubmitting(false);
     }
   };
@@ -74,7 +89,9 @@ export default function CheckoutForm({ bookingId, returnUrl, isTestMode }: { boo
         </div>
       )}
       {errorMessage && (
-        <div role="alert" style={{ color: "#E0796B", fontSize: 14, marginTop: 12 }}>{errorMessage}</div>
+        <div role="alert" style={{ color: "#E0796B", fontSize: 14, marginTop: 12 }}>{errorMessage}
+          <a href="/trips" style={{ display: "block", marginTop: 10, color: "#C9974B" }}>Back to My Trips</a>
+        </div>
       )}
       <button
         type="submit"

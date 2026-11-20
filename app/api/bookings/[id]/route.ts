@@ -11,7 +11,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const session = await requireSession();
     await resolveBookingAccess(session, id); // 403/404 as appropriate
     const detail = await getBookingDetail(id);
-    return NextResponse.json({ success: true, booking: detail });
+    return NextResponse.json({ success: true, booking: detail }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: error.message } }, { status: error.status });
