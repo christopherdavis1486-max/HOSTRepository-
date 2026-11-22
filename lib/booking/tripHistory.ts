@@ -36,9 +36,20 @@ export async function listBookingsForGuest(guestId: string, includeArchived = fa
     `SELECT
        b.id, b.room_type_id, b.room_quantity, b.room_name_snapshot, b.property_id, b.check_in, b.check_out, b.guests, b.status, b.archived_at, b.created_at,
        b.payment_flow_version, b.scheduled_charge_date, b.grace_period_started_at,
-       (b.status = 'pending_payment' AND b.room_type_id IS NOT NULL
+       (b.status = 'pending_payment'
         AND b.hold_expires_at IS NOT NULL
-        AND b.hold_expires_at <= clock_timestamp()) AS checkout_hold_expired,
+        AND b.hold_expires_at <= clock_timestamp()
+        AND (
+          b.room_type_id IS NOT NULL
+          OR (
+            b.payment_flow_version = 'separate_charges_delayed_v1'
+            AND b.stripe_payment_method_id IS NULL
+            AND b.grace_period_started_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM payment_attempts expiry_attempt WHERE expiry_attempt.booking_id = b.id)
+            AND NOT EXISTS (SELECT 1 FROM payments expiry_payment WHERE expiry_payment.booking_id = b.id)
+            AND NOT EXISTS (SELECT 1 FROM host_transfer_entitlements expiry_entitlement WHERE expiry_entitlement.booking_id = b.id)
+          )
+        )) AS checkout_hold_expired,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.name AS property_name, p.city, p.district, p.slug,
        bpc.guest_total_minor, bpc.currency,
@@ -67,9 +78,20 @@ export async function getBookingDetail(bookingId: string) {
   const result = await db.query(
     `SELECT
        b.*,
-       (b.status = 'pending_payment' AND b.room_type_id IS NOT NULL
+       (b.status = 'pending_payment'
         AND b.hold_expires_at IS NOT NULL
-        AND b.hold_expires_at <= clock_timestamp()) AS checkout_hold_expired,
+        AND b.hold_expires_at <= clock_timestamp()
+        AND (
+          b.room_type_id IS NOT NULL
+          OR (
+            b.payment_flow_version = 'separate_charges_delayed_v1'
+            AND b.stripe_payment_method_id IS NULL
+            AND b.grace_period_started_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM payment_attempts expiry_attempt WHERE expiry_attempt.booking_id = b.id)
+            AND NOT EXISTS (SELECT 1 FROM payments expiry_payment WHERE expiry_payment.booking_id = b.id)
+            AND NOT EXISTS (SELECT 1 FROM host_transfer_entitlements expiry_entitlement WHERE expiry_entitlement.booking_id = b.id)
+          )
+        )) AS checkout_hold_expired,
        EXISTS (SELECT 1 FROM payments WHERE booking_id = b.id) AS has_legacy_payment,
        EXISTS (SELECT 1 FROM payment_attempts WHERE booking_id = b.id AND status = 'succeeded') AS has_successful_attempt,
        EXISTS (SELECT 1 FROM host_transfer_entitlements WHERE booking_id = b.id) AS has_entitlement,
