@@ -25,7 +25,7 @@ export async function checkSetupCheckoutSubmission(
     if (booking.checkoutHoldExpired === true) {
       return {
         allowed: false,
-        message: "Your room reservation hold has expired. Return to the hotel page and choose your rooms and dates again. Availability and prices will be checked again.",
+        message: "Your reservation hold has expired. Return to the property page and select your accommodation and dates again. Availability and prices will be checked again.",
       };
     }
     if (booking.checkoutHoldExpired !== false ||

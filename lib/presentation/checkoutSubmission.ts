@@ -25,7 +25,7 @@ export async function checkLegacyCheckoutSubmission(
       return { allowed: false, message: "This booking is no longer awaiting checkout payment. Return to My Trips to check its status." };
     }
     if (booking.checkoutHoldExpired === true) {
-      return { allowed: false, message: "Your room reservation hold has expired. Return to the hotel page and choose your rooms and dates again. Availability and prices will be checked again." };
+      return { allowed: false, message: "Your reservation hold has expired. Return to the property page and select your accommodation and dates again. Availability and prices will be checked again." };
     }
     if (booking.checkoutHoldExpired !== false ||
         !["pending", "failed"].includes(booking.paymentStatus)) {

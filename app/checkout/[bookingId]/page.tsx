@@ -65,7 +65,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ bookingId: 
         if (!data.success) { setError(data.error?.message ?? gt("bookingLoadError")); return; }
         setBookingSummary(data.booking);
         if (data.booking.checkoutHoldExpired === true) {
-          setError("Your room reservation hold has expired. Return to the hotel page and choose your rooms and dates again. Availability and prices will be checked again.");
+          setError("Your reservation hold has expired. Return to the property page and select your accommodation and dates again. Availability and prices will be checked again.");
           return;
         }
         setPaymentFlowVersion(data.booking.paymentFlowVersion);

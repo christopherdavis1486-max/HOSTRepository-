@@ -293,9 +293,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
             <div className="card" role="status">
               <h2>Reservation hold expired</h2>
               <p className="policy-note">
-                These rooms are no longer reserved for you. Return to the hotel page
-                and choose your rooms and dates again. Availability and prices will
-                be checked again.
+                Your reservation hold has expired. Return to the property page and select your accommodation and dates again. Availability and prices will be checked again.
               </p>
             </div>
           )}
