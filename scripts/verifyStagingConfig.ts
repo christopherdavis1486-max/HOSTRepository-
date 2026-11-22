@@ -91,8 +91,38 @@ const stagingFinancialFlags = [
   "ENABLE_MISSING_LATE_PAYMENT_REFUND_RECOVERY"
 ];
 
+const acceptanceMode = process.env.HOST_STAGING_ACCEPTANCE_MODE ?? "";
+const savedCardAcceptance = acceptanceMode === "saved_card";
+if (acceptanceMode !== "" && !savedCardAcceptance) {
+  add("ERROR", "HOST_STAGING_ACCEPTANCE_MODE", "Unsupported acceptance mode.");
+}
+
+if (savedCardAcceptance) {
+  const stagingOrigin = "https://host-git-host-staging-preview-host-team1.vercel.app";
+  if (process.env.VERCEL_ENV !== "preview" ||
+      process.env.VERCEL_GIT_COMMIT_REF !== "host-staging-preview") {
+    add("ERROR", "HOST_STAGING_ACCEPTANCE_MODE", "Saved-card acceptance requires the staging Preview branch.");
+  }
+  if (appOrigin !== stagingOrigin || nextAuthOrigin !== stagingOrigin ||
+      webAuthnOrigin !== stagingOrigin) {
+    add("ERROR", "HOST_STAGING_ACCEPTANCE_MODE", "Saved-card acceptance requires the stable staging origin.");
+  }
+  if (process.env.ENABLE_DELAYED_CHARGE_BOOKINGS !== "true") {
+    add("ERROR", "ENABLE_DELAYED_CHARGE_BOOKINGS", "Saved-card acceptance requires explicit true.");
+  }
+  if (process.env.ENABLE_STAGING_UNPAID_INTENT_CLEANUP !== "false") {
+    add("ERROR", "ENABLE_STAGING_UNPAID_INTENT_CLEANUP", "Saved-card acceptance requires cleanup explicitly false.");
+  }
+}
+
 for (const flag of stagingFinancialFlags) {
-  if (value(flag) === "true") {
+  if (savedCardAcceptance && flag === "ENABLE_DELAYED_CHARGE_BOOKINGS") {
+    if (process.env[flag] === "true") {
+      add("OK", flag, "Booking creation enabled for saved-card acceptance only.");
+    }
+  } else if (savedCardAcceptance && process.env[flag] !== "false") {
+    add("ERROR", flag, "Saved-card acceptance requires every execution and recovery gate explicitly false.");
+  } else if (value(flag) === "true") {
     add("ERROR", flag, "Must remain disabled during staging readiness validation.");
   } else {
     add("OK", flag, "Safely disabled.");
