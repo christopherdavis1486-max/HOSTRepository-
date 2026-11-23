@@ -55,13 +55,14 @@ export async function listBookingsForGuest(guestId: string, includeArchived = fa
        bpc.guest_total_minor, bpc.currency,
        ${newFlowRefundDisplaySql} AS refund_display_evidence,
        pay.status AS payment_status,
-       latest_attempt.status AS latest_attempt_status
+       latest_attempt.status AS latest_attempt_status,
+       latest_attempt.failure_code AS latest_attempt_failure_code
      FROM bookings b
      JOIN properties p ON p.id = b.property_id
      LEFT JOIN booking_price_components bpc ON bpc.booking_id = b.id
      LEFT JOIN payments pay ON pay.booking_id = b.id
      LEFT JOIN LATERAL (
-       SELECT status
+       SELECT status, failure_code
        FROM payment_attempts
        WHERE booking_id = b.id
        ORDER BY attempt_number DESC
@@ -215,6 +216,7 @@ function mapTripRow(row: any) {
         hasPaymentMethod: !!row.has_payment_method,
         scheduledChargeDate,
         latestAttemptStatus: row.latest_attempt_status ?? null,
+        latestAttemptFailureCode: row.latest_attempt_failure_code ?? null,
         hasSucceeded: row.status === "confirmed",
         gracePeriodExpiresAt,
         bookingCancelledForNonpayment: false,
@@ -272,6 +274,7 @@ function mapDetailRow(row: any, latestAttempt: { status: string; failure_code: s
       hasPaymentMethod: !!row.has_payment_method,
       scheduledChargeDate,
       latestAttemptStatus: latestAttempt?.status ?? null,
+      latestAttemptFailureCode: latestAttempt?.failure_code ?? null,
       hasSucceeded: row.status === "confirmed",
       gracePeriodExpiresAt,
       bookingCancelledForNonpayment: false,

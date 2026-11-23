@@ -179,3 +179,16 @@ test("neutral cancellation cannot hide payment evidence or explicit nonpayment",
   assert.equal(deriveGuestPaymentStatus({ ...base, latestAttemptStatus: "processing" }), "payment_attempting");
   assert.equal(deriveGuestPaymentStatus({ ...base, bookingCancelledForNonpayment: true }), "cancelled_for_nonpayment");
 });
+
+test("authentication failure evidence changes display without treating every processing attempt as authentication", () => {
+  const base = {
+    hasPaymentMethod: true, scheduledChargeDate: null,
+    latestAttemptStatus: "processing", hasSucceeded: false,
+    gracePeriodExpiresAt: null, bookingCancelledForNonpayment: false,
+  };
+  assert.equal(deriveGuestPaymentStatus({...base, latestAttemptFailureCode: "authentication_required"}), "authentication_required");
+  assert.equal(deriveGuestPaymentStatus(base), "payment_attempting");
+  assert.equal(deriveGuestPaymentStatus({...base, latestAttemptFailureCode: "insufficient_funds"}), "payment_attempting");
+  assert.equal(deriveGuestPaymentStatus({...base, latestAttemptFailureCode: "authentication_required", hasSucceeded: true}), "paid");
+  assert.equal(deriveGuestPaymentStatus({...base, latestAttemptFailureCode: "authentication_required", latestAttemptStatus: "cancelled"}), "payment_method_saved");
+});

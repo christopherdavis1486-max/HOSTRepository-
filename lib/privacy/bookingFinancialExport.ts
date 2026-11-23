@@ -16,6 +16,8 @@ export async function listBookingFinancialExport(userId: string) {
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method,
        p.name AS property_name, p.city, pc.currency, pc.guest_total_minor,
        pay.status AS legacy_payment_status,
+       (SELECT a.failure_code FROM payment_attempts a WHERE a.booking_id = b.id
+        ORDER BY a.attempt_number DESC LIMIT 1) AS latest_attempt_failure_code,
        ${newFlowRefundDisplaySql} AS refund_evidence,
        COALESCE((
          SELECT jsonb_agg(jsonb_build_object(
@@ -56,6 +58,7 @@ export async function listBookingFinancialExport(userId: string) {
           hasPaymentMethod: row.has_payment_method,
           scheduledChargeDate: row.scheduled_charge_date ? new Date(row.scheduled_charge_date) : null,
           latestAttemptStatus: attempts[0]?.status ?? null,
+          latestAttemptFailureCode: row.latest_attempt_failure_code ?? null,
           hasSucceeded: row.status === "confirmed",
           gracePeriodExpiresAt: row.grace_period_started_at
             ? new Date(new Date(row.grace_period_started_at).getTime() + GRACE_PERIOD_HOURS * 3600000)

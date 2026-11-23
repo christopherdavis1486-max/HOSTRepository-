@@ -156,3 +156,26 @@ test("guest, host and export agree on cancelled uncharged saved-card booking", a
   assert.equal((await listBookingFinancialExport(f.guestId)).find(b => b.id === f.bookingId)?.payment_status, "cancelled_unpaid");
   assert.equal(formatStatus("cancelled_unpaid"), "Cancelled - no payment collected");
 });
+
+test("authentication-required processing attempt is consistent across guest, host and export without exposing failure codes", async () => {
+  const f = await createConfirmedNewFlowBooking(crypto.randomBytes(6).toString("hex"));
+  await db.query(
+    "UPDATE bookings SET status='pending_payment', scheduled_charge_date='2099-01-01' WHERE id=$1",
+    [f.bookingId]
+  );
+  await db.query(
+    "UPDATE payment_attempts SET status='processing', failure_code='authentication_required' WHERE booking_id=$1",
+    [f.bookingId]
+  );
+  const before = (await db.query("SELECT * FROM payment_attempts WHERE booking_id=$1", [f.bookingId])).rows;
+  const {listBookingsForGuest} = await import("./tripHistory");
+  const {listBookingFinancialExport} = await import("../privacy/bookingFinancialExport");
+  assert.equal((await getBookingDetail(f.bookingId)).guestPaymentStatus, "authentication_required");
+  assert.equal((await listBookingsForGuest(f.guestId)).find(b => b.id === f.bookingId)?.guestPaymentStatus, "authentication_required");
+  assert.equal((await getHostBookingDetail(f.bookingId))?.guestPaymentStatus, "authentication_required");
+  assert.equal((await listBookingsForHost(f.hostProfileId)).find(b => b.id === f.bookingId)?.guestPaymentStatus, "authentication_required");
+  const exported = (await listBookingFinancialExport(f.guestId)).find(b => b.id === f.bookingId);
+  assert.equal(exported?.payment_status, "authentication_required");
+  assert.equal(JSON.stringify(exported).includes("failure_code"), false);
+  assert.deepEqual((await db.query("SELECT * FROM payment_attempts WHERE booking_id=$1", [f.bookingId])).rows, before);
+});

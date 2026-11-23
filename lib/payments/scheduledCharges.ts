@@ -49,6 +49,7 @@ export function deriveGuestPaymentStatus(input: {
   hasPaymentMethod: boolean;
   scheduledChargeDate: Date | null;
   latestAttemptStatus: string | null;
+  latestAttemptFailureCode?: string | null;
   hasSucceeded: boolean;
   gracePeriodExpiresAt: Date | null;
   bookingCancelledForNonpayment: boolean;
@@ -59,7 +60,9 @@ export function deriveGuestPaymentStatus(input: {
   if (input.bookingCancelledForNonpayment) return "cancelled_for_nonpayment";
   if (input.hasSucceeded || input.latestAttemptStatus === "succeeded") return "paid";
   if (input.bookingCancelledWithoutPayment && !input.latestAttemptStatus) return "cancelled_unpaid";
-  if (input.latestAttemptStatus === "requires_action") return "authentication_required";
+  if (input.latestAttemptStatus === "requires_action" ||
+      (input.latestAttemptStatus === "processing" &&
+       input.latestAttemptFailureCode === "authentication_required")) return "authentication_required";
   if (input.latestAttemptStatus === "failed") {
     if (input.gracePeriodExpiresAt && now < input.gracePeriodExpiresAt) return "payment_grace_period";
     return "payment_failed";
@@ -574,7 +577,7 @@ export async function computeGuestPaymentStatus(
   if (refundDisplay) return refundDisplay;
 
   const attemptRow = await db.query(
-    `SELECT status, created_at FROM payment_attempts WHERE booking_id = $1 ORDER BY attempt_number DESC LIMIT 1`,
+    `SELECT status, failure_code, created_at FROM payment_attempts WHERE booking_id = $1 ORDER BY attempt_number DESC LIMIT 1`,
     [bookingId]
   );
   const latestAttempt = attemptRow.rows[0] ?? null;
@@ -587,6 +590,7 @@ export async function computeGuestPaymentStatus(
     hasPaymentMethod: booking.hasPaymentMethod,
     scheduledChargeDate: booking.scheduledChargeDate,
     latestAttemptStatus: latestAttempt?.status ?? null,
+    latestAttemptFailureCode: latestAttempt?.failure_code ?? null,
     hasSucceeded: booking.status === "confirmed",
     gracePeriodExpiresAt,
     bookingCancelledForNonpayment: false,
