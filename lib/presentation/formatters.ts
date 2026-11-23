@@ -56,6 +56,7 @@ const STATUS_LABELS: Record<string, string> = {
   failed: "Failed",
   pending: "Pending",
   succeeded: "Succeeded",
+  cancelled_unpaid: "Cancelled - no payment collected",
   payment_scheduled: "Payment scheduled",
   payment_method_required: "Payment method needed",
   payment_grace_period: "Payment needs attention",

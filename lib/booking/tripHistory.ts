@@ -217,7 +217,8 @@ function mapTripRow(row: any) {
         latestAttemptStatus: row.latest_attempt_status ?? null,
         hasSucceeded: row.status === "confirmed",
         gracePeriodExpiresAt,
-        bookingCancelledForNonpayment: row.status === "cancelled" && !row.latest_attempt_status,
+        bookingCancelledForNonpayment: false,
+        bookingCancelledWithoutPayment: row.status === "cancelled" && !row.latest_attempt_status,
       })
     : null;
 
@@ -273,7 +274,8 @@ function mapDetailRow(row: any, latestAttempt: { status: string; failure_code: s
       latestAttemptStatus: latestAttempt?.status ?? null,
       hasSucceeded: row.status === "confirmed",
       gracePeriodExpiresAt,
-      bookingCancelledForNonpayment: row.status === "cancelled" && !latestAttempt,
+      bookingCancelledForNonpayment: false,
+      bookingCancelledWithoutPayment: row.status === "cancelled" && !latestAttempt,
     });
     if (latestAttempt?.status === "failed" && row.grace_period_started_at) {
       paymentRecovery = {

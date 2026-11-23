@@ -153,3 +153,29 @@ test("attemptScheduledCharge is a genuine no-op while ENABLE_AUTOMATED_OFFSESSIO
   const attempts = await db.query(`SELECT COUNT(*) FROM payment_attempts WHERE booking_id = $1`, [booking.rows[0].id]);
   assert.equal(Number(attempts.rows[0].count), 0, "no payment_attempts row must be created while the flag is off");
 });
+
+test("cancelled uncharged booking never reports scheduled or nonpayment", () => {
+  for (const hasPaymentMethod of [false, true]) {
+    assert.equal(deriveGuestPaymentStatus({
+      hasPaymentMethod,
+      scheduledChargeDate: new Date("2099-01-01T00:00:00Z"),
+      latestAttemptStatus: null, hasSucceeded: false,
+      gracePeriodExpiresAt: null,
+      bookingCancelledForNonpayment: false,
+      bookingCancelledWithoutPayment: true,
+    }), "cancelled_unpaid");
+  }
+});
+
+test("neutral cancellation cannot hide payment evidence or explicit nonpayment", () => {
+  const base = {
+    hasPaymentMethod: true, scheduledChargeDate: null,
+    latestAttemptStatus: null, hasSucceeded: false,
+    gracePeriodExpiresAt: null, bookingCancelledForNonpayment: false,
+    bookingCancelledWithoutPayment: true,
+  };
+  assert.equal(deriveGuestPaymentStatus({ ...base, hasSucceeded: true }), "paid");
+  assert.equal(deriveGuestPaymentStatus({ ...base, latestAttemptStatus: "succeeded" }), "paid");
+  assert.equal(deriveGuestPaymentStatus({ ...base, latestAttemptStatus: "processing" }), "payment_attempting");
+  assert.equal(deriveGuestPaymentStatus({ ...base, bookingCancelledForNonpayment: true }), "cancelled_for_nonpayment");
+});

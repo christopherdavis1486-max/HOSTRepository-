@@ -27,7 +27,7 @@ export const EXECUTION_LEASE_SECONDS = 120;
 
 export type GuestPaymentStatus =
   | "payment_method_required" | "payment_method_saved" | "payment_scheduled" | "payment_attempting"
-  | "authentication_required" | "payment_failed" | "payment_grace_period" | "paid" | "cancelled_for_nonpayment"
+  | "authentication_required" | "payment_failed" | "payment_grace_period" | "paid" | "cancelled_for_nonpayment" | "cancelled_unpaid"
   | import("./newFlowRefundDisplay").RefundDisplayStatus;
 
 /** Decided ONCE, at booking creation, for a new-architecture booking —
@@ -52,11 +52,13 @@ export function deriveGuestPaymentStatus(input: {
   hasSucceeded: boolean;
   gracePeriodExpiresAt: Date | null;
   bookingCancelledForNonpayment: boolean;
+  bookingCancelledWithoutPayment?: boolean;
   now?: Date;
 }): GuestPaymentStatus {
   const now = input.now ?? new Date();
   if (input.bookingCancelledForNonpayment) return "cancelled_for_nonpayment";
   if (input.hasSucceeded || input.latestAttemptStatus === "succeeded") return "paid";
+  if (input.bookingCancelledWithoutPayment && !input.latestAttemptStatus) return "cancelled_unpaid";
   if (input.latestAttemptStatus === "requires_action") return "authentication_required";
   if (input.latestAttemptStatus === "failed") {
     if (input.gracePeriodExpiresAt && now < input.gracePeriodExpiresAt) return "payment_grace_period";
@@ -587,7 +589,8 @@ export async function computeGuestPaymentStatus(
     latestAttemptStatus: latestAttempt?.status ?? null,
     hasSucceeded: booking.status === "confirmed",
     gracePeriodExpiresAt,
-    bookingCancelledForNonpayment: booking.status === "cancelled" && !latestAttempt,
+    bookingCancelledForNonpayment: false,
+    bookingCancelledWithoutPayment: booking.status === "cancelled" && !latestAttempt,
   });
 }
 

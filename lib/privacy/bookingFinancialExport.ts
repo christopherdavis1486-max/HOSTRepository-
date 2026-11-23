@@ -60,7 +60,8 @@ export async function listBookingFinancialExport(userId: string) {
           gracePeriodExpiresAt: row.grace_period_started_at
             ? new Date(new Date(row.grace_period_started_at).getTime() + GRACE_PERIOD_HOURS * 3600000)
             : null,
-          bookingCancelledForNonpayment: row.status === "cancelled" && attempts.length === 0,
+          bookingCancelledForNonpayment: false,
+          bookingCancelledWithoutPayment: row.status === "cancelled" && attempts.length === 0,
         })
       : row.legacy_payment_status;
     return {

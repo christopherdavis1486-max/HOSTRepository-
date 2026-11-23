@@ -137,3 +137,22 @@ test("UNPAID NEW-FLOW BOOKING correctly shows a non-paid status, not falsely 'pa
   const hostDetail = await getHostBookingDetail(bookingId);
   assert.notEqual(hostDetail!.guestPaymentStatus, "paid");
 });
+
+test("guest, host and export agree on cancelled uncharged saved-card booking", async () => {
+  const suffix = crypto.randomBytes(6).toString("hex");
+  const f = await createConfirmedNewFlowBooking(suffix);
+  await db.query("DELETE FROM payment_attempts WHERE booking_id = $1", [f.bookingId]);
+  await db.query(
+    "UPDATE bookings SET status = 'cancelled', scheduled_charge_date = '2099-01-01' WHERE id = $1",
+    [f.bookingId]
+  );
+  const { listBookingsForGuest } = await import("./tripHistory");
+  const { listBookingFinancialExport } = await import("../privacy/bookingFinancialExport");
+  const { formatStatus } = await import("../presentation/formatters");
+  assert.equal((await getBookingDetail(f.bookingId)).guestPaymentStatus, "cancelled_unpaid");
+  assert.equal((await listBookingsForGuest(f.guestId)).find(b => b.id === f.bookingId)?.guestPaymentStatus, "cancelled_unpaid");
+  assert.equal((await getHostBookingDetail(f.bookingId))?.guestPaymentStatus, "cancelled_unpaid");
+  assert.equal((await listBookingsForHost(f.hostProfileId)).find(b => b.id === f.bookingId)?.guestPaymentStatus, "cancelled_unpaid");
+  assert.equal((await listBookingFinancialExport(f.guestId)).find(b => b.id === f.bookingId)?.payment_status, "cancelled_unpaid");
+  assert.equal(formatStatus("cancelled_unpaid"), "Cancelled - no payment collected");
+});
