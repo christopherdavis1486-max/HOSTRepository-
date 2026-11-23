@@ -639,8 +639,208 @@ test("late-payment refund insertion failure rolls back payment recording and per
   assert.equal(refunds[0].status, "pending");
   assert.equal((await db.query(
     "SELECT status FROM bookings WHERE id = $1", [bookingId]
-  )).rows[0].status, "pending_payment");
+  )).rows[0].status, "cancelled");
   assert.equal((await db.query(
     "SELECT id FROM host_transfer_entitlements WHERE booking_id = $1", [bookingId]
   )).rows.length, 0);
 });
+
+
+test("expired success atomically cancels, releases inventory and authorizes one refund", async () => {
+  const suffix = crypto.randomBytes(8).toString("hex");
+  const { bookingId, attemptId } = await setupNewFlowBooking(suffix);
+  const booking = (await db.query(
+    "SELECT property_id, check_in, check_out FROM bookings WHERE id=$1",
+    [bookingId]
+  )).rows[0];
+  await db.query(
+    "UPDATE bookings SET hold_expires_at=NOW()-INTERVAL '1 hour' WHERE id=$1",
+    [bookingId]
+  );
+  await db.query(
+    `INSERT INTO availability_blocks(property_id,date,status,source)
+     SELECT $1, d::date, 'booked', 'booking'
+     FROM generate_series($2::date, $3::date - 1, INTERVAL '1 day') d`,
+    [booking.property_id, booking.check_in, booking.check_out]
+  );
+  const { onNewFlowPaymentSucceeded } = await import("./newFlowWebhookHandling");
+  const intent = atomicSuccessIntent(bookingId, attemptId, suffix);
+  await Promise.all([
+    onNewFlowPaymentSucceeded(intent),
+    onNewFlowPaymentSucceeded(intent),
+    onNewFlowPaymentSucceeded(intent),
+  ]);
+
+  assert.equal((await db.query(
+    "SELECT status FROM bookings WHERE id=$1", [bookingId]
+  )).rows[0].status, "cancelled");
+  assert.equal((await db.query(
+    "SELECT id FROM host_transfer_entitlements WHERE booking_id=$1", [bookingId]
+  )).rows.length, 0);
+  assert.equal((await db.query(
+    `SELECT date FROM availability_blocks WHERE property_id=$1
+     AND date >= $2 AND date < $3 AND source='booking'`,
+    [booking.property_id, booking.check_in, booking.check_out]
+  )).rows.length, 0);
+
+  const refunds = (await db.query(
+    "SELECT * FROM new_flow_refunds WHERE booking_id=$1", [bookingId]
+  )).rows;
+  assert.equal(refunds.length, 1);
+  assert.equal(refunds[0].amount_minor, 25500);
+  assert.equal(refunds[0].status, "pending");
+  assert.equal(refunds[0].provider_refund_id, null);
+  assert.equal(refunds[0].execution_started_at, null);
+
+  const { withTransaction } = await import("../db");
+  const { hasNewFlowRefundAuthorization } = await import("./newFlowRefundAuthorization");
+  const authorized = await withTransaction(async client => {
+    await client.query("SELECT id FROM bookings WHERE id=$1 FOR UPDATE", [bookingId]);
+    await client.query("SELECT id FROM payment_attempts WHERE id=$1 FOR UPDATE", [attemptId]);
+    await client.query("SELECT id FROM new_flow_refunds WHERE id=$1 FOR UPDATE", [refunds[0].id]);
+    return hasNewFlowRefundAuthorization(client, refunds[0].id);
+  });
+  assert.equal(authorized, true);
+
+  await onNewFlowPaymentSucceeded(intent);
+  assert.equal((await db.query(
+    "SELECT id FROM new_flow_refunds WHERE booking_id=$1", [bookingId]
+  )).rows.length, 1);
+  assert.equal((await db.query(
+    `SELECT id FROM audit_log WHERE object_type='booking' AND object_id=$1
+     AND action='booking_hold_expired'`, [bookingId]
+  )).rows.length, 1);
+});
+
+
+test("expired success audit failure rolls back cancellation, inventory and refund", async () => {
+  const suffix = crypto.randomBytes(8).toString("hex");
+  const {bookingId, attemptId} = await setupNewFlowBooking(suffix);
+  await db.query(
+    "UPDATE bookings SET hold_expires_at=NOW()-INTERVAL '1 hour' WHERE id=$1",
+    [bookingId]
+  );
+  const b = (await db.query(
+    "SELECT property_id,check_in,check_out FROM bookings WHERE id=$1", [bookingId]
+  )).rows[0];
+  await db.query(
+    `INSERT INTO availability_blocks(property_id,date,status,source)
+     SELECT $1,d::date,'booked','booking'
+     FROM generate_series($2::date,$3::date-1,INTERVAL '1 day') d`,
+    [b.property_id,b.check_in,b.check_out]
+  );
+  const blocks = async () => (await db.query(
+    "SELECT * FROM availability_blocks WHERE property_id=$1 ORDER BY date",
+    [b.property_id]
+  )).rows;
+  const before = await webhookEvidenceSnapshot(bookingId);
+  const inventoryBefore = await blocks();
+  const {onNewFlowPaymentSucceeded} = await import("./newFlowWebhookHandling");
+  const intent = atomicSuccessIntent(bookingId,attemptId,suffix);
+  const connect = db.connect.bind(db);
+  const restorers: Array<() => void> = [];
+  let intercepted = 0;
+  const connectMock = mock.method(db,"connect",async () => {
+    const client = await connect();
+    const query = client.query.bind(client);
+    const queryMock = mock.method(client,"query",async (...args: any[]) => {
+      const sql = typeof args[0] === "string" ? args[0] : args[0]?.text ?? "";
+      if (sql.includes("INSERT INTO audit_log") && sql.includes("booking_hold_expired")) {
+        intercepted++;
+        throw new Error("Injected expiry audit failure");
+      }
+      return (query as any)(...args);
+    });
+    restorers.push(() => queryMock.mock.restore());
+    return client;
+  });
+  try {
+    await assert.rejects(onNewFlowPaymentSucceeded(intent),/Injected expiry audit failure/);
+    assert.equal(intercepted,1);
+  } finally {
+    connectMock.mock.restore();
+    for (const restore of restorers) restore();
+  }
+  assert.deepEqual(await webhookEvidenceSnapshot(bookingId),before);
+  assert.deepEqual(await blocks(),inventoryBefore);
+  await onNewFlowPaymentSucceeded(intent);
+  assert.equal((await db.query(
+    "SELECT status FROM bookings WHERE id=$1",[bookingId]
+  )).rows[0].status,"cancelled");
+});
+
+
+for (const protection of ["other_booking", "blocked_date"]) {
+  test("expired success preserves protected inventory: " + protection, async () => {
+    const suffix = crypto.randomBytes(8).toString("hex");
+    const {bookingId, attemptId} = await setupNewFlowBooking(suffix);
+    const b = (await db.query(
+      "SELECT * FROM bookings WHERE id=$1", [bookingId]
+    )).rows[0];
+    await db.query(
+      "UPDATE bookings SET hold_expires_at=NOW()-INTERVAL '1 hour' WHERE id=$1",
+      [bookingId]
+    );
+    await db.query(
+      `INSERT INTO availability_blocks(property_id,date,status,source)
+       SELECT $1,d::date,'booked','booking'
+       FROM generate_series($2::date,$3::date-1,INTERVAL '1 day') d`,
+      [b.property_id,b.check_in,b.check_out]
+    );
+
+    let otherId: string | undefined;
+    if (protection === "other_booking") {
+      otherId = (await db.query(
+        `INSERT INTO bookings(
+          property_id,guest_id,host_id,check_in,check_out,guests,status,
+          guest_name,guest_email,cancellation_policy_snapshot,payment_flow_version)
+         SELECT property_id,guest_id,host_id,check_in,check_in+1,guests,'confirmed',
+           guest_name,guest_email,cancellation_policy_snapshot,payment_flow_version
+         FROM bookings WHERE id=$1 RETURNING id`, [bookingId]
+      )).rows[0].id;
+    } else {
+      await db.query(
+        `UPDATE availability_blocks SET status='blocked', source='host'
+         WHERE property_id=$1 AND date=$2`, [b.property_id,b.check_in]
+      );
+    }
+
+    const protectedBefore = (await db.query(
+      "SELECT * FROM availability_blocks WHERE property_id=$1 AND date=$2",
+      [b.property_id,b.check_in]
+    )).rows;
+    const otherBefore = otherId ? (await db.query(
+      "SELECT * FROM bookings WHERE id=$1",[otherId]
+    )).rows : null;
+
+    const {onNewFlowPaymentSucceeded} = await import("./newFlowWebhookHandling");
+    await onNewFlowPaymentSucceeded(atomicSuccessIntent(bookingId,attemptId,suffix));
+
+    assert.equal((await db.query(
+      "SELECT status FROM bookings WHERE id=$1",[bookingId]
+    )).rows[0].status,"cancelled");
+    assert.deepEqual((await db.query(
+      "SELECT * FROM availability_blocks WHERE property_id=$1 AND date=$2",
+      [b.property_id,b.check_in]
+    )).rows,protectedBefore);
+    assert.equal((await db.query(
+      `SELECT date FROM availability_blocks WHERE property_id=$1
+       AND date > $2 AND date < $3 AND source='booking'`,
+      [b.property_id,b.check_in,b.check_out]
+    )).rows.length,0);
+    if (otherId) {
+      assert.deepEqual((await db.query(
+        "SELECT * FROM bookings WHERE id=$1",[otherId]
+      )).rows,otherBefore);
+    }
+    assert.equal((await db.query(
+      "SELECT id FROM host_transfer_entitlements WHERE booking_id=$1",[bookingId]
+    )).rows.length,0);
+    const refunds = (await db.query(
+      "SELECT amount_minor,status FROM new_flow_refunds WHERE booking_id=$1",[bookingId]
+    )).rows;
+    assert.equal(refunds.length,1);
+    assert.equal(refunds[0].amount_minor,25500);
+    assert.equal(refunds[0].status,"pending");
+  });
+}

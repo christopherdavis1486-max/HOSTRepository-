@@ -5,6 +5,8 @@ import type { PoolClient } from "pg";
 import { db, withTransaction } from "../db";
 import { createEntitlement } from "../payouts/hostTransfers";
 import { reserveNewFlowRefund } from "./newFlowRefund";
+import { hashToBigint } from "../utils/advisoryLock";
+import { reconcileCalendarAvailability } from "../calendar/calendarSync";
 import { newFlowPaymentIntentEvidenceMatches } from "./newFlowPaymentIntentEvidence";
 import { attemptScheduledCharge, decideChargeTiming } from "./scheduledCharges";
 import { confirmSetupIntentAndSavePaymentMethod } from "./setupIntentFlow";
@@ -40,7 +42,7 @@ export async function onNewFlowPaymentSucceeded(
 
   await withTransaction(async (client) => {
     const bookingResult = await client.query(
-      `SELECT id, host_id, status, payment_flow_version, stripe_customer_id, hold_expires_at, check_in, check_out, cancellation_policy_snapshot FROM bookings WHERE id = $1 FOR UPDATE`,
+      `SELECT id, property_id, room_type_id, host_id, status, payment_flow_version, stripe_customer_id, hold_expires_at, check_in, check_out, cancellation_policy_snapshot FROM bookings WHERE id = $1 FOR UPDATE`,
       [bookingId]
     );
     if (bookingResult.rows.length === 0) return;
@@ -106,6 +108,67 @@ export async function onNewFlowPaymentSucceeded(
         paymentAttemptId: attemptId,
         providerPaymentIntentId: intent.id,
       }, client);
+
+      if (booking.status === "pending_payment") {
+        // Only verified successful payment evidence reaches this branch.
+        // Cancellation, inventory, audit and refund reservation commit together.
+        if (booking.room_type_id) {
+          throw new Error("New-flow room booking expiry requires separate review");
+        }
+        const ownership = (await client.query(
+          `SELECT
+            (SELECT COUNT(*)::int FROM payment_attempts WHERE booking_id=$1) AS attempts,
+            EXISTS (SELECT 1 FROM payments WHERE booking_id=$1) AS legacy_payment,
+            EXISTS (SELECT 1 FROM refunds WHERE booking_id=$1) AS legacy_refund,
+            EXISTS (SELECT 1 FROM payouts WHERE booking_id=$1) AS legacy_payout,
+            EXISTS (SELECT 1 FROM host_transfer_entitlements WHERE booking_id=$1) AS entitlement,
+            EXISTS (SELECT 1 FROM audit_log WHERE object_type='booking'
+              AND object_id=$1 AND action='booking_hold_expired') AS expiry_audit`,
+          [bookingId]
+        )).rows[0];
+        if (ownership.attempts !== 1 || ownership.legacy_payment ||
+            ownership.legacy_refund || ownership.legacy_payout ||
+            ownership.entitlement || ownership.expiry_audit) {
+          throw new Error("Late-payment expiry ownership requires separate review");
+        }
+
+        await client.query("SELECT pg_advisory_xact_lock($1)", [
+          hashToBigint(booking.property_id)
+        ]);
+        const cancelled = await client.query(
+          `UPDATE bookings SET status='cancelled', next_retry_at=NULL, updated_at=NOW()
+           WHERE id=$1 AND status='pending_payment'
+             AND hold_expires_at IS NOT NULL
+             AND hold_expires_at <= clock_timestamp()
+           RETURNING hold_expires_at`, [bookingId]
+        );
+        if (cancelled.rows.length !== 1) {
+          throw new Error("Late-payment hold expiry changed; cancellation rolled back");
+        }
+
+        // Keep any date still occupied by another nonterminal booking.
+        await client.query(
+          `DELETE FROM availability_blocks block
+           WHERE block.property_id=$1 AND block.date >= $2 AND block.date < $3
+             AND block.status='booked' AND block.source='booking'
+             AND NOT EXISTS (
+               SELECT 1 FROM bookings other
+               WHERE other.property_id=block.property_id AND other.id<>$4
+                 AND other.status NOT IN ('cancelled','refunded','completed')
+                 AND other.check_in <= block.date AND other.check_out > block.date
+             )`,
+          [booking.property_id, booking.check_in, booking.check_out, bookingId]
+        );
+        await reconcileCalendarAvailability(client, booking.property_id);
+        await client.query(
+          `INSERT INTO audit_log(action,object_type,object_id,previous_state,new_state)
+           VALUES('booking_hold_expired','booking',$1,$2::jsonb,$3::jsonb)`,
+          [bookingId, JSON.stringify({status:"pending_payment"}), JSON.stringify({
+            status:"cancelled", cancelledBy:"system", reason:"payment_hold_expired",
+            holdExpiresAt:new Date(cancelled.rows[0].hold_expires_at).toISOString()
+          })]
+        );
+      }
       return;
     }
 
