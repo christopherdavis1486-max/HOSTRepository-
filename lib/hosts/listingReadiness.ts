@@ -12,6 +12,7 @@ export type ListingReadinessKey =
   | "basicDetails"
   | "guestCapacity"
   | "pricing"
+  | "taxSettings"
   | "stayPolicy"
   | "privateLocation"
   | "images"
@@ -123,6 +124,15 @@ function buildChecks(
         row.currency === "GBP",
       guidance:
         "Set a positive nightly price in GBP.",
+    },
+    {
+      key: "taxSettings",
+      label: "Property tax settings",
+      ready:
+        row.accommodation_vat_rate != null &&
+        row.cleaning_vat_rate != null,
+      guidance:
+        "Ask HOST to confirm accommodation and cleaning VAT rates before publication.",
     },
     {
       key: "stayPolicy",
