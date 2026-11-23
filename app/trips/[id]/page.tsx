@@ -148,8 +148,12 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const cancellable = booking && booking.status === "confirmed";
-  const discardable = booking?.canDiscardUnpaid === true;
+  const scheduledUncharged = booking?.paymentFlowVersion === "separate_charges_delayed_v1" &&
+    booking.status === "pending_payment" && !booking.archived &&
+    booking.guestPaymentStatus === "payment_scheduled";
+  const cancellable = booking && !booking.archived &&
+    (booking.status === "confirmed" || scheduledUncharged);
+  const discardable = booking?.canDiscardUnpaid === true && !scheduledUncharged;
   const archivable = booking && !booking.archived && ["cancelled", "completed", "refunded"].includes(booking.status);
   const reviewable = booking && booking.status === "completed";
 
@@ -400,6 +404,12 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
                 {quote.eligible ? (
                   <>
                     <h2>{gt("cancelBooking")}?</h2>
+                    {scheduledUncharged && (
+                      <p className="policy-note">
+                        No payment has been collected. Cancelling this reservation
+                        stops its scheduled charge. No refund is needed.
+                      </p>
+                    )}
                     <div className="row"><span className="label">{gt("refund")}</span><span>{quote.refundPercent}%</span></div>
                     <div className="row"><span className="label">{gt("refundAmount")}</span><span>{formatCurrency(quote.refundableMinor, quote.currency)}</span></div>
                     <div className="row"><span className="label">{gt("amountRetained")}</span><span>{formatCurrency(quote.hostRetainedMinor, quote.currency)}</span></div>
