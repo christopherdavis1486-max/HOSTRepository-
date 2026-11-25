@@ -3,6 +3,13 @@ import { db } from "@/lib/db";
 import { requireSession, AuthError } from "@/lib/auth/session";
 import { getHostBookingDetail } from "@/lib/booking/hostBookings";
 
+function privateJson(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "private, no-store, max-age=0");
+  return NextResponse.json(body, { ...init, headers });
+}
+
+
 /**
  * CORRECTED after a real, reproduced production defect. This originally
  * called the shared resolveBookingAccess() and rejected anything except
@@ -32,7 +39,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const bookingRow = await db.query(`SELECT host_id FROM bookings WHERE id = $1`, [id]);
     if (bookingRow.rows.length === 0) {
-      return NextResponse.json({ success: false, error: { code: "BOOKING_NOT_FOUND", message: "Booking not found." } }, { status: 404 });
+      return privateJson({ success: false, error: { code: "BOOKING_NOT_FOUND", message: "Booking not found." } }, { status: 404 });
     }
     const isOwningHost = !!session.user.hostProfileId && session.user.hostProfileId === bookingRow.rows[0].host_id;
     const isAdmin = !!session.user.roles?.includes("admin");
@@ -42,14 +49,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const booking = await getHostBookingDetail(id);
     if (!booking) {
-      return NextResponse.json({ success: false, error: { code: "BOOKING_NOT_FOUND", message: "Booking not found." } }, { status: 404 });
+      return privateJson({ success: false, error: { code: "BOOKING_NOT_FOUND", message: "Booking not found." } }, { status: 404 });
     }
-    return NextResponse.json({ success: true, booking });
+    return privateJson({ success: true, booking });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: error.message } }, { status: error.status });
+      return privateJson({ success: false, error: { code: "UNAUTHORIZED", message: error.message } }, { status: error.status });
     }
     console.error("[HOST host/bookings/detail]", error);
-    return NextResponse.json({ success: false, error: { code: "DETAIL_FAILED", message: "Unable to load booking." } }, { status: 500 });
+    return privateJson({ success: false, error: { code: "DETAIL_FAILED", message: "Unable to load booking." } }, { status: 500 });
   }
 }
