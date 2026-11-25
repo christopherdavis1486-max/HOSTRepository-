@@ -379,7 +379,7 @@ for (const percent of [100, 50, 0]) {
     assert.equal(result.refundInitiated, null);
     assert.equal(result.refundError, null);
     assert.equal(notificationCalls, notificationsBefore + 1);
-    assert.equal(notificationStatus, percent > 0 ? "requested" : "initiated");
+    assert.equal(notificationStatus, percent > 0 ? "requested" : undefined);
     assert.equal(notificationAmount, percent > 0
       ? (quote.refundableMinor / 100).toFixed(2) + " GBP" : undefined);
     assert.equal(providerCalls, callsBefore);
