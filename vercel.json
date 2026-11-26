@@ -1,7 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
-      "host-staging-preview": false
+      "host-staging-preview": true
     }
   },
   "crons": [
