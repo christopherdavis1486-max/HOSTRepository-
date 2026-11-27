@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { stripe } from "./stripeClient";
 import { withTransaction } from "../db";
+import { hashToBigint } from "../utils/advisoryLock";
 import type { PoolClient } from "pg";
 
 const REUSABLE_INTENT_STATUSES = [
@@ -45,6 +46,7 @@ async function lockedCheckout(client: PoolClient, bookingId: string) {
  */
 export async function createPaymentIntentForBooking(bookingId: string) {
   const reservation = await withTransaction(async client => {
+    await client.query("SELECT pg_advisory_xact_lock($1)", [hashToBigint(bookingId)]);
     const booking = await lockedCheckout(client, bookingId);
     const existing = (await client.query(
       "SELECT * FROM payments WHERE booking_id = $1 FOR UPDATE", [bookingId]
@@ -101,6 +103,7 @@ export async function createPaymentIntentForBooking(bookingId: string) {
   }
 
   return withTransaction(async client => {
+    await client.query("SELECT pg_advisory_xact_lock($1)", [hashToBigint(bookingId)]);
     const current = await lockedCheckout(client, bookingId);
     if (JSON.stringify(current) !== JSON.stringify(reservation.booking)) {
       throw new Error("Reserved checkout details changed; creation blocked.");

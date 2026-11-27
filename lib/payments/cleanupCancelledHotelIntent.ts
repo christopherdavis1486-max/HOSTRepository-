@@ -1,19 +1,22 @@
 import { withTransaction } from "../db";
+import { hashToBigint } from "../utils/advisoryLock";
 import {
   cancelLegacyUnpaidIntent,
   type LegacyIntentProvider,
 } from "./cancelLegacyUnpaidIntent";
 
-const VERIFIED = "legacy_intent_cancelled_unpaid";
+export const VERIFIED = "legacy_intent_cancelled_unpaid";
 
 /**
- * Explicit maintenance operation; no route or scheduler invokes it yet.
+ * Explicit maintenance operation for cancelled hotel bookings, also used
+ * by the guest discard flow for pending legacy apartment checkouts.
  * Provider is injected so tests never need real Stripe connectivity.
  * Locks follow the legacy success webhook: payment before booking.
  */
 export async function cleanupCancelledHotelIntent(
   bookingId: string,
-  provider: LegacyIntentProvider
+  provider: LegacyIntentProvider,
+  guestId?: string,
 ) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId)) {
     return { outcome: "blocked" as const, reason: "Invalid booking identifier" };
@@ -23,11 +26,17 @@ export async function cleanupCancelledHotelIntent(
     await client.query("SET LOCAL lock_timeout = '2s'");
     await client.query("SET LOCAL statement_timeout = '5s'");
     await client.query("SET LOCAL idle_in_transaction_session_timeout = '90s'");
+    await client.query("SELECT pg_advisory_xact_lock($1)", [hashToBigint(bookingId)]);
 
     const payment = (await client.query(
       "SELECT * FROM payments WHERE booking_id = $1 FOR UPDATE",
       [bookingId]
     )).rows[0];
+    if (!payment) {
+      return guestId == null
+        ? { outcome: "blocked" as const, reason: "Payment is not eligible" }
+        : { outcome: "no_payment" as const };
+    }
     if (!payment || payment.provider !== "stripe" ||
         !["pending", "failed"].includes(payment.status) ||
         (payment.failure_code !== null && payment.failure_code !== VERIFIED) ||
@@ -36,11 +45,20 @@ export async function cleanupCancelledHotelIntent(
     }
 
     const booking = (await client.query(
-      "SELECT * FROM bookings WHERE id = $1 FOR UPDATE", [bookingId]
+      "SELECT * FROM bookings WHERE id = $1 " +
+      "AND ($2::uuid IS NULL OR guest_id = $2) FOR UPDATE",
+      [bookingId, guestId ?? null]
     )).rows[0];
-    if (!booking || booking.status !== "cancelled" ||
-        !booking.room_type_id || booking.hotel_late_payment ||
-        booking.payment_flow_version !== "destination_charge_legacy") {
+    const cancelledHotelCleanup = !!booking && guestId == null &&
+      booking.status === "cancelled" && !!booking.room_type_id &&
+      !booking.hotel_late_payment &&
+      booking.payment_flow_version === "destination_charge_legacy";
+    const pendingApartmentDiscard = !!booking && guestId != null &&
+      booking.guest_id === guestId && booking.status === "pending_payment" &&
+      booking.archived_at == null && !booking.room_type_id &&
+      !booking.hotel_late_payment &&
+      booking.payment_flow_version === "destination_charge_legacy";
+    if (!cancelledHotelCleanup && !pendingApartmentDiscard) {
       return { outcome: "blocked" as const, reason: "Booking is not eligible" };
     }
 
@@ -48,7 +66,9 @@ export async function cleanupCancelledHotelIntent(
       "SELECT EXISTS (SELECT 1 FROM refunds WHERE booking_id=$1) OR " +
       "EXISTS (SELECT 1 FROM payouts WHERE booking_id=$1) OR " +
       "EXISTS (SELECT 1 FROM disputes WHERE booking_id=$1) OR " +
-      "EXISTS (SELECT 1 FROM ledger_entries WHERE booking_id=$1) AS present",
+      "EXISTS (SELECT 1 FROM ledger_entries WHERE booking_id=$1) OR " +
+      "EXISTS (SELECT 1 FROM payment_attempts WHERE booking_id=$1) OR " +
+      "EXISTS (SELECT 1 FROM host_transfer_entitlements WHERE booking_id=$1) AS present",
       [bookingId]
     )).rows[0];
     if (activity.present) {

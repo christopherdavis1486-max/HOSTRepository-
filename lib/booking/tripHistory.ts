@@ -5,6 +5,7 @@ import { BookingError } from "./types";
 import { assertDiscardableUnpaidBooking } from "./discardUnpaidBooking";
 import { unpaidNewFlowCancellationEligibility } from "./unpaidNewFlowCancellationEligibility";
 import { deriveGuestPaymentStatus, GRACE_PERIOD_HOURS } from "../payments/scheduledCharges";
+import { VERIFIED as VERIFIED_CANCELLED_UNPAID_INTENT } from "../payments/cleanupCancelledHotelIntent";
 
 /** Statuses eligible for "remove from My Trips" (§5-6). Deliberately
  *  excludes anything still active — a confirmed or pending_payment
@@ -94,6 +95,7 @@ export async function getBookingDetail(bookingId: string) {
           )
         )) AS checkout_hold_expired,
        EXISTS (SELECT 1 FROM payments WHERE booking_id = b.id) AS has_legacy_payment,
+       EXISTS (SELECT 1 FROM payments WHERE booking_id = b.id AND provider = 'stripe' AND provider_payment_intent_id IS NOT NULL AND status = 'failed' AND failure_code = '${VERIFIED_CANCELLED_UNPAID_INTENT}') AS has_verified_cancelled_legacy_intent,
        EXISTS (SELECT 1 FROM payment_attempts WHERE booking_id = b.id AND status = 'succeeded') AS has_successful_attempt,
        EXISTS (SELECT 1 FROM host_transfer_entitlements WHERE booking_id = b.id) AS has_entitlement,
        (b.hold_expires_at IS NULL OR b.hold_expires_at > clock_timestamp()) AS setup_hold_active,
@@ -113,7 +115,8 @@ export async function getBookingDetail(bookingId: string) {
        bpc.currency, bpc.accommodation_minor, bpc.cleaning_minor, bpc.guest_service_fee_minor, bpc.taxes_minor,
        bpc.guest_total_minor, bpc.host_payout_minor,
        ${newFlowRefundDisplaySql} AS refund_display_evidence,
-       pay.status AS payment_status, pay.provider_payment_intent_id,
+       pay.status AS payment_status, pay.provider AS payment_provider,
+       pay.failure_code AS payment_failure_code, pay.provider_payment_intent_id,
        hp.display_name AS host_name,
        (b.stripe_payment_method_id IS NOT NULL) AS has_payment_method
      FROM bookings b
@@ -136,6 +139,11 @@ export async function getBookingDetail(bookingId: string) {
     canDiscardUnpaid = true;
   } catch (error) {
     if (!(error instanceof BookingError)) throw error;
+    if (error.code === "PAYMENT_EXISTS" && isLegacyIntentDiscardCandidate(result.rows[0])) {
+      // Presentation eligibility only. POST performs Stripe verification,
+      // cancellation and all locked rechecks before changing booking state.
+      canDiscardUnpaid = true;
+    }
   }
 
   // Only queried for new-flow bookings — legacy bookings never have any
@@ -246,6 +254,19 @@ function mapTripRow(row: any) {
     archived: row.archived_at != null,
     createdAt: row.created_at,
   };
+}
+
+function isLegacyIntentDiscardCandidate(row: any) {
+  return row.status === "pending_payment" && row.archived_at == null &&
+    row.payment_flow_version === "destination_charge_legacy" &&
+    row.room_type_id == null && row.payment_provider === "stripe" &&
+    ["pending", "failed"].includes(row.payment_status) &&
+    typeof row.provider_payment_intent_id === "string" &&
+    /^pi_[A-Za-z0-9_]+$/.test(row.provider_payment_intent_id) &&
+    (row.payment_failure_code == null ||
+      row.payment_failure_code === VERIFIED_CANCELLED_UNPAID_INTENT) &&
+    !row.has_successful_attempt && !row.has_any_payment_attempt &&
+    !row.has_entitlement;
 }
 
 function mapDetailRow(row: any, latestAttempt: { status: string; failure_code: string | null; failure_message: string | null; created_at: string } | null = null) {

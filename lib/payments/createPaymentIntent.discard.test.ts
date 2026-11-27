@@ -109,8 +109,8 @@ test("legacy payment creation prevents concurrent unpaid discard", async () => {
   const paymentResult = await payment;
   const discardResult = await discard;
   assert.ifError(paymentResult.error);
-  assert.equal(settledDuringCreation, false,
-    "Discard must wait while payment creation holds booking ownership");
+  assert.equal(settledDuringCreation, true,
+    "Discard must fail closed while payment creation is unresolved");
   assert.ok(discardResult.error instanceof BookingError);
   assert.equal(discardResult.error.code, "PAYMENT_EXISTS");
   assert.equal(creates, 1);
